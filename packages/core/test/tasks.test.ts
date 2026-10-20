@@ -64,7 +64,6 @@ describe('parseTaskLine', () => {
       title: null,
       url: 'https://anything.example/',
     });
-    // ids policy: keep only a clearly identified key, never the URL
     expect(ok('https://jira.example.com/browse/SCP-9', ids)).toEqual({
       key: 'SCP-9',
       title: null,

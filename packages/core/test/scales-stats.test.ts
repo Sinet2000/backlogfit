@@ -151,7 +151,7 @@ describe('stats', () => {
     const near = computeStats(['3', '5'], fib);
     expect(near.consensus).toBe('near');
     expect(near.median).toBe(4);
-    expect(near.suggested).toBe('5'); // tie goes to the larger card
+    expect(near.suggested).toBe('5');
     expect(near.mode).toEqual(['3', '5']);
     const none = computeStats(['?'], fib);
     expect(none).toMatchObject({

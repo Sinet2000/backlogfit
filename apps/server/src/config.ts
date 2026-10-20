@@ -5,32 +5,23 @@ import { type Limits, parseTrustProxy, readLimits, type TrustProxy } from '@back
 export interface ServerConfig {
   port: number;
   host: string;
-  /** Exact origins allowed to open WebSockets and POST rooms (PUBLIC_ORIGIN + ALLOWED_ORIGINS). */
+  /** Origins allowed to open WebSockets and create rooms: PUBLIC_ORIGIN plus ALLOWED_ORIGINS. */
   origins: string[];
-  publicOrigin: string;
-  /** Directory for backlogfit.sqlite, or null for an in-memory database. */
+  /** null keeps rooms in memory only (SEC-007). */
   dataDir: string | null;
-  /** Static web build directory (may not exist). */
   webDir: string;
   limits: Limits;
-  /** false = socket peer; n = n trusted proxies append to X-Forwarded-For; or 'cloudflare'. */
+  /** Which proxy hop the client key comes from (SEC-003). */
   trustProxy: TrustProxy;
-  /** Global cap on concurrent WebSocket connections (including handshakes). */
   maxConnections: number;
-  /** Concurrent WebSocket connections per client address. */
   maxConnectionsPerClient: number;
-  /** WebSocket upgrades per minute per client address (token bucket, burst = same value). */
-  upgradesPerMin: number;
-  /** Security headers without HSTS / upgrade-insecure-requests (dev, or plain-http origin). */
+  /** No HSTS or upgrade-insecure-requests: development, or a plain-http public origin. */
   dev: boolean;
-  /** NODE_ENV=production: Trusted Types enforced and no source maps, regardless of scheme. */
+  /** Trusted Types enforced and source maps hidden. */
   production: boolean;
-  /** Test-only clock acceleration (1 = real time). Honoured only when NODE_ENV=test. */
+  /** Room clock acceleration, only ever above 1 when NODE_ENV=test. */
   timeScale: number;
-  /** Seconds between WebSocket pings; a socket that missed one pong is dropped. */
   heartbeatSeconds: number;
-  /** Seconds a socket may stay open without completing a hello. */
-  helloTimeoutSeconds: number;
 }
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -77,19 +68,15 @@ export function readConfig(env: Env = process.env): ServerConfig {
     port,
     host: env.HOST || '0.0.0.0',
     origins: [...new Set([publicOrigin, ...extra])],
-    publicOrigin,
     dataDir: env.DATA_DIR ? resolve(env.DATA_DIR) : null,
     webDir: resolve(env.WEB_DIR || resolve(APP_DIR, '../web/build')),
     limits: readLimits(env),
     trustProxy: parseTrustProxy(env.TRUST_PROXY),
     maxConnections: int(env, 'MAX_CONNECTIONS', 5000, 1, 1_000_000),
     maxConnectionsPerClient: int(env, 'MAX_CONNECTIONS_PER_CLIENT', 50, 1, 100_000),
-    upgradesPerMin: int(env, 'WS_UPGRADES_PER_MIN', 120, 1, 100_000),
-    // HSTS and upgrade-insecure-requests only make sense when the public origin is https.
     dev: env.NODE_ENV !== 'production' || publicOrigin.startsWith('http:'),
     production: env.NODE_ENV === 'production',
     timeScale,
     heartbeatSeconds: int(env, 'HEARTBEAT_SECONDS', 30, 1, 3600),
-    helloTimeoutSeconds: int(env, 'HELLO_TIMEOUT_SECONDS', 20, 1, 3600),
   };
 }

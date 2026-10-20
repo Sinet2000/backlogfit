@@ -1,4 +1,3 @@
-# Build-context filter for apps/server/Containerfile (context = repo root).
 **/node_modules
 **/.git
 .git
@@ -15,3 +14,5 @@
 **/.env.*
 **/.DS_Store
 **/*.log
+PLAN.md
+coordination

@@ -1,414 +1,146 @@
-/**
- * In-process room actors. Each room serializes its events through a promise queue: hello
- * authentication is awaited first, then the event is reduced against the *current* state.
- * All room behaviour lives in @backlogfit/core; this file only moves bytes, rows and timers.
- */
+import { type CreateRoomRequest, randomToken } from '@backlogfit/core';
 import {
-  type CloseReason,
-  type CreateRoomRequest,
-  createRoom,
-  expandEffects,
-  type Outbound,
-  parseClientMessage,
-  parseCreateRoomRequest,
-  presetScale,
-  type ReduceResult,
-  type RoomEvent,
-  type Limits as RoomLimits,
-  type RoomState,
-  randomSalt,
-  randomToken,
-  reconcileConnections,
-  reduce,
-  type ServerMessage,
-  toEvent,
-} from '@backlogfit/core';
-import {
-  createRateLimiter,
-  createStrikeCounter,
-  type RateLimiter,
-  type StrikeCounter,
-} from '@backlogfit/security';
-import type { Clock } from './clock.ts';
+  type HostClock,
+  type HostOptions,
+  type HostPorts,
+  RoomHost,
+  type RoomStorage,
+  type Wakeup,
+} from '@backlogfit/host';
 import type { RoomStore } from './store.ts';
 
-/** Minimal socket surface the room needs (satisfied by `ws` and by test fakes). */
-export interface RoomSocket {
-  send(data: string): void;
-  close(code: number, reason?: string): void;
-}
-
-export interface RoomHostOptions {
+export interface RegistryOptions {
   store: RoomStore;
-  clock: Clock;
-  roomLimits: RoomLimits;
+  clock: HostClock;
+  host: HostOptions;
   maxRooms: number;
-  maxMessageBytes: number;
-  rateMsgsPerSec: number;
-  rateBurst: number;
-  helloTimeoutMs: number;
-  /** Invalid or rate-limited frames tolerated per connection before closing with 1008. */
-  maxStrikes?: number;
-}
-
-/** The per-room bucket (ADR-0007) allows this many times the per-connection rate and burst. */
-export const ROOM_RATE_FACTOR = 5;
-
-/** Close code for policy violations (invalid frame flood, hello timeout). */
-export const CLOSE_POLICY = 1008;
-/** Close code used on server shutdown. */
-export const CLOSE_GOING_AWAY = 1001;
-
-const DEFAULT_MAX_STRIKES = 10;
-
-interface Conn {
-  socket: RoomSocket;
-  closed: boolean;
-  helloTimer: NodeJS.Timeout | null;
-}
-
-function newId(): string {
-  return randomToken(12);
-}
-
-function reportError(e: unknown): void {
-  // Error names/messages from our own code carry no user data; never log request content.
-  const what = e instanceof Error ? `${e.name}: ${e.message}` : 'unknown error';
-  console.error(`backlogfit: internal error (${what})`);
-}
-
-export class Room {
-  #state: RoomState;
-  readonly #host: RoomRegistry;
-  readonly #conns = new Map<string, Conn>();
-  #queue: Promise<void> = Promise.resolve();
-  #timer: NodeJS.Timeout | null = null;
-  #ended = false;
-  #stopped = false;
-  /** Bounds the total fan-out work of one room across all of its sockets. */
-  readonly #roomBucket: RateLimiter<0>;
-  /**
-   * A decoy for an unknown roomId: same pipeline, never persisted, impossible join hash, so it
-   * answers exactly like a real room answers a wrong join secret (PROTOCOL §4, finding R2).
-   */
-  readonly #ephemeral: boolean;
-
-  constructor(state: RoomState, host: RoomRegistry, ephemeral = false) {
-    this.#state = state;
-    this.#host = host;
-    this.#ephemeral = ephemeral;
-    this.#roomBucket = createRateLimiter<0>({
-      rate: host.opts.rateMsgsPerSec * ROOM_RATE_FACTOR,
-      burst: host.opts.rateBurst * ROOM_RATE_FACTOR,
-      maxKeys: 1,
-    });
-  }
-
-  get id(): string {
-    return this.#state.roomId;
-  }
-
-  get ended(): boolean {
-    return this.#ended;
-  }
-
-  get connectionCount(): number {
-    return this.#conns.size;
-  }
-
-  /** Wait until every queued event has been handled (tests). */
-  idle(): Promise<void> {
-    return this.#queue;
-  }
-
-  /** Raw state, for tests only. Never send this anywhere. */
-  get state(): RoomState {
-    return this.#state;
-  }
-
-  /** Arm the alarm for a freshly created room. */
-  armFromEffects(out: readonly Outbound[]): void {
-    for (const o of out) if (o.type === 'scheduleAlarm') this.#arm(o.at);
-  }
-
-  /**
-   * After a restart: let the reducer expire an overdue room, then tell it that every socket
-   * it remembers is gone (connections do not survive a restart).
-   */
-  restore(): Promise<void> {
-    return this.#enqueue(() => {
-      const prev = this.#state;
-      this.#apply(prev, reconcileConnections(prev, [], this.#ctx()));
-    });
-  }
-
-  attach(socket: RoomSocket): string {
-    const id = newId();
-    const conn: Conn = { socket, closed: false, helloTimer: null };
-    this.#conns.set(id, conn);
-    conn.helloTimer = setTimeout(() => {
-      conn.helloTimer = null;
-      if (conn.closed || this.#ended) return;
-      if (!this.#state.participants.some((p) => p.conn === id)) this.#closeConn(conn, CLOSE_POLICY);
-    }, this.#host.opts.helloTimeoutMs);
-    conn.helloTimer.unref();
-    this.#enqueue(() => this.#dispatch({ type: 'connect', conn: id }));
-    return id;
-  }
-
-  receive(id: string, raw: string | Uint8Array): void {
-    const conn = this.#conns.get(id);
-    if (!conn || conn.closed || this.#ended || this.#stopped) return;
-    const { opts, limiter } = this.#host;
-    const now = Date.now();
-    if (!limiter.take(id, now)) {
-      this.#strike(id, conn, 'rate_limited');
-      return;
-    }
-    if (!this.#roomBucket.take(0, now)) {
-      // The room as a whole is saturated; not this socket's fault, so no strike.
-      this.#sendTo(conn, { type: 'error', code: 'rate_limited' });
-      return;
-    }
-    const parsed = parseClientMessage(raw, opts.maxMessageBytes);
-    if (!parsed.ok) {
-      this.#strike(id, conn, parsed.code);
-      return;
-    }
-    const msg = parsed.msg;
-    this.#enqueue(async () => {
-      if (conn.closed || this.#ended) return;
-      const event = await toEvent(this.#state, id, msg);
-      if (conn.closed || this.#ended) return;
-      this.#dispatch(event);
-    });
-  }
-
-  detach(id: string): void {
-    const conn = this.#conns.get(id);
-    if (!conn) return;
-    this.#conns.delete(id);
-    conn.closed = true;
-    if (conn.helloTimer) clearTimeout(conn.helloTimer);
-    this.#host.limiter.delete(id);
-    this.#host.strikes.delete(id);
-    if (this.#ended || this.#stopped) return;
-    this.#enqueue(() => this.#dispatch({ type: 'disconnect', conn: id }));
-  }
-
-  /** Server shutdown: state is already persisted after every change; just close sockets. */
-  stop(): void {
-    this.#stopped = true;
-    if (this.#timer) clearTimeout(this.#timer);
-    this.#timer = null;
-    for (const conn of this.#conns.values()) this.#closeConn(conn, CLOSE_GOING_AWAY);
-  }
-
-  #strike(id: string, conn: Conn, code: Extract<ServerMessage, { type: 'error' }>['code']): void {
-    if (this.#host.strikes.strike(id, Date.now())) {
-      this.#closeConn(conn, CLOSE_POLICY);
-      return;
-    }
-    this.#sendTo(conn, { type: 'error', code });
-  }
-
-  #enqueue(job: () => void | Promise<void>): Promise<void> {
-    const run = this.#queue.then(() => (this.#stopped ? undefined : job()));
-    this.#queue = run.catch(reportError);
-    return this.#queue;
-  }
-
-  #ctx() {
-    return { now: this.#host.opts.clock.now(), randomId: newId };
-  }
-
-  #dispatch(event: RoomEvent): void {
-    if (this.#ended) return;
-    const prev = this.#state;
-    this.#apply(prev, reduce(prev, event, this.#ctx()));
-  }
-
-  #apply(prev: RoomState, { state, effects }: ReduceResult): void {
-    const out = expandEffects(state, effects);
-    this.#state = state;
-    const end = out.find((o) => o.type === 'deleteAll');
-    if (!end && state !== prev && !this.#ephemeral) this.#host.opts.store.put(state);
-    for (const o of out) {
-      switch (o.type) {
-        case 'send': {
-          const conn = this.#conns.get(o.to);
-          if (conn) this.#sendTo(conn, o.msg);
-          break;
-        }
-        case 'close': {
-          const conn = this.#conns.get(o.to);
-          if (conn) this.#closeConn(conn, o.code);
-          break;
-        }
-        case 'scheduleAlarm':
-          if (!end) this.#arm(o.at);
-          break;
-        case 'deleteAll':
-          break;
-      }
-    }
-    if (end) this.#end(end.reason, end.code);
-  }
-
-  #end(reason: CloseReason, code: number): void {
-    this.#ended = true;
-    if (this.#timer) clearTimeout(this.#timer);
-    this.#timer = null;
-    if (!this.#ephemeral) this.#host.opts.store.delete(this.id);
-    for (const conn of this.#conns.values()) {
-      if (conn.closed) continue;
-      this.#sendTo(conn, { type: 'closed', reason });
-      this.#closeConn(conn, code);
-    }
-    this.#host.forget(this);
-  }
-
-  #arm(at: number | null): void {
-    if (this.#timer) clearTimeout(this.#timer);
-    this.#timer = null;
-    if (at === null || this.#ended || this.#stopped || this.#ephemeral) return;
-    this.#timer = setTimeout(() => {
-      this.#timer = null;
-      this.#enqueue(() => {
-        this.#dispatch({ type: 'tick' });
-        // Node timers may fire a millisecond early. The reducer then sees a tick before alarmAt
-        // and emits no new scheduleAlarm, so re-arm from the state's own alarm.
-        if (this.#timer === null) this.#arm(this.#state.alarmAt);
-      });
-    }, this.#host.opts.clock.delayUntil(at));
-    this.#timer.unref();
-  }
-
-  #sendTo(conn: Conn, msg: ServerMessage): void {
-    if (conn.closed) return;
-    try {
-      conn.socket.send(JSON.stringify(msg));
-    } catch {
-      this.#closeConn(conn, CLOSE_GOING_AWAY);
-    }
-  }
-
-  #closeConn(conn: Conn, code: number): void {
-    if (conn.closed) return;
-    conn.closed = true;
-    if (conn.helloTimer) clearTimeout(conn.helloTimer);
-    conn.helloTimer = null;
-    try {
-      conn.socket.close(code);
-    } catch {
-      // socket already gone
-    }
-  }
 }
 
 export type CreateResult =
   | { ok: true; roomId: string; expiresAt: number }
   | { ok: false; code: 'room_limit' };
 
-export class RoomRegistry {
-  readonly opts: RoomHostOptions;
-  readonly limiter: RateLimiter<string>;
-  readonly strikes: StrikeCounter<string>;
-  readonly #rooms = new Map<string, Room>();
-  #decoy: Room | null = null;
+function reportError(e: unknown): void {
+  // Only our own error names and messages are logged, never request content.
+  const what = e instanceof Error ? `${e.name}: ${e.message}` : 'unknown error';
+  console.error(`backlogfit: internal error (${what})`);
+}
 
-  constructor(opts: RoomHostOptions) {
-    this.opts = opts;
-    this.strikes = createStrikeCounter<string>({
-      max: opts.maxStrikes ?? DEFAULT_MAX_STRIKES,
-      windowMs: 60_000,
-      maxKeys: 1_000_000,
-    });
-    this.limiter = createRateLimiter<string>({
-      rate: opts.rateMsgsPerSec,
-      burst: opts.rateBurst,
-      maxKeys: 1_000_000,
-    });
+class TimerWakeup implements Wakeup {
+  host: RoomHost | null = null;
+  #timer: NodeJS.Timeout | null = null;
+
+  set(at: number | null): void {
+    if (this.#timer) clearTimeout(this.#timer);
+    this.#timer = null;
+    if (at === null) return;
+    this.#timer = setTimeout(
+      () => {
+        this.#timer = null;
+        void this.host?.wake();
+      },
+      Math.max(0, at - Date.now()),
+    );
+    this.#timer.unref();
+  }
+}
+
+/**
+ * Node adapter state: one RoomHost per live room plus one decoy host per unknown roomId that has
+ * sockets attached. Decoys are dropped with their last socket and never touch the store.
+ */
+export class RoomRegistry {
+  readonly #opts: RegistryOptions;
+  readonly #rooms = new Map<string, RoomHost>();
+  readonly #decoys = new Map<string, RoomHost>();
+
+  constructor(opts: RegistryOptions) {
+    this.#opts = opts;
   }
 
   get size(): number {
     return this.#rooms.size;
   }
 
-  get(roomId: string): Room | undefined {
+  get decoyCount(): number {
+    return this.#decoys.size;
+  }
+
+  get(roomId: string): RoomHost | undefined {
     return this.#rooms.get(roomId);
   }
 
-  create(req: CreateRoomRequest): CreateResult {
-    if (this.#rooms.size >= this.opts.maxRooms) return { ok: false, code: 'room_limit' };
+  async create(req: CreateRoomRequest): Promise<CreateResult> {
+    if (this.#rooms.size >= this.#opts.maxRooms) return { ok: false, code: 'room_limit' };
     let roomId = randomToken(16);
-    while (this.#rooms.has(roomId)) roomId = randomToken(16);
-    const { state, effects } = createRoom(
-      req,
-      roomId,
-      { now: this.opts.clock.now(), randomId: newId },
-      this.opts.roomLimits,
-    );
-    this.opts.store.put(state);
-    const room = new Room(state, this);
-    this.#rooms.set(roomId, room);
-    room.armFromEffects(expandEffects(state, effects));
-    return { ok: true, roomId, expiresAt: state.expiresAt };
+    while (this.#rooms.has(roomId) || this.#decoys.has(roomId)) roomId = randomToken(16);
+    const { ports, wakeup } = this.#ports(roomId);
+    const host = await RoomHost.create(req, roomId, ports, this.#opts.host);
+    wakeup.host = host;
+    this.#rooms.set(roomId, host);
+    return { ok: true, roomId, expiresAt: host.state.expiresAt };
   }
 
-  /**
-   * The shared, never-persisted stand-in for every unknown roomId (see Room#ephemeral). One
-   * object serves all such sockets, so probing random ids costs one Conn each, nothing more.
-   * It is replaced well before its idle deadline so it never answers `closed{idle}`.
-   */
-  decoy(): Room {
-    const d = this.#decoy;
-    const maxAge = this.opts.roomLimits.idleTimeoutMs / 4;
-    if (d && !d.ended && this.opts.clock.now() - d.state.createdAt < maxAge) return d;
-    this.#decoy = this.#makeDecoy();
-    return this.#decoy;
+  /** The host a new socket for `roomId` attaches to: the room, or that id's decoy. */
+  route(roomId: string): RoomHost {
+    const room = this.#rooms.get(roomId);
+    if (room && !room.ended) return room;
+    let decoy = this.#decoys.get(roomId);
+    if (!decoy) {
+      const wakeup = new TimerWakeup();
+      decoy = RoomHost.decoy(roomId, this.#basePorts(wakeup), this.#opts.host);
+      wakeup.host = decoy;
+      this.#decoys.set(roomId, decoy);
+    }
+    return decoy;
   }
 
-  #makeDecoy(): Room {
-    const parsed = parseCreateRoomRequest({
-      v: 1,
-      config: { scale: presetScale('fibonacci') },
-      joinHash: randomSalt() + randomSalt(),
-      adminHash: randomSalt() + randomSalt(),
-      lifetimeHours: 1,
-    });
-    if (!parsed.ok) throw new Error('decoy room request rejected');
-    const { state } = createRoom(
-      parsed.msg,
-      randomToken(16),
-      { now: this.opts.clock.now(), randomId: newId },
-      this.opts.roomLimits,
-    );
-    return new Room(state, this, true);
+  release(host: RoomHost): void {
+    if (!host.isDecoy || host.connectionCount > 0) return;
+    if (this.#decoys.get(host.roomId) === host) this.#decoys.delete(host.roomId);
+    void host.stop();
   }
 
-  /** Reload persisted rooms; overdue ones expire (and are deleted) immediately. */
+  /** Reload stored rooms; overdue ones expire and are deleted at once. */
   async restore(): Promise<void> {
     const jobs: Promise<void>[] = [];
-    for (const state of this.opts.store.loadAll()) {
-      const room = new Room(state, this);
-      this.#rooms.set(state.roomId, room);
-      jobs.push(room.restore());
+    for (const state of this.#opts.store.loadAll()) {
+      const { ports, wakeup } = this.#ports(state.roomId);
+      const host = new RoomHost(state, ports, this.#opts.host);
+      wakeup.host = host;
+      this.#rooms.set(state.roomId, host);
+      jobs.push(host.restore());
     }
     await Promise.all(jobs);
   }
 
-  /** Called by a room once it has ended and wiped its storage. */
-  forget(room: Room): void {
-    if (!this.#rooms.has(room.id)) return;
-    if (this.#rooms.get(room.id) === room) this.#rooms.delete(room.id);
+  async stopAll(): Promise<void> {
+    await Promise.all([...this.#rooms.values(), ...this.#decoys.values()].map((h) => h.stop()));
   }
 
-  stopAll(): void {
-    for (const room of this.#rooms.values()) room.stop();
+  #basePorts(wakeup: Wakeup): HostPorts {
+    return {
+      clock: this.#opts.clock,
+      randomId: () => randomToken(12),
+      wakeup,
+      onError: reportError,
+    };
   }
 
-  async idle(): Promise<void> {
-    await Promise.all([...this.#rooms.values()].map((r) => r.idle()));
+  #ports(roomId: string): { ports: HostPorts; wakeup: TimerWakeup } {
+    const { store } = this.#opts;
+    const storage: RoomStorage = {
+      save: (state) => store.put(state),
+      wipe: () => store.delete(roomId),
+    };
+    const wakeup = new TimerWakeup();
+    const ports: HostPorts = {
+      ...this.#basePorts(wakeup),
+      storage,
+      onEnd: () => {
+        if (this.#rooms.get(roomId)?.ended) this.#rooms.delete(roomId);
+      },
+    };
+    return { ports, wakeup };
   }
 }

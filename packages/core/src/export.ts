@@ -6,7 +6,6 @@ import type { RoomView, RoundView, TaskView } from './schemas.ts';
 import type { Stats } from './stats.ts';
 
 export interface ExportOptions {
-  /** ISO timestamp to embed (exports are pure; pass the time in). */
   generatedAt?: string;
 }
 

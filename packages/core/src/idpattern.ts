@@ -31,7 +31,6 @@ interface Atom {
 }
 
 export interface IdMatcher {
-  /** The pattern as written. */
   readonly source: string;
   readonly ignoreCase: boolean;
   /** Whole-token match. Tokens longer than ID_MATCH_MAX_INPUT never match. */
@@ -41,7 +40,7 @@ export interface IdMatcher {
 const DIGIT: Range = [0x30, 0x39];
 const WORD: Range[] = [DIGIT, [0x41, 0x5a], [0x61, 0x7a], [0x5f, 0x5f]];
 const META = new Set([...'()|^$*+?{}[]\\.']);
-const ESCAPABLE = /^[!-/:-@[-`{-~]$/; // ASCII punctuation
+const ESCAPABLE = /^[!-/:-@[-`{-~]$/;
 
 function cp(c: string): number {
   return c.codePointAt(0) ?? 0;
@@ -120,7 +119,6 @@ function parse(pattern: string): Atom[] | null {
       i++;
     }
 
-    // Optional quantifier (exactly one).
     const q = s[i];
     if (q === '?' || q === '*' || q === '+') {
       atom.min = q === '+' ? 1 : 0;

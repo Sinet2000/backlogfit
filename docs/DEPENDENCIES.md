@@ -8,6 +8,7 @@ package that uses it. This page is the index.
 |---|---|
 | `@backlogfit/core` (`packages/core`) | [dependencies/core.md](dependencies/core.md) |
 | `@backlogfit/security` (`packages/security`) | [dependencies/security.md](dependencies/security.md) |
+| `@backlogfit/host` (`packages/host`) | [dependencies/host.md](dependencies/host.md) |
 | `@backlogfit/web` (`apps/web`) | [dependencies/web.md](dependencies/web.md) |
 | `@backlogfit/worker` (`apps/worker`) | [dependencies/worker.md](dependencies/worker.md) |
 | `@backlogfit/server` (`apps/server`) | [dependencies/server.md](dependencies/server.md) |

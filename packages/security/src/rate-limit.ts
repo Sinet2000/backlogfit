@@ -82,9 +82,6 @@ export function createRateLimiter<K>(opts: RateLimitOptions) {
 
 export type RateLimiter<K> = ReturnType<typeof createRateLimiter<K>>;
 
-// -----------------------------------------------------------------------------------------------
-// Invalid-frame strikes
-
 export interface StrikeOptions {
   /** Strikes within `windowMs` at which the caller should close the connection (1008). */
   max: number;

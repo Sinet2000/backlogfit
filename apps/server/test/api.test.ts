@@ -20,7 +20,6 @@ describe('HTTP API', () => {
     expect(res.headers.get('cache-control')).toBe('no-store');
     expect(res.headers.get('content-security-policy')).toContain("default-src 'none'");
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
-    // dev mode (NODE_ENV=test): no HSTS
     expect(res.headers.get('strict-transport-security')).toBeNull();
   });
 
@@ -85,7 +84,6 @@ describe('HTTP API', () => {
 
   it('keys room creation on the hop the trusted proxy appended (SEC-003)', async () => {
     server = await start({ ROOM_CREATE_PER_MIN: '1', TRUST_PROXY: 'true' });
-    // The client controls everything left of what the proxy appended.
     const spoof1 = { 'x-forwarded-for': '1.1.1.1, 198.51.100.7' };
     const spoof2 = { 'x-forwarded-for': '2.2.2.2, 198.51.100.7' };
     const other = { 'x-forwarded-for': '1.1.1.1, 198.51.100.8' };
@@ -94,7 +92,6 @@ describe('HTTP API', () => {
     expect((await postRoom(server, createBody(H, H), other)).status).toBe(201);
     await server.close();
 
-    // Two trusted proxies: the client is the second entry from the right.
     server = await start({ ROOM_CREATE_PER_MIN: '1', TRUST_PROXY: '2' });
     const viaA = { 'x-forwarded-for': '9.9.9.9, 198.51.100.7, 10.0.0.1' };
     const viaB = { 'x-forwarded-for': '8.8.8.8, 198.51.100.7, 10.0.0.2' };
@@ -102,7 +99,6 @@ describe('HTTP API', () => {
     expect((await postRoom(server, createBody(H, H), viaB)).status).toBe(429);
     await server.close();
 
-    // Without TRUST_PROXY the header is ignored entirely.
     server = await start({ ROOM_CREATE_PER_MIN: '1' });
     expect((await postRoom(server, createBody(H, H), spoof1)).status).toBe(201);
     expect((await postRoom(server, createBody(H, H), other)).status).toBe(429);
@@ -138,7 +134,6 @@ describe('WebSocket guards', () => {
       'unexpected-response 403',
     );
     await expect(Client.open(server, room.roomId, null)).rejects.toThrow('unexpected-response 403');
-    // ALLOWED_ORIGINS adds exact extra origins.
     const dev = await Client.open(server, room.roomId, 'http://localhost:5173');
     dev.close();
     await expect(Client.open(server, room.roomId, 'http://localhost:5174')).rejects.toThrow(
@@ -173,12 +168,10 @@ describe('WebSocket guards', () => {
     expect(await c.next('error')).toEqual({ type: 'error', code: 'invalid_message' });
     for (let i = 0; i < 20; i++) c.ws.send('{');
     expect((await c.closed).code).toBe(1008);
-    // Error frames never echo input.
     for (const f of c.frames) expect(f).not.toContain('not json');
   });
 
   it('rate-limits a whole room without striking its sockets', async () => {
-    // Per-connection burst 2 → per-room burst 10. Six sockets × 2 frames exceed the room bucket.
     server = await start({ RATE_MSGS_PER_SEC: '1', RATE_BURST: '2' });
     const room = await createRoom(server);
     const clients = await Promise.all(

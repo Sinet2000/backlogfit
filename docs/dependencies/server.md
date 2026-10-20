@@ -10,8 +10,8 @@ The server runs its TypeScript sources directly with Node 24's built-in type str
 |---|---|---|---|---|
 | `hono` | 4.13.13 | MIT | HTTP routing, body-size limit middleware. The same router the Worker uses, so both backends share one routing style. | `node:http` by hand (more code to get right, for example body limits and HEAD handling); Express/Fastify (larger, Node-only, more transitive dependencies). |
 | `@hono/node-server` | 2.1.5 | MIT | Adapts Hono's fetch handler to `node:http`. | Writing the Request/Response bridge ourselves. |
-| `ws` | 8.22.0 | MIT | WebSocket server: `maxPayload` frame cap, ping/pong heartbeat, `noServer` upgrade handling, so the Origin check runs before the upgrade. No runtime dependencies. | Node's built-in `WebSocket` (client only); `uWebSockets.js` (native binary, not on npm); `socket.io` (its own protocol, far larger). |
-| `@backlogfit/core`, `@backlogfit/security` | workspace | Apache-2.0 | Room logic, protocol schemas, headers, limits, rate limiter. | n/a |
+| `ws` | 8.22.0 | MIT | WebSocket server: `maxPayload` frame cap, protocol ping/pong heartbeat, `noServer` upgrade handling, so the Origin check runs before the upgrade. No runtime dependencies. | Node's built-in `WebSocket` (client only); `uWebSockets.js` (native binary, not on npm); `socket.io` (its own protocol, far larger). |
+| `@backlogfit/core`, `@backlogfit/security`, `@backlogfit/host` | workspace | Apache-2.0 | Room logic, protocol schemas, headers, limits, rate limiter, the shared room host (ADR-0011). | n/a |
 
 ## Development only
 

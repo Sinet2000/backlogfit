@@ -19,7 +19,6 @@ export interface Participant {
   role: Role;
   authority: Authority;
   status: 'active' | 'lobby';
-  /** Current connection id, null while disconnected (the record is kept for resume). */
   conn: string | null;
   /** SHA-256 hex of the current resume token. Rotated on every successful hello. */
   resumeHash: string;
@@ -28,7 +27,6 @@ export interface Participant {
 
 export interface Vote {
   pid: string;
-  /** Name snapshot at vote time, so history survives the voter leaving. */
   name: string;
   value: string;
 }
@@ -63,7 +61,6 @@ export interface Settings {
 export interface Limits {
   maxLifetimeMs: number;
   idleTimeoutMs: number;
-  /** Server-wide cap; the room's own maxParticipants is clamped to it. */
   maxParticipants: number;
   maxTasks: number;
   passcodeMaxAttempts: number;
@@ -124,9 +121,7 @@ export interface Ctx {
 export interface HelloAuth {
   joinOk: boolean;
   adminOk: boolean;
-  /** null when the room has no passcode. */
   passcodeOk: boolean | null;
-  /** Participant whose resume hash matched the presented resume token. */
   resumeParticipantId: string | null;
   /** Fresh resume token for this connection; only its hash is stored. */
   resume: { token: string; hash: string };
@@ -135,7 +130,6 @@ export interface HelloAuth {
 export type RoomEvent =
   | { type: 'connect'; conn: string }
   | { type: 'disconnect'; conn: string }
-  /** Alarm fired (or periodic check). Uses ctx.now. */
   | { type: 'tick' }
   | { type: 'message'; conn: string; msg: ClientMessage; auth?: HelloAuth };
 

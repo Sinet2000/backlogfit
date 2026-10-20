@@ -1,8 +1,8 @@
-/** WebSocket close codes the adapters use for transport-level violations (RFC 6455). */
+/** WebSocket close codes the adapters use for transport-level closes (RFC 6455). */
+export const WS_CLOSE_GOING_AWAY = 1001;
 export const WS_CLOSE_POLICY_VIOLATION = 1008;
 export const WS_CLOSE_MESSAGE_TOO_BIG = 1009;
 
-/** What WebSocket libraries hand to a message handler (ws: Buffer | ArrayBuffer | Buffer[]). */
 export type FrameData = string | ArrayBuffer | ArrayBufferView | readonly ArrayBufferView[];
 
 /**

@@ -56,7 +56,6 @@ describe('lifecycle via LoopbackEngine', () => {
     for (const [i, c] of all.entries()) {
       await c.send({ type: 'vote', taskId, round: 1, value: values[i] ?? '?' });
       if (i < all.length - 1) {
-        // still secret: nobody sees anyone else's vote
         for (const other of all) {
           const r = view(other).tasks[0]?.rounds[0];
           expect(r?.votes).toBeNull();
@@ -129,7 +128,6 @@ describe('lifecycle via LoopbackEngine', () => {
     expect(w?.room.myVote).toBe('8');
     expect(w?.you.resumeToken).not.toBe(token);
 
-    // the old token no longer works
     const bob3 = engine.connect();
     await bob3.send({
       type: 'hello',
@@ -162,7 +160,7 @@ describe('lifecycle via LoopbackEngine', () => {
     });
     expect(wrong.last('error')?.code).toBe('bad_passcode');
     expect(wrong.closedReason).toBe('rejected');
-    await wrong.send({ type: 'ping' }); // ignored once closed
+    await wrong.send({ type: 'ping' });
 
     const right = engine.connect();
     await right.send({
@@ -188,7 +186,7 @@ describe('lifecycle via LoopbackEngine', () => {
     expect(stranger.closedReason).toBe('not_found');
     expect(stranger.last('closed')?.reason).toBe('not_found');
 
-    const lurker = engine.connect(); // never says hello
+    const lurker = engine.connect();
     clock.advance(2 * HOUR_MS);
     await engine.runAlarms();
     expect(engine.closed).toBe(true);

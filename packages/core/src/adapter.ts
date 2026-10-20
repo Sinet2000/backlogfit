@@ -1,4 +1,3 @@
-/** Helpers that keep backend adapters thin and uniform. */
 import { randomToken, secretsOf, verifyHello } from './crypto.ts';
 import { project } from './project.ts';
 import { reduce } from './reduce.ts';
@@ -40,6 +39,7 @@ const CLOSE_CODES: Record<CloseReason, number> = {
   kicked: 4004,
   denied: 4005,
   replaced: 4006,
+  left: 4007,
   rejected: 4008,
   not_found: 4404,
 };
@@ -139,7 +139,6 @@ export function reconcileConnections(
   }
   const r = reduce(current, { type: 'tick' }, ctx);
   effects.push(...r.effects);
-  // One broadcast and one alarm at the end are enough (all are projected from the final state).
   const merged: Effect[] = effects.filter(
     (e) => e.type !== 'broadcastState' && e.type !== 'scheduleAlarm',
   );

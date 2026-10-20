@@ -65,9 +65,6 @@ export function fromBase64Url(s: string): Uint8Array<ArrayBuffer> | null {
   return toBase64Url(out) === s ? out : null;
 }
 
-// ---------------------------------------------------------------------------------------------
-// Schemas (what a server may accept; it never sees the key)
-
 /**
  * Opaque encrypted task content. The server checks shape and size only: `iv` is 96 bits,
  * `ct` decodes to (k × ENC_PAD_BLOCK) + 16 bytes with k ≥ 1 and at most ENC_PLAINTEXT_MAX_BYTES
@@ -94,7 +91,7 @@ export const PlainContentSchema = v.strictObject({
 });
 export type PlainContent = v.InferOutput<typeof PlainContentSchema>;
 
-/** Phase 2 tagged union for Task content (PLAN §3.6). */
+/** Phase 2 tagged union for Task content. */
 export const TaskContentSchema = v.variant('t', [PlainContentSchema, EncryptedContentSchema]);
 export type TaskContent = v.InferOutput<typeof TaskContentSchema>;
 
@@ -118,9 +115,6 @@ export function plainContentOf(task: ParsedTask): PlainContent {
   return { t: 'plain', key: task.key, title: task.title, url: task.url };
 }
 
-// ---------------------------------------------------------------------------------------------
-// Padding (ISO/IEC 7816-4: 0x80 then zeros)
-
 export function padPlaintext(bytes: Uint8Array): Uint8Array<ArrayBuffer> | null {
   const len = Math.ceil((bytes.length + 1) / ENC_PAD_BLOCK) * ENC_PAD_BLOCK;
   if (len > ENC_PLAINTEXT_MAX_BYTES) return null;
@@ -137,9 +131,6 @@ export function unpadPlaintext(bytes: Uint8Array): Uint8Array | null {
   if (i < 0 || bytes[i] !== 0x80) return null;
   return bytes.slice(0, i);
 }
-
-// ---------------------------------------------------------------------------------------------
-// Browser-side helpers (WebCrypto AES-256-GCM)
 
 export const ContentKeySchema = v.pipe(v.string(), v.length(43), v.regex(B64URL));
 

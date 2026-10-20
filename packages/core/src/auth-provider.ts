@@ -39,7 +39,6 @@ export interface RoleMapping {
 
 /** What a provider hands to the room after successful verification. Nothing else is kept. */
 export interface VerifiedIdentity {
-  /** Display name derived from claims (cleaned, ≤ NAME_MAX). Replaces the typed name. */
   name: string;
   authority: Exclude<Authority, 'admin'>;
 }
@@ -60,7 +59,6 @@ export type AuthVerdict =
   | { ok: false; reason: AuthFailure };
 
 export interface AuthContext {
-  /** Epoch ms, from the adapter's clock. */
   now: number;
   roomId: string;
 }
@@ -76,15 +74,12 @@ export interface AuthProvider {
 
 export interface OidcClaimsPolicy {
   issuer: string;
-  /** This deployment's OIDC client id. */
   audience: string;
   clockSkewSeconds?: number;
   /** Reject tokens issued longer ago than this (default 600 s). */
   maxAgeSeconds?: number;
   nonce?: string;
-  /** Claims tried in order for the display name. Default: name, preferred_username. */
   nameClaims?: readonly string[];
-  /** Claim holding group names (default `groups`). */
   groupsClaim?: string;
   roles?: RoleMapping;
 }

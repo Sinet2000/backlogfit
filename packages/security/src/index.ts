@@ -14,6 +14,7 @@ export {
   frameByteLength,
   frameTooLarge,
   utf8Length,
+  WS_CLOSE_GOING_AWAY,
   WS_CLOSE_MESSAGE_TOO_BIG,
   WS_CLOSE_POLICY_VIOLATION,
 } from './frame.ts';
@@ -32,7 +33,13 @@ export {
   securityHeaders,
   TRUSTED_TYPES_POLICIES,
 } from './headers.ts';
-export { DEFAULT_LIMITS, type Limits, readLimits } from './limits.ts';
+export {
+  DEFAULT_LIMITS,
+  type Limits,
+  MAX_CREATE_BODY_BYTES,
+  ROOM_ID_PATTERN,
+  readLimits,
+} from './limits.ts';
 export { canonicalOrigin, createOriginChecker, isAllowedOrigin } from './origin.ts';
 export {
   createRateLimiter,

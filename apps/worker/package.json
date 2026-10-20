@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@backlogfit/core": "workspace:*",
+    "@backlogfit/host": "workspace:*",
     "@backlogfit/security": "workspace:*",
     "hono": "4.13.13"
   },

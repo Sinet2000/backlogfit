@@ -20,9 +20,6 @@ import {
 } from '../src/index.ts';
 import { auth, counterIds, HASH, hello, newRoom, T0 } from './helpers.ts';
 
-// -----------------------------------------------------------------------------------------------
-// Abstract operations, resolved against the live state when applied.
-
 const CONNS = ['c0', 'c1', 'c2', 'c3', 'c4', 'c5'];
 const SCALE = PRESETS.fibonacci.cards.map((c) => c.value);
 
@@ -189,7 +186,6 @@ const configArb = fc.record({
   maxParticipants: fc.integer({ min: 2, max: 6 }),
 });
 
-// A typical opening (admin + voters join, tasks added, voting starts) followed by chaos.
 const H = { admin: false, spectator: false, resume: null, passOk: true, joinOk: true } as const;
 const OPENING: { dt: number; op: Op }[] = [
   { dt: 0, op: { k: 'hello', c: 0, ...H, admin: true } },
@@ -211,9 +207,6 @@ const scenario = fc.tuple(
 
 const RUNS = { numRuns: 300 };
 
-// -----------------------------------------------------------------------------------------------
-
-/** Replace every unrevealed vote value except `keep`'s with a different card. */
 function perturb(state: RoomState, keep: string): RoomState {
   const s = structuredClone(state);
   for (const t of s.tasks) {
@@ -247,16 +240,12 @@ describe('properties', () => {
           const viewers = [null, 'nobody', ...s.participants.map((p) => p.id)];
           for (const viewer of viewers) {
             const view = project(s, viewer);
-            // strict schema: no unexpected fields anywhere in the view
             expect(v.safeParse(RoomViewSchema, view).success).toBe(true);
-            // unrevealed rounds carry no values
             for (const t of view.tasks) {
               for (const r of t.rounds) if (!r.revealed) expect(r.votes).toBeNull();
             }
-            // non-interference: changing others' secret votes changes nothing the viewer sees
             expect(project(perturb(s, viewer ?? ''), viewer)).toEqual(view);
           }
-          // the same holds for every frame actually sent
           for (const out of expandEffects(s, result.effects)) {
             if (out.type !== 'send' || (out.msg.type !== 'state' && out.msg.type !== 'welcome'))
               continue;
@@ -267,7 +256,6 @@ describe('properties', () => {
       }),
       RUNS,
     );
-    // guard against a vacuous property: the generator must reach interesting states
     expect(interesting.secretVotes).toBeGreaterThan(100);
     expect(interesting.revealed).toBeGreaterThan(100);
   });
@@ -410,7 +398,6 @@ describe('properties', () => {
   it('(g) CSV never emits a cell starting with a formula character', () => {
     const FORMULA = /^[=+\-@\t\r]/;
     const cellsOf = (csv: string) => {
-      // minimal RFC 4180 reader
       const cells: string[] = [];
       let i = 0;
       while (i < csv.length) {

@@ -82,7 +82,6 @@ export async function createRoom(
   return { roomId, expiresAt, joinSecret, adminSecret };
 }
 
-/** A real `ws` client that records every frame and lets tests await specific messages. */
 export class Client {
   readonly ws: WebSocket;
   readonly frames: string[] = [];
@@ -127,7 +126,6 @@ export class Client {
     this.ws.send(JSON.stringify(msg));
   }
 
-  /** Next message (after the ones already consumed by previous next() calls) matching pred. */
   next<T extends ServerMessage['type']>(
     type: T,
     pred: (m: Extract<ServerMessage, { type: T }>) => boolean = () => true,

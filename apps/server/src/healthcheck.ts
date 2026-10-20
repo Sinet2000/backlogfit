@@ -1,4 +1,3 @@
-// Container HEALTHCHECK probe (distroless has no curl). Exits 0 when /api/health answers ok.
 const port = process.env.PORT || '8080';
 try {
   const res = await fetch(`http://127.0.0.1:${port}/api/health`, {

@@ -224,10 +224,11 @@ same names as `vars`.
 | `MAX_CONNECTIONS_PER_CLIENT` | `50` | 1-100000 | Concurrent WebSocket connections per client address; excess get 429. |
 | `WS_UPGRADES_PER_MIN` | `120` | 1-100000 | WebSocket upgrades per client address per minute (token bucket, burst = same value). |
 | `HELLO_TIMEOUT_SECONDS` | `20` | 1-3600 | A socket that does not join within this time is closed (1008). |
-| `HEARTBEAT_SECONDS` | `30` | 1-3600 | WebSocket ping interval; a socket that misses one pong is dropped. |
+| `SOCKET_TIMEOUT_SECONDS` | `90` | 30-3600 | A joined socket that sends nothing for this long is treated as dead: closed (1001) and shown as disconnected. The web client pings every 25 s. |
+| `HEARTBEAT_SECONDS` | `30` | 1-3600 | Node only: protocol-level WebSocket ping interval; a socket that misses one pong is dropped. |
 | `TEST_TIME_SCALE` | `1` | ignored unless `NODE_ENV=test` | Test-only clock acceleration; has no effect in production. |
 
-The limits from `DEFAULT_LIFETIME_HOURS` to `PASSCODE_MAX_ATTEMPTS` accept plain decimal integers only (`readLimits` in `packages/security/src/limits.ts`); the others are read in `apps/server/src/config.ts`. Out-of-range values stop the server at startup. The Worker reads the same names from `vars` (it also reads `WS_UPGRADES_PER_MIN`; the Rate Limiting bindings in `wrangler.jsonc` must be kept equal to `ROOM_CREATE_PER_MIN` and `WS_UPGRADES_PER_MIN`).
+The limits from `DEFAULT_LIFETIME_HOURS` to `PASSCODE_MAX_ATTEMPTS`, plus `WS_UPGRADES_PER_MIN`, `HELLO_TIMEOUT_SECONDS` and `SOCKET_TIMEOUT_SECONDS`, accept plain decimal integers only (`readLimits` in `packages/security/src/limits.ts`) and are read the same way by both backends; the others are Node-only and read in `apps/server/src/config.ts`. Out-of-range values stop the server at startup. The Worker reads the same names from `vars`; `MAX_ROOMS`, `MAX_CONNECTIONS*` and `HEARTBEAT_SECONDS` do not apply there (one Durable Object per room, no protocol pings under hibernation). The Rate Limiting bindings in `wrangler.jsonc` must be kept equal to `ROOM_CREATE_PER_MIN` and `WS_UPGRADES_PER_MIN`.
 
 ## 4. Persistence and backups
 

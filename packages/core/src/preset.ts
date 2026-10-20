@@ -16,7 +16,6 @@ export const PRESET_VERSION = 1;
 export const PRESET_MAX_BYTES = 64 * 1024;
 export const PRESET_NAME_MAX = 60;
 
-/** Lifetimes offered by the configurator (hours). */
 export const LIFETIME_CHOICES_HOURS = [1, 2, 4, 8] as const;
 export type LifetimeHours = (typeof LIFETIME_CHOICES_HOURS)[number];
 export const DEFAULT_LIFETIME_HOURS: LifetimeHours = 2;

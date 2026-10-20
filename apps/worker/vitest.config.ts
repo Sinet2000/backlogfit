@@ -6,7 +6,6 @@ export default defineConfig({
     cloudflareTest({
       wrangler: { configPath: './wrangler.jsonc' },
       miniflare: {
-        // Tighter limits so abuse paths are quick to exercise.
         bindings: {
           PUBLIC_ORIGIN: 'http://app.test',
           ALLOWED_ORIGINS: 'http://localhost:5173',
@@ -18,7 +17,6 @@ export default defineConfig({
           CREATE_LIMITER: { namespace_id: '1001', simple: { limit: 10, period: 60 } },
           UPGRADE_LIMITER: { namespace_id: '1002', simple: { limit: 5, period: 60 } },
         },
-        // Fixture pages with a generated _headers (see the test script), instead of apps/web/build.
         assets: {
           directory: 'test/fixtures/web',
           binding: 'ASSETS',

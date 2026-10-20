@@ -1,12 +1,3 @@
-/**
- * Room fuzzing through the full adapter pipeline (raw frame → parse → real SHA-256 hello
- * verification → reduce → per-viewer projection) using the core LoopbackEngine, with hostile
- * actors: intruders with a wrong join secret, connections that never say hello, forgers with a
- * wrong admin secret, and members spraying garbage, prototype keys and admin commands.
- *
- * Complements packages/core/test/properties.test.ts (which drives reduce() with synthetic
- * HelloAuth): here authentication is real, so forged secrets are exercised end to end.
- */
 import {
   type ClientMessageInput,
   type LoopbackClient,
@@ -108,9 +99,7 @@ const configArb = fc.record({
 interface Actor {
   kind: Kind;
   client: LoopbackClient;
-  /** Index into client.messages already checked. */
   seen: number;
-  /** Resume tokens this actor legitimately received. */
   tokens: string[];
   everWelcomed: boolean;
 }
@@ -152,7 +141,6 @@ function adminMessage(
     { type: 'ping' },
     { type: 'admin.close' },
   ];
-  // admin.close only rarely, so most runs stay open long enough to be interesting.
   const i = o.msg % all.length;
   return (i === all.length - 1 && n % 4 !== 0 ? all[0] : all[i]) as ClientMessageInput;
 }
@@ -229,7 +217,6 @@ async function runScenario(ops: Op[], cfg: RoomCfg): Promise<void> {
       for (const s of forbidden) expect(text.includes(s), `secret leaked to ${a.kind}`).toBe(false);
       if (a.kind === 'intruder' || a.kind === 'mute') {
         stats.intruderFrames++;
-        // Unauthenticated connections learn nothing about the room.
         expect(['error', 'closed']).toContain(m.type);
         if (m.type === 'error') expect(UNAUTH_ERRORS.has(m.code), m.code).toBe(true);
         if (m.type === 'closed')
@@ -245,7 +232,6 @@ async function runScenario(ops: Op[], cfg: RoomCfg): Promise<void> {
       }
       if (m.type === 'welcome' || m.type === 'state') checkView(a, m);
     }
-    // Other actors' resume tokens never reach this actor.
     const others = actors.filter((o) => o !== a).flatMap((o) => o.tokens);
     for (const m of fresh) {
       const text = JSON.stringify(m);
@@ -333,7 +319,6 @@ async function runScenario(ops: Op[], cfg: RoomCfg): Promise<void> {
         const msg = adminMessage(engine.state, op) as Record<string, unknown>;
         const text = `${JSON.stringify(msg).slice(0, -1)},${JSON.stringify(op.key)}:{"authority":"admin"}}`;
         if (sender) await send(sender, text);
-        // Must be rejected as a whole: no state change at all.
         expect(engine.state).toBe(before);
         break;
       }
@@ -357,18 +342,15 @@ async function runScenario(ops: Op[], cfg: RoomCfg): Promise<void> {
     for (const a of actors) checkFrames(a);
     const s = engine.state;
 
-    // Authority: only connections holding the admin secret ever become admin.
     const adminConns = new Set(actors.filter((a) => a.kind === 'admin').map((a) => a.client.id));
     for (const p of s.participants) {
       if (p.authority === 'admin') expect(p.conn === null || adminConns.has(p.conn)).toBe(true);
     }
-    // Unauthenticated actors never hold a participant record.
     for (const a of actors) {
       if (a.kind === 'intruder' || a.kind === 'mute') {
         expect(s.participants.some((p) => p.conn === a.client.id)).toBe(false);
       }
     }
-    // Admin-only state changes only by an admin-kind sender (or the clock).
     if (sender && sender.kind !== 'admin' && op.k !== 'time' && s.closed === null) {
       expect(s.settings.autoReveal).toBe(before.settings.autoReveal);
       expect(s.settings.lobby).toBe(before.settings.lobby);
@@ -379,20 +361,16 @@ async function runScenario(ops: Op[], cfg: RoomCfg): Promise<void> {
     if (sender && sentType && ADMIN_ONLY.has(sentType) && sender.kind !== 'admin') {
       expect(s.closed === 'closed' && before.closed === null).toBe(false);
     }
-    // Every stored vote is a card on the scale.
     for (const t of s.tasks)
       for (const r of t.rounds) for (const v of r.votes) expect(SCALE).toContain(v.value);
-    // Lifetime cap.
     expect(s.expiresAt - s.createdAt).toBeLessThanOrEqual(s.limits.maxLifetimeMs);
   }
 
-  // Expiry: whatever happened, running the clock past the deadline wipes the room.
   if (!engine.closed) {
     const s = engine.state;
     const r = reduce(s, { type: 'tick' }, { now: s.expiresAt, randomId: () => 'x' });
     expect(r.effects.filter((e) => e.type === 'deleteAll')).toHaveLength(1);
     expect(r.state.closed).toBe('expired');
-    // After deletion nothing is ever deleted twice and every further event only closes.
     const again = reduce(
       r.state,
       { type: 'message', conn: 'late', msg: { type: 'ping' } },

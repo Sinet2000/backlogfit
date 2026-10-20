@@ -14,7 +14,7 @@ computes reveal stats, and runs auto-reveal (ADR-0001).
 ## Decision
 
 **What is encrypted.** Only task content. Each pasted backlog line is encrypted as typed, as one
-`{ t: 'enc', iv, ct }` value (`EncryptedContentSchema`, PLAN §3.6 `Task.content` union).
+`{ t: 'enc', iv, ct }` value (`EncryptedContentSchema`, the `Task.content` union).
 
 **Key.** A 256-bit AES-GCM key generated in the browser (`generateContentKey`) and carried only
 in the link fragment after `~` (`#roomId.joinSecret[.adminSecret]~key`, `parseRoomFragment`).
@@ -47,7 +47,7 @@ adding a link others refuse to render. Undecryptable items fail closed (`undecry
   hide who participated: participant ids, join times and vote timing remain visible.
 - An encrypted name can be added later as an additive optional field if demand appears.
 
-**What the server can still see** (documented in PRIVACY.md by A4): number of tasks, their
+**What the server can still see** (documented in PRIVACY.md): number of tasks, their
 order, which one is current, ciphertext size buckets (256-byte steps), timing of every action,
 votes, final estimates, stats, the scale, settings, display names, participant count, and
 transport metadata (IP addresses in memory only, ADR-0007).
