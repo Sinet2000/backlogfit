@@ -28,6 +28,10 @@ pnpm --filter @backlogfit/e2e exec playwright test specs/privacy.spec.ts
 pnpm --filter @backlogfit/e2e test                    # unit tests of the fixtures (no browser)
 ```
 
+On a shared machine (other agents/devs running Backlogfit on :8080), use private ports so a
+foreign server is not reused:
+`E2E_BASE_URL=http://localhost:18080 E2E_FAST_URL=http://localhost:18081 pnpm e2e`.
+
 ## Environment variables
 
 | Variable | Default | Meaning |

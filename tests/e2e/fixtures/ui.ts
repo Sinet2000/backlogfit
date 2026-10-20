@@ -92,6 +92,7 @@ export async function createRoom(page: Page, opts: ConfiguratorOptions = {}): Pr
 
   for (let step = 1; step <= 8; step++) {
     await page.waitForLoadState('domcontentloaded');
+    await expect(id(page, 'wizard-next').or(id(page, 'wizard-create')).first()).toBeVisible();
     for (const [tid, apply] of [...pending]) {
       const el = id(page, tid);
       if (await el.isVisible()) {
