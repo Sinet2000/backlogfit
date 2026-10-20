@@ -21,9 +21,9 @@ with one container.
 |---|---|
 | ![A voter choosing a card from the Fibonacci deck while the participant list shows who has voted](docs/assets/screenshots/voter.png) | ![Revealed votes with distribution, median and consensus indicator](docs/assets/screenshots/reveal.png) |
 
-| Room created | Facilitator controls |
+| Room created | Host controls |
 |---|---|
-| ![A newly created room showing the join link, the one-time admin link and a QR code](docs/assets/screenshots/configurator-created.png) | ![The facilitator view while the team is voting, with reveal, re-vote, timer and next task](docs/assets/screenshots/admin-voting.png) |
+| ![A newly created room showing the join link, the one-time host link and a QR code](docs/assets/screenshots/configurator-created.png) | ![The host view while the team is voting, with progress, Reveal votes and the More actions menu](docs/assets/screenshots/admin-voting.png) |
 
 More screenshots (configurator steps, results, landing page) are in
 [docs/assets/screenshots](docs/assets/screenshots/) and the [Manager Guide](docs/MANAGER-GUIDE.md).

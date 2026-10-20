@@ -1,6 +1,6 @@
 # Backlogfit Manager Guide
 
-*One page for facilitators: Scrum Masters, team leads, product owners. Print-friendly.*
+*One page for hosts: Scrum Masters, team leads, product owners. Print-friendly.*
 
 ## What are story points?
 
@@ -23,28 +23,36 @@ understand an item differently, which is the most valuable outcome of the discus
 2. **Start a session and pick a scale.** Open Backlogfit and choose **Start a session**. Pick a
    deck: Fibonacci is a good default, T-shirt sizes suit rough roadmap sizing.
 3. **Paste the tasks and set the session rules.** In the **Tasks** step, paste the list from
-   step 1 and drag it into the order you want to discuss it. Under **Task IDs and links** you can
-   choose how tasks may appear (IDs only, any links, or only your own tracker domains). Then set
-   the session length, timer, automatic reveal, anonymous
-   results, spectators, approval before joining, and an optional passcode. Review and press
-   **Create session**. You can save these settings as a preset file for next time.
+   step 1. Every line becomes a task right away; drag them into the order you want to discuss
+   them, and fix or remove any line marked in red. Under **Task IDs and links** you can choose how
+   tasks may appear (IDs only, any links, or only your own tracker domains). Then set the
+   session length, automatic reveal and anonymous results. **More options** holds approval
+   before joining, a passcode, spectators, the maximum number of people, the round timer and the
+   color style. On the review page, **Change** takes you back to any step; press **Create
+   session**. **Save these settings for next time** downloads them as a file, and **Use settings
+   from a file…** on the first step loads it again.
 4. **Keep the host link.** Backlogfit shows it once. Keep it private: it gives full control of the
-   session and lets you switch devices.
+   session and lets you switch devices. **Save host link as a file** keeps a copy on your
+   computer.
 5. **Share the join link.** Paste it in the meeting chat or show the QR code. People enter a
-   display name and join as voters or spectators. Then **Open the room**.
-6. **Introduce the first item.** Your prepared list is already in the room. Press **Start first
-   task**; the product owner explains it in two minutes; optionally start the timer. **Next task**
-   follows your order and skips items that already have an estimate. To change course, press ▶
-   next to any task, drag tasks into a new order, or use **Add and estimate now** for an item
-   that comes up in the discussion.
+   display name and join as voters or spectators. Then **Open the room** in the same browser tab:
+   your prepared tasks are added when the room opens there, and a message confirms it.
+6. **Introduce the first item.** Your prepared list is already in the room. Press **Start
+   estimating**; the product owner explains the item in two minutes. Tasks are estimated top to
+   bottom and items that already have an estimate are skipped. To change course, press ▶ next to
+   any task, drag tasks into a new order, or use **Add and estimate now** for an item that comes
+   up in the discussion. The **⋯** menu next to **Reveal votes** starts the timer, restarts the
+   round or skips the task.
 7. **Vote.** Everyone picks a card. You see *who* has voted, never *what*, until the reveal.
 8. **Reveal.** Press **Reveal votes** (or let automatic reveal do it when everyone has voted).
    Look at the distribution, median and agreement indicator.
-9. **Discuss and vote again if needed.** If votes are split, ask the highest and lowest voters to
-   explain, then press **Vote again**; earlier rounds stay in the results.
+9. **Discuss and vote again if needed.** If the votes differ, ask the highest and lowest voter
+   why, then press **Vote again**; earlier rounds stay in the results.
 10. **Record the final estimate and move on.** Pick the final value (the suggestion is
-    preselected), press **Next task**, and at the end download the results as CSV, JSON or
-    Markdown, copy the summary, or print. Press **End session** when you are done; all its data is deleted.
+    preselected) and press **Save 5 and continue**: it saves the estimate and opens the next
+    task. At the end, use **Export** to download the results as CSV, Markdown or JSON, copy the
+    summary, or print. When you are done, open **Session settings…** and choose **End session
+    for everyone**; all its data is deleted.
 
 | Step 1: scale | Step 2: tasks |
 |---|---|
@@ -56,13 +64,13 @@ understand an item differently, which is the most valuable outcome of the discus
 
 ![Session ready: join link, private host link and QR code](assets/screenshots/configurator-created.png)
 
-![Host view while voting: Reveal votes, Clear votes, Next task, timer, people who voted and the task list](assets/screenshots/admin-voting.png)
+![Host view while voting: who has voted, Reveal votes, the More actions menu, people and the task list](assets/screenshots/admin-voting.png)
 
-![Voter view after the reveal: median, distribution, agreement and the results table](assets/screenshots/reveal.png)
+![Voter view after the reveal: the cards sorted by value, median, average, range and distribution](assets/screenshots/reveal.png)
 
-![Host view after the reveal: Vote again, Next task and the final estimate picker](assets/screenshots/admin-reveal.png)
+![Host view after the reveal: the final estimate picker, Vote again and Save and continue](assets/screenshots/admin-reveal.png)
 
-![Host view with a final estimate recorded, the results table, downloads and session controls (invite, lock, add an hour, settings, end session)](assets/screenshots/results-full.png)
+![Host view with final estimates recorded, the results table with the Export menu, and the session panel (end time, +1 hour, session settings)](assets/screenshots/results-full.png)
 
 ## Tips
 
@@ -105,6 +113,7 @@ in the room, or only the distribution if anonymous reveal is on.
 Create a new room; it takes a minute.
 
 **How long can a session run?** Up to the lifetime you chose (default 2 hours, maximum 8);
-extend it from the facilitator menu. Rooms close after 30 minutes without activity.
+add an hour with **+1 hour** in the Session panel. Lock the session and end it from **Session
+settings…**. Rooms close after 30 minutes without activity.
 
 More answers: [FAQ](FAQ.md).

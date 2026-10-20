@@ -176,6 +176,7 @@
 
   .group {
     display: grid;
+    align-content: start;
     justify-items: center;
     gap: var(--space-2);
     max-width: 10rem;
@@ -238,15 +239,15 @@
   }
 
   .cards li.group:nth-child(2) :global(.inner) {
-    transition-delay: 40ms;
+    transition-delay: calc(40ms * var(--lift));
   }
 
   .cards li.group:nth-child(3) :global(.inner) {
-    transition-delay: 80ms;
+    transition-delay: calc(80ms * var(--lift));
   }
 
   .cards li.group:nth-child(n + 4) :global(.inner) {
-    transition-delay: 120ms;
+    transition-delay: calc(120ms * var(--lift));
   }
 
   .grid {
