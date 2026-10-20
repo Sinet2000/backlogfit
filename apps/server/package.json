@@ -9,8 +9,8 @@
     "node": ">=24"
   },
   "scripts": {
-    "start": "node src/main.ts",
-    "dev": "node --watch src/main.ts",
+    "start": "node --disable-warning=ExperimentalWarning src/main.ts",
+    "dev": "node --disable-warning=ExperimentalWarning --watch src/main.ts",
     "smoke": "node scripts/smoke.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"

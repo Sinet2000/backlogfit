@@ -15,7 +15,7 @@ export interface ServerConfig {
   webDir: string;
   limits: Limits;
   trustProxy: boolean;
-  /** Development mode: security headers without HSTS / upgrade-insecure-requests. */
+  /** Security headers without HSTS / upgrade-insecure-requests (dev, or plain-http origin). */
   dev: boolean;
   /** Test-only clock acceleration (1 = real time). Honoured only when NODE_ENV=test. */
   timeScale: number;
@@ -54,6 +54,9 @@ function origin(value: string, name: string): string {
 
 export function readConfig(env: Env = process.env): ServerConfig {
   const port = int(env, 'PORT', 8080, 0, 65_535);
+  if (env.NODE_ENV === 'production' && !env.PUBLIC_ORIGIN) {
+    throw new Error('PUBLIC_ORIGIN is required when NODE_ENV=production');
+  }
   const publicOrigin = origin(env.PUBLIC_ORIGIN || `http://localhost:${port}`, 'PUBLIC_ORIGIN');
   const extra = (env.ALLOWED_ORIGINS ?? '')
     .split(',')
@@ -71,7 +74,8 @@ export function readConfig(env: Env = process.env): ServerConfig {
     webDir: resolve(env.WEB_DIR || resolve(APP_DIR, '../web/build')),
     limits: readLimits(env),
     trustProxy: env.TRUST_PROXY === 'true',
-    dev: env.NODE_ENV !== 'production',
+    // HSTS and upgrade-insecure-requests only make sense when the public origin is https.
+    dev: env.NODE_ENV !== 'production' || publicOrigin.startsWith('http:'),
     timeScale,
     heartbeatSeconds: int(env, 'HEARTBEAT_SECONDS', 30, 1, 3600),
     helloTimeoutSeconds: int(env, 'HELLO_TIMEOUT_SECONDS', 20, 1, 3600),

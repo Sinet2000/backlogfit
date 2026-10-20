@@ -5,7 +5,7 @@ import type { RoomState } from '@backlogfit/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { RunningServer } from '../src/app.ts';
 import { DB_FILE } from '../src/store.ts';
-import { Client, createRoom, join as joinRoom, start, tempDir } from './helpers.ts';
+import { Client, createRoom, join as joinRoom, ORIGIN, start, tempDir } from './helpers.ts';
 
 let server: RunningServer | undefined;
 let dir: ReturnType<typeof tempDir>;
@@ -127,7 +127,10 @@ describe('sqlite persistence', () => {
 
   it('ignores TEST_TIME_SCALE outside NODE_ENV=test', async () => {
     const { readConfig } = await import('../src/config.ts');
-    expect(readConfig({ NODE_ENV: 'production', TEST_TIME_SCALE: '60' }).timeScale).toBe(1);
+    expect(
+      readConfig({ NODE_ENV: 'production', PUBLIC_ORIGIN: ORIGIN, TEST_TIME_SCALE: '60' })
+        .timeScale,
+    ).toBe(1);
     expect(readConfig({ TEST_TIME_SCALE: '60' }).timeScale).toBe(1);
     expect(readConfig({ NODE_ENV: 'test', TEST_TIME_SCALE: '60' }).timeScale).toBe(60);
   });

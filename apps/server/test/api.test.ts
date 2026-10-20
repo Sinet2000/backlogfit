@@ -24,8 +24,13 @@ describe('HTTP API', () => {
     expect(res.headers.get('strict-transport-security')).toBeNull();
   });
 
+  it('requires PUBLIC_ORIGIN in production', async () => {
+    const { readConfig } = await import('../src/config.ts');
+    expect(() => readConfig({ NODE_ENV: 'production' })).toThrow('PUBLIC_ORIGIN');
+  });
+
   it('sends HSTS in production mode', async () => {
-    server = await start({ NODE_ENV: 'production' });
+    server = await start({ NODE_ENV: 'production', PUBLIC_ORIGIN: 'https://app.test' });
     const res = await fetch(`${base(server)}/api/health`);
     expect(res.headers.get('strict-transport-security')).toContain('max-age=');
   });
