@@ -4,7 +4,6 @@
   interface Props {
     steps: readonly string[];
     current: number;
-    /** Steps the user may jump back to. */
     onselect?: (index: number) => void;
   }
   let { steps, current, onselect }: Props = $props();

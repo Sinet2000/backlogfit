@@ -1,4 +1,3 @@
-/** Reconnect, close, expiry (fast clock server) and dead links. */
 import { createRoomApi } from '../fixtures/api.ts';
 import { FAST_TIME_SCALE, FAST_URL } from '../fixtures/env.ts';
 import { expect, joinAdmin, test } from '../fixtures/test.ts';
@@ -28,7 +27,6 @@ test('reload resumes the same participant with the same vote @smoke', async ({ p
 
   const before = alice.wire.ofType('welcome')[0] as { you: { participantId: string } } | undefined;
   await alice.page.reload();
-  // No join form: the resume token in sessionStorage brings Alice straight back.
   await waitInRoom(alice.page, 'Alice');
   await expect(id(alice.page, 'join-name')).toHaveCount(0);
   await expect.poll(() => selectedValues(alice.page)).toEqual(['5']);
@@ -38,7 +36,6 @@ test('reload resumes the same participant with the same vote @smoke', async ({ p
   expect(welcomes.length).toBe(2);
   expect(welcomes[1]?.you.participantId).toBe(before?.you.participantId);
 
-  // Admin reload keeps admin powers.
   await page.reload();
   await expect(id(page, 'btn-reveal')).toBeVisible();
 });
@@ -51,10 +48,8 @@ test('admin closes the room: everyone sees the closed screen', async ({ page, pe
   await id(page, 'btn-close-room').click();
   await id(page, 'btn-close-confirm').click();
   await expectClosed(alice.page, 'closed');
-  // The link is dead afterwards, and indistinguishable from a link that never existed.
   const again = await people.open();
   await again.page.goto(room.joinLink);
-  // The server only answers after a hello, so the join form always shows first.
   await expect(id(again.page, 'join-name')).toBeVisible();
   await submitJoin(again.page, 'Again', { expect: 'none' });
   await expectClosed(again.page, 'not_found');
@@ -104,7 +99,6 @@ test.describe('expiry with TEST_TIME_SCALE', () => {
   test.skip(() => process.env.E2E_NO_FAST === '1', 'fast-clock server disabled');
 
   test('idle timeout closes the room with reason idle', async ({ page, people }) => {
-    // Default IDLE_TIMEOUT_MINUTES=30 → 30 s at 60x.
     test.setTimeout(120_000);
     const room = await createRoomApi({ baseURL: FAST_URL });
     await joinAdmin(page, room.adminLink);
@@ -118,7 +112,6 @@ test.describe('expiry with TEST_TIME_SCALE', () => {
     page,
     people,
   }) => {
-    // lifetime 1 h → 60 s at 60x. Keep voting so the idle timeout never fires first.
     test.setTimeout(150_000);
     const room = await createRoomApi({ baseURL: FAST_URL, lifetimeHours: 1 });
     await joinAdmin(page, room.adminLink, 'Admin', { spectator: true });

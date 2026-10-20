@@ -28,7 +28,7 @@ pnpm --filter @backlogfit/e2e exec playwright test specs/privacy.spec.ts
 pnpm --filter @backlogfit/e2e test                    # unit tests of the fixtures (no browser)
 ```
 
-On a shared machine (other agents/devs running Backlogfit on :8080), use private ports so a
+On a shared machine (someone else running Backlogfit on :8080), use private ports so a
 foreign server is not reused:
 `E2E_BASE_URL=http://localhost:18080 E2E_FAST_URL=http://localhost:18081 pnpm e2e`.
 
@@ -64,8 +64,8 @@ context** (`people.join(link, name)`), so sessionStorage, resume tokens and secr
 | `fixtures/raw.ts` | raw protocol clients running inside a page (real Origin, real CSP) |
 | `specs/` | session, privacy, voting, access, lifecycle, tasks, security, protocol |
 | `a11y/` | axe (serious/critical = fail) per page/state × theme × mode, keyboard-only flows, reduced motion |
-| `visual/` | `toHaveScreenshot` for deck, selected card, revealed card, reveal panel × theme × mode × desktop/375 px |
-| `screenshots/` | `pnpm --filter @backlogfit/e2e screenshots` → `artifacts/screenshots/*.png` (1440×900, light Corporate) and `artifacts/og/*.png` (1200×630 from `og/template.html`) |
+| `visual/` | `toHaveScreenshot` for deck, selected card, revealed card group, reveal panel × theme × mode × desktop/375 px |
+| `screenshots/` | `pnpm --filter @backlogfit/e2e screenshots` → `docs/assets/screenshots/*.png` (1440×900, light Corporate) and `artifacts/og/*.png` (1200×630 from `og/template.html`) |
 
 ## Visual snapshots
 
@@ -87,7 +87,7 @@ votes), so snapshots are deterministic. Note: snapshots generated on an arm64 ho
 can differ from x86_64 CI by a few anti-aliased pixels; `maxDiffPixelRatio` is 0.002. If CI
 reports diffs that are pure anti-aliasing, regenerate in CI (see below) and commit the artifacts.
 
-## CI (GitHub Actions, for A6)
+## CI (GitHub Actions)
 
 Two jobs. Pin actions by SHA as for the rest of the workflows.
 
@@ -142,7 +142,7 @@ download `tests/e2e/visual/__snapshots__` as an artifact.
 pnpm --filter @backlogfit/e2e screenshots
 ```
 
-Writes `artifacts/screenshots/` (landing, configurator steps, voter, reveal, admin views,
+Writes `docs/assets/screenshots/` (landing, configurator steps, voter, reveal, admin views,
 results) and `artifacts/og/` (`og-default.png`, `og-planning-poker-alternative.png`,
 `og-guide.png`, `og-faq.png`, `og-story-points.png`). OG text lives in
 `screenshots/og.shot.ts`; the template is `og/template.html` (self-contained, no external fonts).

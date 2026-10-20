@@ -1,8 +1,3 @@
-/**
- * Offline demo: rooms hosted in this tab by core's LoopbackEngine (the exact reducer the
- * servers run). Used by `/r?demo`, by the configurator when no server is reachable, and by the
- * landing page preview. A few simulated teammates join and vote so one person can try it out.
- */
 import {
   type Card,
   type LifetimeHours,
@@ -42,7 +37,6 @@ export interface DemoOptions {
   lifetimeHours?: LifetimeHours;
   passcode?: string;
   bots?: number;
-  /** Seed the room with a few sample tasks. */
   sampleTasks?: boolean;
   now?: () => number;
 }

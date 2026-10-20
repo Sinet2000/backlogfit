@@ -28,7 +28,6 @@ test('auto-reveal when every connected voter has voted @smoke', async ({ page, p
   await vote(a.page, '8');
   await expectVoted(page, 'Alice', true);
   await expect(id(page, 'reveal-results')).toHaveCount(0);
-  // Spectators don't block auto-reveal.
   await vote(b.page, '8');
   for (const p of [page, a.page, b.page]) await expect(id(p, 'reveal-results')).toBeVisible();
   await expect(id(a.page, 'consensus')).toHaveAttribute('data-level', 'full');
@@ -64,7 +63,6 @@ test('re-vote starts a new round and keeps the previous one in history', async (
   const cards = await revealCards(a.page);
   expect(cards.map((c) => c.value).sort()).toEqual(['8', '8']);
 
-  // History: round 1 is still there, with its original values.
   await wire.waitFor(
     (f) =>
       f.type === 'state' &&
@@ -109,7 +107,6 @@ test('anonymous reveal shows no names, on screen or on the wire', async ({ page,
   );
   const votes = revealedVotes(a.wire.lastRoom() as never);
   expect(votes.every((v) => v.name === null)).toBe(true);
-  // Sorted by scale order, not by join order.
   expect(votes.map((v) => v.value)).toEqual(['2', '3', '5']);
   expect(checkFrames(a.wire.received, ownVotes(a.wire))).toEqual([]);
 });
@@ -146,7 +143,6 @@ test('keyboard: digits pick cards, Space reveals, N moves on, ? opens help', asy
   await nextTask(page);
   await expect(currentTask(a.page)).toHaveAttribute('data-key', 'SCP-60');
 
-  // Focus the page body, not an input, so shortcuts apply.
   await a.page.locator('body').click({ position: { x: 1, y: 1 } });
   const cards = a.page.getByTestId('card');
   const second = (await cards.nth(1).getAttribute('data-value')) ?? '';
@@ -157,13 +153,11 @@ test('keyboard: digits pick cards, Space reveals, N moves on, ? opens help', asy
   await a.page.keyboard.press('3');
   await expect.poll(() => selectedValues(a.page)).toEqual([third]);
 
-  // Help dialog.
   await a.page.keyboard.press('?');
   await expect(a.page.getByRole('dialog')).toBeVisible();
   await a.page.keyboard.press('Escape');
   await expect(a.page.getByRole('dialog')).toHaveCount(0);
 
-  // Shortcuts are admin-only: a voter's Space does not reveal.
   await a.page.keyboard.press('Space');
   await expect(id(a.page, 'reveal-results')).toHaveCount(0);
 
@@ -173,7 +167,6 @@ test('keyboard: digits pick cards, Space reveals, N moves on, ? opens help', asy
   await page.keyboard.press('n');
   await expect(currentTask(a.page)).toHaveAttribute('data-key', 'SCP-61');
 
-  // Typing in the task box must not trigger shortcuts.
   await id(page, 'task-add-open').click();
   await id(page, 'task-input').fill('');
   await id(page, 'task-input').press('n');

@@ -121,7 +121,7 @@
     padding: var(--space-6);
   }
 
-  @media (min-width: 760px) {
+  @media (min-width: 640px) {
     .share {
       grid-template-columns: minmax(0, 1fr) auto;
     }

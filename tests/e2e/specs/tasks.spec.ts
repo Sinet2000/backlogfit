@@ -1,4 +1,3 @@
-/** Task lines: links are rendered safely, dangerous schemes never reach the DOM. */
 import { createRoomApi } from '../fixtures/api.ts';
 import { expect, joinAdmin, test } from '../fixtures/test.ts';
 import { addTasks, createRoom, currentTask, id, nextTask, rowAction } from '../fixtures/ui.ts';
@@ -21,10 +20,8 @@ test('link tasks render as safe external links and javascript: is rejected @smok
     'data:text/html,<script>alert(3)</script>',
     '<img src=x onerror=alert(4)>',
   ]);
-  // The rejected lines are reported, never silently dropped.
   await expect(id(page, 'toast').first()).toBeVisible();
 
-  // Only the https line and the harmless plain-text title survive.
   await expect(page.getByTestId('task-item').first()).toBeVisible();
   for (const t of await page.getByTestId('task-item').allInnerTexts()) {
     expect(t.toLowerCase()).not.toMatch(/javascript:|data:/);
@@ -41,7 +38,6 @@ test('link tasks render as safe external links and javascript: is rejected @smok
       const rel = ((await a.getAttribute('rel')) ?? '').split(/\s+/);
       expect(rel).toEqual(expect.arrayContaining(['noopener', 'noreferrer']));
     }
-    // Title is plain text: no markup is interpreted.
     await expect(
       p.locator(':is([data-testid="task-item"], [data-testid="current-task"]) b'),
     ).toHaveCount(0);
@@ -103,7 +99,6 @@ test('tasks prepared in the configurator arrive in order; any task can be estima
   await rowAction(page.getByTestId('task-item').first(), 'move-down');
   await expect.poll(() => keys(alice.page)).toEqual(['SCP-1', 'SCP-3', 'SCP-2']);
 
-  // Next follows the order; a task from the discussion can jump the queue.
   await nextTask(page);
   await expect(currentTask(alice.page)).toHaveAttribute('data-key', 'SCP-1');
   await addTasks(page, ['SCP-9 Raised in standup'], { estimateNow: true });
@@ -114,7 +109,6 @@ test('tasks prepared in the configurator arrive in order; any task can be estima
     .click();
   await expect(currentTask(alice.page)).toHaveAttribute('data-key', 'SCP-2');
 
-  // A reload of the host tab never adds the prepared list a second time.
   await page.reload();
   await expect.poll(() => keys(page)).toEqual(['SCP-1', 'SCP-3', 'SCP-2', 'SCP-9']);
 });

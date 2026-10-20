@@ -1,7 +1,3 @@
-/**
- * axe on every page and room state, in every theme × mode we can reach, plus a keyboard-only
- * voter run-through and reduced motion.
- */
 import { createRoomApi } from '../fixtures/api.ts';
 import { checkA11y } from '../fixtures/axe.ts';
 import { expect, joinAdmin, test } from '../fixtures/test.ts';
@@ -96,7 +92,6 @@ test('keyboard only: a voter joins, votes, changes the vote and reads the result
   await v.page.goto(room.joinLink);
   await expect(id(v.page, 'join-name')).toBeVisible();
 
-  /** Press Tab until the focused element matches; fails after `max` presses. */
   const tabTo = async (testId: string, max = 60) => {
     for (let i = 0; i < max; i++) {
       const hit = await v.page.evaluate(
@@ -116,7 +111,6 @@ test('keyboard only: a voter joins, votes, changes the vote and reads the result
   await expect(currentTask(v.page)).toHaveAttribute('data-key', 'SCP-310');
 
   await tabTo('card');
-  // Focus must be visible on cards.
   const outline = await v.page.evaluate(() => {
     const el = document.activeElement as HTMLElement;
     const s = getComputedStyle(el);
@@ -130,7 +124,6 @@ test('keyboard only: a voter joins, votes, changes the vote and reads the result
   await expect.poll(() => selectedValues(v.page)).toEqual([focused]);
   await expectVoted(page, 'Kim', true);
 
-  // Move to the next card with Tab or arrows, select with Space.
   await kb.press('ArrowRight');
   let next = await v.page.evaluate(
     () => document.activeElement?.closest('[data-testid="card"]')?.getAttribute('data-value') ?? '',
@@ -149,7 +142,6 @@ test('keyboard only: a voter joins, votes, changes the vote and reads the result
 
   await id(page, 'btn-reveal').click();
   await expect(id(v.page, 'reveal-results')).toBeVisible();
-  // Results are announced politely to screen readers.
   const live = v.page.locator('[aria-live="polite"], [role="status"]');
   expect(await live.count()).toBeGreaterThan(0);
 });

@@ -1,7 +1,3 @@
-/**
- * Theme × mode. Mode comes from emulated media (prefers-color-scheme, prefers-contrast); the theme
- * (Corporate/Colorful) from the room config, or from `theme-switcher` where the page has one.
- */
 import type { Page } from '@playwright/test';
 
 export const THEMES = ['corporate', 'colorful'] as const;

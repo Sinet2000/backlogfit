@@ -27,11 +27,6 @@
       body: 'Nobody creates an account. Share a link and start estimating.',
     },
     {
-      icon: 'eyeoff',
-      title: 'Privacy first',
-      body: 'No cookies, no tracking, no analytics. Secret links never reach the server.',
-    },
-    {
       icon: 'code',
       title: 'Open source',
       body: 'Apache-2.0 licensed. Read every line, or improve it.',
@@ -151,7 +146,7 @@
 
 <style>
   .hero {
-    padding-block: var(--space-16) var(--space-20);
+    padding-block: var(--space-16);
     background:
       radial-gradient(1200px 400px at 80% -10%, var(--color-accent-soft), transparent 70%),
       var(--color-bg);
@@ -198,7 +193,7 @@
   }
 
   .section {
-    padding-block: var(--space-20);
+    padding-block: var(--space-16);
   }
 
   .alt {
@@ -223,7 +218,7 @@
     gap: var(--space-8);
   }
 
-  @media (min-width: 760px) {
+  @media (min-width: 640px) {
     .steps {
       grid-template-columns: repeat(3, 1fr);
     }
@@ -270,7 +265,7 @@
     gap: var(--space-8);
   }
 
-  @media (min-width: 900px) {
+  @media (min-width: 960px) {
     .trust {
       grid-template-columns: 1fr 1.2fr;
     }
@@ -305,7 +300,7 @@
     text-align: center;
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: 640px) {
     .hero {
       padding-block: var(--space-10) var(--space-12);
     }

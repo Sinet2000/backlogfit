@@ -1,13 +1,12 @@
 <script lang="ts">
   import { computeStats, presetScale } from '@backlogfit/core';
   import { onMount } from 'svelte';
+  import { deckTones, NO_TONE } from '../cards.ts';
   import { consensusText } from '../room/format.ts';
   import Button from './Button.svelte';
   import Card from './Card.svelte';
   import Icon from './Icon.svelte';
 
-  // A static, local illustration of a reveal (no network). Rendered client-side only because
-  // card colors are applied through CSSOM, which prerendered HTML must not contain.
   const scale = presetScale('fibonacci');
   const ROUNDS = [
     ['5', '5', '8', '5'],
@@ -15,11 +14,17 @@
     ['2', '8', '13', '3'],
   ];
   const NAMES = ['Ada', 'Grace', 'Linus', 'You'];
+  const tones = deckTones(scale);
 
   let mounted = $state(false);
   let revealed = $state(false);
   let roundIndex = $state(0);
-  onMount(() => (mounted = true));
+  onMount(() => {
+    mounted = true;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const id = setTimeout(() => (revealed = true), 1800);
+    return () => clearTimeout(id);
+  });
 
   const votes = $derived(ROUNDS[roundIndex % ROUNDS.length] ?? []);
   const stats = $derived(computeStats(votes, scale));
@@ -41,7 +46,7 @@
     {#if mounted}
       {#each votes as v, i (i)}
         {@const c = card(v)}
-        {#if c}<Card card={c} faceUp={revealed} size="md" caption={NAMES[i] ?? ""} />{/if}
+        {#if c}<Card card={c} tone={tones.get(c.value) ?? NO_TONE} faceUp={revealed} size="md" caption={NAMES[i] ?? ''} />{/if}
       {/each}
     {:else}
       <div class="placeholder" aria-hidden="true"></div>

@@ -1,7 +1,3 @@
-/**
- * Raw protocol clients that live inside a real page (so the browser sets a genuine Origin and the
- * CSP applies). Used by the protocol specs to exercise server behaviour the UI never triggers.
- */
 import type { Page } from '@playwright/test';
 
 export interface RawFrame {
@@ -85,7 +81,6 @@ export class RawClient {
     });
   }
 
-  /** Wait for a frame satisfying pred; returns it. */
   async waitFor(pred: (f: RawFrame) => boolean, timeoutMs = 5_000): Promise<RawFrame> {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {

@@ -1,7 +1,3 @@
-/**
- * Full session: configurator (Fibonacci) → admin + 3 voters + 1 spectator → tasks → vote →
- * reveal → stats → final → next → exports.
- */
 import { readFile } from 'node:fs/promises';
 import type { Download, Page } from '@playwright/test';
 import { expect, test } from '../fixtures/test.ts';
@@ -40,7 +36,6 @@ test('full session with configurator, voting, reveal, final and exports @smoke',
   expect(room.adminLink).toBe(`${room.joinLink}.${room.adminSecret}`);
   await expect(id(page, 'qr-code')).toBeVisible();
 
-  // Admin enters the room from the configurator.
   await id(page, 'open-room').click();
   await submitJoin(page, 'Admin');
   const adminVotes = ((await participant(page, 'Admin').getAttribute('data-role')) ?? '').includes(
@@ -57,7 +52,6 @@ test('full session with configurator, voting, reveal, final and exports @smoke',
   }
   await expect(participant(page, 'Sam')).toHaveAttribute('data-role', /spectator/);
 
-  // Tasks: an ID, an ID with title, and a URL (reduced to its key under the default ids policy).
   await addTasks(page, [
     'SCP-3655',
     'SCP-3656 Fix login',
@@ -74,7 +68,6 @@ test('full session with configurator, voting, reveal, final and exports @smoke',
     await expect(currentTask(p)).toHaveAttribute('data-key', 'SCP-3655');
   }
 
-  // Spectator has no usable cards.
   await expect(sam.page.locator('[data-testid="card"]:enabled')).toHaveCount(0);
 
   await vote(alice.page, '3');
@@ -82,14 +75,12 @@ test('full session with configurator, voting, reveal, final and exports @smoke',
   await vote(carol.page, '5');
   if (adminVotes) await vote(page, '5');
 
-  // Voted indicators visible to everyone, values hidden.
   for (const p of [alice.page, sam.page, page]) {
     for (const n of ['Alice', 'Bob', 'Carol']) await expectVoted(p, n, true);
     await expectVoted(p, 'Sam', false);
     await expect(p.getByTestId('reveal-card')).toHaveCount(0);
     await expect(p.getByTestId('reveal-results')).toHaveCount(0);
   }
-  // A voter only sees their own selection.
   expect(await selectedValues(alice.page)).toEqual(['3']);
   expect(await selectedValues(bob.page)).toEqual(['5']);
 
@@ -102,14 +93,12 @@ test('full session with configurator, voting, reveal, final and exports @smoke',
   expect(byName).toMatchObject({ Alice: '3', Bob: '5', Carol: '5' });
   expect(Object.keys(byName)).not.toContain('Sam');
 
-  // Votes 3,5,5 (+ admin 5): median 5, mode 5, average 4.33 (or 4.5), consensus near.
   expect(await statNumber(alice.page, 'stat-median')).toBe(5);
   expect(await statNumber(alice.page, 'stat-mode')).toBe(5);
   const avg = await statNumber(alice.page, 'stat-average');
   expect(avg).toBeCloseTo(adminVotes ? 4.5 : 13 / 3, 1);
   await expect(id(alice.page, 'consensus')).toHaveAttribute('data-level', 'near');
 
-  // Final estimate.
   await page.locator('[data-testid="final-value"][data-value="5"]').first().click();
   await expect(id(page, 'btn-save-next')).toHaveText(/Save 5 and continue/);
   await id(page, 'btn-save-next').click();
@@ -119,7 +108,6 @@ test('full session with configurator, voting, reveal, final and exports @smoke',
   await expect(currentTask(alice.page)).toHaveAttribute('data-key', 'SCP-3656');
   await expect.poll(() => selectedValues(alice.page)).toEqual([]);
 
-  // Exports from the admin view.
   const csv = await downloadText(page, 'btn-export-csv');
   expect(csv.d.suggestedFilename()).toMatch(/\.csv$/);
   const lines = csv.text.trim().split(/\r?\n/);

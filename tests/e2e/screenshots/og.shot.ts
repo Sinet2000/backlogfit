@@ -1,4 +1,3 @@
-/** OG images (1200×630) from tests/e2e/og/template.html into tests/e2e/artifacts/og/. */
 import { mkdir, readFile } from 'node:fs/promises';
 import { test } from '@playwright/test';
 

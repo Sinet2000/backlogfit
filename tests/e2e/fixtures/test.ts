@@ -22,18 +22,16 @@ export interface CspViolation {
   blockedURI: string;
   sample: string;
   sourceFile: string;
-  /** Start of the offending element's markup, when the browser tells us. */
   element?: string;
 }
 
 /**
- * Violations caused by bugs already filed in coordination/A5.md. The per-spec guard tolerates
- * them so every spec still reports its own result; specs/security.spec.ts checks without this
- * filter, and E2E_STRICT_CSP=1 disables it everywhere. Remove entries once fixed.
+ * Known CSP violations the per-spec guard tolerates, so every spec still reports its own result.
+ * specs/security.spec.ts checks without this filter, and E2E_STRICT_CSP=1 disables it everywhere.
  */
 export const KNOWN_CSP_ISSUES: { bug: string; match: (v: CspViolation) => boolean }[] = [
   {
-    bug: 'A5#1 SvelteKit route announcer inline style',
+    bug: 'SvelteKit route announcer inline style',
     match: (v) =>
       v.directive === 'style-src-attr' && /\/_app\/immutable\/.*\.js$/.test(v.sourceFile),
   },
@@ -106,7 +104,7 @@ export interface Person {
   wire: Wire;
 }
 
-/** Participants, each in a NEW browser context (isolated sessionStorage). */
+/** Participants, each in a new browser context, so sessionStorage and secrets stay isolated. */
 export class People {
   private readonly all: Person[] = [];
   private readonly browser: Browser;

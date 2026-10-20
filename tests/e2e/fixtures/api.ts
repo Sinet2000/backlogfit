@@ -1,8 +1,3 @@
-/**
- * Fast path: create a room through POST /api/rooms exactly like the browser does (secrets are
- * generated locally, only their hashes are sent). Use it for every spec that is not about the
- * configurator itself.
- */
 import {
   type Card,
   hashPasscode,
@@ -38,9 +33,7 @@ export interface RoomLinks {
   joinSecret: string;
   adminSecret: string;
   expiresAt: number;
-  /** `${base}/r#roomId.joinSecret` */
   joinLink: string;
-  /** `${base}/r#roomId.joinSecret.adminSecret` */
   adminLink: string;
 }
 
@@ -92,7 +85,6 @@ export async function createRoomApi(opts: ApiRoomOptions = {}): Promise<RoomLink
     config,
     joinHash: await hashSecret(joinSecret),
     adminHash: await hashSecret(adminSecret),
-    // Long enough that the hard expiry never interferes with a spec unless it wants it to.
     lifetimeHours: opts.lifetimeHours ?? 8,
   };
   if (opts.passcode !== undefined) {

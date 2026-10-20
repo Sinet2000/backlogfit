@@ -9,15 +9,11 @@
   } from './site.ts';
 
   interface Props {
-    /** Page title without the site name (it is appended), or the full title for the home page. */
     title: string;
     description: string;
-    /** Site path, e.g. "/guide". Used for the canonical URL and og:url. */
     path: string;
     noindex?: boolean;
-    /** One JSON-LD object or a list of them. Rendered as a non-executable data block. */
     jsonLd?: Record<string, unknown> | Record<string, unknown>[];
-    /** Site-relative or absolute image URL (1200×630). */
     ogImage?: string;
     type?: 'website' | 'article';
   }

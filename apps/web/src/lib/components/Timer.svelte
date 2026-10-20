@@ -23,7 +23,6 @@
   const left = $derived(now === 0 ? seconds * 1000 : Math.max(0, endsAt - now));
   const pct = $derived(seconds > 0 ? (left / (seconds * 1000)) * 100 : 0);
 
-  // Announce sparingly: start, 30s, 10s, end (never every second).
   $effect(() => {
     const s = Math.ceil(left / 1000);
     const mark = s === 0 ? 0 : s <= 10 ? 10 : s <= 30 ? 30 : seconds;

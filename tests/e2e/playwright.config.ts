@@ -3,10 +3,6 @@ import { BASE_URL } from './fixtures/env.ts';
 import { webServers } from './playwright.shared.ts';
 
 const CI = !!process.env.CI;
-/**
- * Visual snapshots are generated in mcr.microsoft.com/playwright:v1.64.1-noble (linux). They only
- * run where those snapshots apply, unless forced with E2E_VISUAL=1.
- */
 const VISUAL = process.platform === 'linux' || process.env.E2E_VISUAL === '1';
 
 export default defineConfig({

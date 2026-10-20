@@ -28,7 +28,6 @@
     onpick(selected === value ? null : value);
   }
 
-  // Arrows only move focus: browsing the deck never casts (or auto-reveals) a vote by accident.
   function onkeydown(e: KeyboardEvent, i: number) {
     const last = cards.length - 1;
     let next = -1;

@@ -55,7 +55,7 @@
   <section aria-labelledby={group.id}>
     <h2 id={group.id}>{group.title}</h2>
     {#each group.items as item (item.q)}
-      <details>
+      <details class="disclosure">
         <summary>{item.q}</summary>
         <p>{item.a}</p>
       </details>

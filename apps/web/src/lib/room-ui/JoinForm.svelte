@@ -161,7 +161,7 @@
     font-size: var(--text-sm);
   }
 
-  @media (max-width: 480px) {
+  @media (max-width: 640px) {
     .join {
       margin: var(--space-4) auto;
       padding: var(--space-6) var(--space-4);

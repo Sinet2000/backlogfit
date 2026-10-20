@@ -1,4 +1,3 @@
-/* Readable long-form text: guide, FAQ and other content pages. */
 .prose {
   max-width: var(--prose-width);
   margin-inline: auto;

@@ -126,7 +126,6 @@ describe('RoomConnection over the loopback engine', () => {
     });
     await flush();
     expect(v.last()?.view?.myVote).toBe('5');
-    // Before reveal the admin sees that Vera voted, never what.
     const before = a.last()?.view;
     expect(before?.participants.find((p) => p.name === 'Vera')?.hasVoted).toBe(true);
     expect(JSON.stringify(before?.tasks)).not.toContain('"5"');
@@ -297,7 +296,6 @@ describe('reconnect with backoff', () => {
 
   it('reconnects after a drop and sends the resume token', async () => {
     const { engine, link } = await loopbackRoom();
-    // Real welcome payload from the engine, replayed by a fake socket.
     const probe = engine.connect();
     await probe.send({
       type: 'hello',
@@ -335,11 +333,9 @@ describe('reconnect with backoff', () => {
     );
     expect(conn.snapshot.status).toBe('joined');
 
-    // Keep-alive ping.
     timers.advance(25_000);
     expect(srv.sockets[0]?.sent.at(-1)).toBe('{"type":"ping"}');
 
-    // Network drop: reconnecting, then a new socket after the backoff.
     srv.sockets[0]?.h.onClose(1006);
     expect(conn.snapshot.status).toBe('reconnecting');
     expect(conn.send({ type: 'ping' })).toBe(false);
@@ -351,7 +347,6 @@ describe('reconnect with backoff', () => {
     const hello = JSON.parse(srv.sockets[1]?.sent[0] ?? '{}');
     expect(hello.resumeToken).toBe('tok_tok_tok_tok_tok_1');
 
-    // Second drop before welcome: longer delay.
     srv.sockets[1]?.h.onClose(1006);
     timers.advance(999);
     expect(srv.sockets).toHaveLength(2);

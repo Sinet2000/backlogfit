@@ -2,10 +2,6 @@ import { canonicalUrl } from '#lib/seo/site.ts';
 
 export const prerender = true;
 
-/**
- * Public marketing and content pages only. The app routes (/new, /r) are excluded on purpose:
- * they are noindex and disallowed in robots.txt.
- */
 const PAGES = [
   '/',
   '/guide',

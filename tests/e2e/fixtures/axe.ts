@@ -25,7 +25,6 @@ export async function checkA11y(page: Page, label: string, info?: TestInfo): Pro
     })),
   };
   axeLog.push(summary);
-  // One JSON line per check, for the QA report (test-results/axe.jsonl).
   const dir = new URL('../test-results/', import.meta.url).pathname;
   await mkdir(dir, { recursive: true });
   await appendFile(`${dir}axe.jsonl`, `${JSON.stringify(summary)}\n`);

@@ -1,4 +1,3 @@
-/** `pnpm --filter @backlogfit/e2e screenshots`: README/Manager Guide screenshots and OG images. */
 import { defineConfig, devices } from '@playwright/test';
 import { BASE_URL } from './fixtures/env.ts';
 import { webServers } from './playwright.shared.ts';

@@ -1,4 +1,3 @@
-/** Who gets in: lobby, passcode, lock, capacity; and facilitator powers: kick, promote. */
 import { createRoomApi } from '../fixtures/api.ts';
 import { expect, joinAdmin, test } from '../fixtures/test.ts';
 import {

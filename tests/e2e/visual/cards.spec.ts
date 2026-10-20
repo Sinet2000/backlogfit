@@ -1,8 +1,3 @@
-/**
- * Visual regression for the card deck, a selected card, the flipped/revealed deck and the reveal
- * panel, per theme × mode × viewport. Snapshots are linux-only (generated in the official
- * Playwright image); see tests/e2e/README.md.
- */
 import { createRoomApi } from '../fixtures/api.ts';
 import { expect, joinAdmin, test } from '../fixtures/test.ts';
 import { emulateMode, MODES, THEMES, useSwitcher } from '../fixtures/theme.ts';
@@ -30,7 +25,6 @@ for (const [vpName, viewport] of Object.entries(VIEWPORTS)) {
         await nextTask(page);
         await expect(currentTask(p)).toHaveAttribute('data-key', 'SCP-1000');
         await p.evaluate(() => document.fonts.ready);
-        // Park the pointer: a hovered card lifts and would make snapshots depend on the last click.
         await p.mouse.move(0, 0);
 
         const deck = p.getByTestId('card').first().locator('xpath=..');

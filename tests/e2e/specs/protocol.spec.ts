@@ -1,7 +1,3 @@
-/**
- * Server contract at the wire level (PROTOCOL.md §3–4, §7), driven from a real page so the
- * browser supplies the Origin. Complements the UI specs with cases the UI never produces.
- */
 import { request as httpRequest } from 'node:http';
 import { createRoomApi, type RoomLinks } from '../fixtures/api.ts';
 import { FAST_TIME_SCALE, FAST_URL } from '../fixtures/env.ts';
@@ -30,7 +26,6 @@ async function adminWithTask(
 }
 
 test.beforeEach(async ({ page }) => {
-  // Any same-origin page works as a host for raw sockets.
   await page.goto('/');
 });
 
@@ -74,7 +69,6 @@ test('messages before hello, bad JSON and unknown keys get error codes; a flood 
   await c.waitFor((f) => f.type === 'error' && f.code === 'invalid_message');
   await c.send({ ...hello(room.joinSecret, 'Ada'), v: 2 });
   await c.waitFor((f) => f.type === 'error' && f.code === 'unsupported_version');
-  // Errors never echo user input.
   for (const f of await c.frames()) expect(JSON.stringify(f)).not.toContain('not json');
   for (let i = 0; i < 40; i++) await c.send('x');
   expect((await c.waitClose()).code).toBe(1008);
@@ -117,7 +111,6 @@ test('authorization: voters cannot run admin actions, spectators cannot vote, va
   await spec.send({ type: 'vote', taskId, round, value: '5' });
   await spec.waitFor((f) => f.type === 'error' && f.code === 'forbidden');
 
-  // Nothing above leaked or changed votes.
   const frames = (await voter.frames()).map((f) => JSON.stringify(f));
   expect(checkFrames(frames, new Set())).toEqual([]);
 });
@@ -134,11 +127,9 @@ test('resume token: a second connection takes over and the first gets closed rep
   await b.send(hello(room.joinSecret, 'Ada', { resumeToken: you.resumeToken }));
   const w2 = await b.waitType('welcome');
   expect((w2.you as { participantId: string }).participantId).toBe(you.participantId);
-  // Token rotates on every resume.
   expect((w2.you as { resumeToken: string }).resumeToken).not.toBe(you.resumeToken);
   await a.waitFor((f) => f.type === 'closed' && f.reason === 'replaced');
   expect((await a.waitClose()).code).toBe(4006);
-  // The old token is dead.
   const c = await RawClient.open(page, room.roomId);
   await c.send(hello(room.joinSecret, 'Ada', { resumeToken: you.resumeToken }));
   const w3 = await c.waitType('welcome');
@@ -157,7 +148,6 @@ test('passcode attempts are limited room-wide', async ({ page }) => {
   const right = await RawClient.open(page, room.roomId);
   await right.send(hello(room.joinSecret, 'Ada', { passcode: 'open sesame' }));
   await right.waitFor((f) => f.type === 'error' && f.code === 'passcode_locked');
-  // The admin is unaffected and can unlock.
   const admin = await RawClient.open(page, room.roomId);
   await admin.send(hello(room.joinSecret, 'Admin', { adminSecret: room.adminSecret }));
   await admin.waitType('welcome');
@@ -235,7 +225,6 @@ test.describe('expiry on the fast clock (TEST_TIME_SCALE)', () => {
     await admin.send(hello(room.joinSecret, 'Admin', { adminSecret: room.adminSecret }));
     await admin.waitType('welcome');
     const started = Date.now();
-    // Pings keep the socket alive but are not activity.
     const pinger = setInterval(
       () => void admin.send({ type: 'ping' }).catch(() => undefined),
       5_000,

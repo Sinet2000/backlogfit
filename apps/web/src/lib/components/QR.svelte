@@ -31,7 +31,6 @@
     border: 1px solid var(--color-border);
   }
 
-  /* QR codes need dark-on-light in every theme to scan reliably. */
   .bg {
     fill: #ffffff;
   }

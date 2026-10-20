@@ -1,4 +1,3 @@
-/** Capture WebSocket frames of a page (both directions), parsed lazily. */
 import type { Page, WebSocket } from '@playwright/test';
 import { roomOf } from './privacy.ts';
 
@@ -6,11 +5,8 @@ export interface Wire {
   received: string[];
   sent: string[];
   sockets: WebSocket[];
-  /** Parsed received frames of a given type. */
   ofType(type: string): Record<string, unknown>[];
-  /** Latest RoomView received (welcome or state). */
   lastRoom(): Record<string, unknown> | null;
-  /** Wait until a received frame matches. */
   waitFor(pred: (frame: Record<string, unknown>) => boolean, timeoutMs?: number): Promise<void>;
 }
 
