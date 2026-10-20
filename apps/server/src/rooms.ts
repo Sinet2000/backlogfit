@@ -274,7 +274,12 @@ export class Room {
     if (at === null || this.#ended || this.#stopped || this.#ephemeral) return;
     this.#timer = setTimeout(() => {
       this.#timer = null;
-      this.#enqueue(() => this.#dispatch({ type: 'tick' }));
+      this.#enqueue(() => {
+        this.#dispatch({ type: 'tick' });
+        // Node timers may fire a millisecond early. The reducer then sees a tick before alarmAt
+        // and emits no new scheduleAlarm, so re-arm from the state's own alarm.
+        if (this.#timer === null) this.#arm(this.#state.alarmAt);
+      });
     }, this.#host.opts.clock.delayUntil(at));
     this.#timer.unref();
   }
