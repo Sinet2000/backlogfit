@@ -37,7 +37,8 @@ function resolve(urlPath: string): string | null {
 }
 
 createServer((req, res) => {
-  const headers = securityHeaders({ dev: true });
+  // Production policy (incl. Trusted Types), minus HSTS/upgrade-insecure-requests for http://localhost.
+  const headers = securityHeaders({ dev: true, trustedTypes: true });
   const file = resolve(req.url ?? '/');
   if (!file) {
     res.writeHead(404, { ...headers, 'Content-Type': 'text/plain' }).end('Not found');

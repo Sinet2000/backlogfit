@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { browser } from '$app/environment';
   import {
     canonicalUrl,
     DEFAULT_OG_IMAGE,
@@ -61,7 +62,9 @@
   <meta name="twitter:title" content={fullTitle} />
   <meta name="twitter:description" content={description} />
   <meta name="twitter:image" content={image} />
-  {#if ld !== null}
+  <!-- JSON-LD exists only in the prerendered HTML (for crawlers). Creating a <script> on the
+       client would be a Trusted Types sink; hydration simply drops this node. -->
+  {#if ld !== null && !browser}
     <svelte:element this={'script'} type="application/ld+json">{ld}</svelte:element>
   {/if}
 </svelte:head>
