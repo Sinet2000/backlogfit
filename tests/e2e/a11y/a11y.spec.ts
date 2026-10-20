@@ -163,6 +163,7 @@ test('admin can run a round from the keyboard', async ({ page, people }) => {
   await page.keyboard.type('SCP-320');
   await id(page, 'task-add').focus();
   await page.keyboard.press('Enter');
+  await expect(id(page, 'btn-next')).toBeEnabled();
   await id(page, 'btn-next').focus();
   await page.keyboard.press('Enter');
   await expect(currentTask(alice.page)).toHaveAttribute('data-key', 'SCP-320');

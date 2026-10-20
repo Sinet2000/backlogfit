@@ -1,3 +1,4 @@
+import { appendFile, mkdir } from 'node:fs/promises';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, type TestInfo } from '@playwright/test';
 
@@ -24,6 +25,10 @@ export async function checkA11y(page: Page, label: string, info?: TestInfo): Pro
     })),
   };
   axeLog.push(summary);
+  // One JSON line per check, for the QA report (test-results/axe.jsonl).
+  const dir = new URL('../test-results/', import.meta.url).pathname;
+  await mkdir(dir, { recursive: true });
+  await appendFile(`${dir}axe.jsonl`, `${JSON.stringify(summary)}\n`);
   if (info && summary.violations.length > 0) {
     await info.attach(`axe-${label}`, {
       body: JSON.stringify(summary, null, 2),
