@@ -1,32 +1,32 @@
 <script lang="ts">
-import Seo from '#lib/seo/Seo.svelte';
-import { SITE_ORIGIN } from '#lib/seo/site.ts';
+  import Seo from '#lib/seo/Seo.svelte';
+  import { SITE_ORIGIN } from '#lib/seo/site.ts';
 
-const jsonLd = [
-  {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: 'Fibonacci estimation vs T-shirt sizing',
-    description:
-      'When to use Fibonacci story points and when to use T-shirt sizes for agile estimation.',
-    url: `${SITE_ORIGIN}/guides/fibonacci-vs-t-shirt-sizing`,
-    publisher: { '@type': 'Organization', name: 'Backlogfit', url: `${SITE_ORIGIN}/` },
-  },
-  {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_ORIGIN}/` },
-      { '@type': 'ListItem', position: 2, name: 'Guides', item: `${SITE_ORIGIN}/guides` },
-      {
-        '@type': 'ListItem',
-        position: 3,
-        name: 'Fibonacci vs T-shirt sizing',
-        item: `${SITE_ORIGIN}/guides/fibonacci-vs-t-shirt-sizing`,
-      },
-    ],
-  },
-];
+  const jsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: 'Fibonacci estimation vs T-shirt sizing',
+      description:
+        'When to use Fibonacci story points and when to use T-shirt sizes for agile estimation.',
+      url: `${SITE_ORIGIN}/guides/fibonacci-vs-t-shirt-sizing`,
+      publisher: { '@type': 'Organization', name: 'Backlogfit', url: `${SITE_ORIGIN}/` },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_ORIGIN}/` },
+        { '@type': 'ListItem', position: 2, name: 'Guides', item: `${SITE_ORIGIN}/guides` },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'Fibonacci vs T-shirt sizing',
+          item: `${SITE_ORIGIN}/guides/fibonacci-vs-t-shirt-sizing`,
+        },
+      ],
+    },
+  ];
 </script>
 
 <Seo

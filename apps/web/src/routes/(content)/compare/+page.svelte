@@ -1,66 +1,66 @@
 <script lang="ts">
-import Seo from '#lib/seo/Seo.svelte';
-import { SITE_ORIGIN } from '#lib/seo/site.ts';
+  import Seo from '#lib/seo/Seo.svelte';
+  import { SITE_ORIGIN } from '#lib/seo/site.ts';
 
-const jsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
-  itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_ORIGIN}/` },
-    { '@type': 'ListItem', position: 2, name: 'Compare', item: `${SITE_ORIGIN}/compare` },
-  ],
-};
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_ORIGIN}/` },
+      { '@type': 'ListItem', position: 2, name: 'Compare', item: `${SITE_ORIGIN}/compare` },
+    ],
+  };
 
-const rows = [
-  {
-    capability: 'Sign-up required',
-    backlogfit: 'No, for nobody',
-    hosted: 'Usually for the facilitator, sometimes for everyone',
-    plugin: 'Uses your tracker accounts',
-  },
-  {
-    capability: 'Where data lives',
-    backlogfit: 'Only for the room lifetime, then deleted; or on your own server',
-    hosted: "On the vendor's servers, retention set by the vendor",
-    plugin: 'Inside your tracker',
-  },
-  {
-    capability: 'Vote secrecy before reveal',
-    backlogfit: 'Enforced by the server; values are never sent before reveal',
-    hosted: 'Varies; often hidden only in the user interface',
-    plugin: 'Varies',
-  },
-  {
-    capability: 'Tracking, ads, third-party scripts',
-    backlogfit: 'None',
-    hosted: 'Common in free tiers',
-    plugin: 'Depends on the vendor',
-  },
-  {
-    capability: 'Self-hosting',
-    backlogfit: 'Yes: one container or a Cloudflare Worker',
-    hosted: 'Rarely',
-    plugin: 'Tracker-dependent (data center editions)',
-  },
-  {
-    capability: 'Source code',
-    backlogfit: 'Open source (Apache-2.0)',
-    hosted: 'Usually closed',
-    plugin: 'Usually closed',
-  },
-  {
-    capability: 'Writes estimates back to the tracker',
-    backlogfit: 'No; export CSV, JSON or Markdown',
-    hosted: 'Often, through an integration',
-    plugin: 'Yes, natively',
-  },
-  {
-    capability: 'Cost',
-    backlogfit: 'Free',
-    hosted: 'Free tier with limits, paid plans',
-    plugin: 'Usually per user',
-  },
-];
+  const rows = [
+    {
+      capability: 'Sign-up required',
+      backlogfit: 'No, for nobody',
+      hosted: 'Usually for the facilitator, sometimes for everyone',
+      plugin: 'Uses your tracker accounts',
+    },
+    {
+      capability: 'Where data lives',
+      backlogfit: 'Only for the room lifetime, then deleted; or on your own server',
+      hosted: "On the vendor's servers, retention set by the vendor",
+      plugin: 'Inside your tracker',
+    },
+    {
+      capability: 'Vote secrecy before reveal',
+      backlogfit: 'Enforced by the server; values are never sent before reveal',
+      hosted: 'Varies; often hidden only in the user interface',
+      plugin: 'Varies',
+    },
+    {
+      capability: 'Tracking, ads, third-party scripts',
+      backlogfit: 'None',
+      hosted: 'Common in free tiers',
+      plugin: 'Depends on the vendor',
+    },
+    {
+      capability: 'Self-hosting',
+      backlogfit: 'Yes: one container or a Cloudflare Worker',
+      hosted: 'Rarely',
+      plugin: 'Tracker-dependent (data center editions)',
+    },
+    {
+      capability: 'Source code',
+      backlogfit: 'Open source (Apache-2.0)',
+      hosted: 'Usually closed',
+      plugin: 'Usually closed',
+    },
+    {
+      capability: 'Writes estimates back to the tracker',
+      backlogfit: 'No; export CSV, JSON or Markdown',
+      hosted: 'Often, through an integration',
+      plugin: 'Yes, natively',
+    },
+    {
+      capability: 'Cost',
+      backlogfit: 'Free',
+      hosted: 'Free tier with limits, paid plans',
+      plugin: 'Usually per user',
+    },
+  ];
 </script>
 
 <Seo

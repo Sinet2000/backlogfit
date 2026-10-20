@@ -1,73 +1,73 @@
 <script lang="ts">
-import Seo from '#lib/seo/Seo.svelte';
-import { SITE_ORIGIN } from '#lib/seo/site.ts';
+  import Seo from '#lib/seo/Seo.svelte';
+  import { SITE_ORIGIN } from '#lib/seo/site.ts';
 
-const steps = [
-  {
-    name: 'Prepare a short list of refined backlog items',
-    text: 'Pick the items the team will estimate and make sure each has a clear goal and acceptance criteria. Copy their IDs or links, one per line.',
-  },
-  {
-    name: 'Create a room and choose a scale',
-    text: 'Open Backlogfit, choose New room, pick a deck such as Fibonacci or T-shirt sizes, and paste the task list.',
-  },
-  {
-    name: 'Share the join link',
-    text: 'Send the join link or show the QR code. Participants type a display name and join as voters or spectators. No sign-up is needed.',
-  },
-  {
-    name: 'Explain the item',
-    text: 'The product owner presents the first item in a couple of minutes and answers questions. Nobody mentions numbers yet.',
-  },
-  {
-    name: 'Vote privately',
-    text: 'Everyone picks a card. The room shows who has voted, but not what, until the reveal.',
-  },
-  {
-    name: 'Reveal all votes at once',
-    text: 'The facilitator reveals the cards. Backlogfit shows the distribution, median and whether the team has reached consensus.',
-  },
-  {
-    name: 'Discuss outliers and re-vote',
-    text: 'If the votes are far apart, the highest and lowest voters explain their thinking. Then the team votes again; earlier rounds stay in the history.',
-  },
-  {
-    name: 'Record the final estimate',
-    text: 'The facilitator sets the final story points, moves to the next item and exports the results at the end of the session.',
-  },
-];
+  const steps = [
+    {
+      name: 'Prepare a short list of refined backlog items',
+      text: 'Pick the items the team will estimate and make sure each has a clear goal and acceptance criteria. Copy their IDs or links, one per line.',
+    },
+    {
+      name: 'Create a room and choose a scale',
+      text: 'Open Backlogfit, choose New room, pick a deck such as Fibonacci or T-shirt sizes, and paste the task list.',
+    },
+    {
+      name: 'Share the join link',
+      text: 'Send the join link or show the QR code. Participants type a display name and join as voters or spectators. No sign-up is needed.',
+    },
+    {
+      name: 'Explain the item',
+      text: 'The product owner presents the first item in a couple of minutes and answers questions. Nobody mentions numbers yet.',
+    },
+    {
+      name: 'Vote privately',
+      text: 'Everyone picks a card. The room shows who has voted, but not what, until the reveal.',
+    },
+    {
+      name: 'Reveal all votes at once',
+      text: 'The facilitator reveals the cards. Backlogfit shows the distribution, median and whether the team has reached consensus.',
+    },
+    {
+      name: 'Discuss outliers and re-vote',
+      text: 'If the votes are far apart, the highest and lowest voters explain their thinking. Then the team votes again; earlier rounds stay in the history.',
+    },
+    {
+      name: 'Record the final estimate',
+      text: 'The facilitator sets the final story points, moves to the next item and exports the results at the end of the session.',
+    },
+  ];
 
-const jsonLd = [
-  {
-    '@context': 'https://schema.org',
-    '@type': 'HowTo',
-    name: 'How to estimate backlog items with story points',
-    description:
-      'A step-by-step story point estimation session using simultaneous card voting (the planning poker technique).',
-    totalTime: 'PT45M',
-    tool: [{ '@type': 'HowToTool', name: 'Backlogfit (free, open source, runs in the browser)' }],
-    step: steps.map((s, i) => ({
-      '@type': 'HowToStep',
-      position: i + 1,
-      name: s.name,
-      text: s.text,
-      url: `${SITE_ORIGIN}/how-story-point-estimation-works#step-${i + 1}`,
-    })),
-  },
-  {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_ORIGIN}/` },
-      {
-        '@type': 'ListItem',
-        position: 2,
-        name: 'How story point estimation works',
-        item: `${SITE_ORIGIN}/how-story-point-estimation-works`,
-      },
-    ],
-  },
-];
+  const jsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'HowTo',
+      name: 'How to estimate backlog items with story points',
+      description:
+        'A step-by-step story point estimation session using simultaneous card voting (the planning poker technique).',
+      totalTime: 'PT45M',
+      tool: [{ '@type': 'HowToTool', name: 'Backlogfit (free, open source, runs in the browser)' }],
+      step: steps.map((s, i) => ({
+        '@type': 'HowToStep',
+        position: i + 1,
+        name: s.name,
+        text: s.text,
+        url: `${SITE_ORIGIN}/how-story-point-estimation-works#step-${i + 1}`,
+      })),
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_ORIGIN}/` },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'How story point estimation works',
+          item: `${SITE_ORIGIN}/how-story-point-estimation-works`,
+        },
+      ],
+    },
+  ];
 </script>
 
 <Seo

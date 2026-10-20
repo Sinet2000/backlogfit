@@ -1,32 +1,32 @@
 <script lang="ts">
-import Seo from '#lib/seo/Seo.svelte';
-import { SITE_ORIGIN } from '#lib/seo/site.ts';
+  import Seo from '#lib/seo/Seo.svelte';
+  import { SITE_ORIGIN } from '#lib/seo/site.ts';
 
-const jsonLd = [
-  {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: 'Backlog refinement with story points',
-    description:
-      'How to prepare and facilitate a backlog refinement session with story point estimation.',
-    url: `${SITE_ORIGIN}/guides/backlog-refinement`,
-    publisher: { '@type': 'Organization', name: 'Backlogfit', url: `${SITE_ORIGIN}/` },
-  },
-  {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_ORIGIN}/` },
-      { '@type': 'ListItem', position: 2, name: 'Guides', item: `${SITE_ORIGIN}/guides` },
-      {
-        '@type': 'ListItem',
-        position: 3,
-        name: 'Backlog refinement',
-        item: `${SITE_ORIGIN}/guides/backlog-refinement`,
-      },
-    ],
-  },
-];
+  const jsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: 'Backlog refinement with story points',
+      description:
+        'How to prepare and facilitate a backlog refinement session with story point estimation.',
+      url: `${SITE_ORIGIN}/guides/backlog-refinement`,
+      publisher: { '@type': 'Organization', name: 'Backlogfit', url: `${SITE_ORIGIN}/` },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_ORIGIN}/` },
+        { '@type': 'ListItem', position: 2, name: 'Guides', item: `${SITE_ORIGIN}/guides` },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'Backlog refinement',
+          item: `${SITE_ORIGIN}/guides/backlog-refinement`,
+        },
+      ],
+    },
+  ];
 </script>
 
 <Seo

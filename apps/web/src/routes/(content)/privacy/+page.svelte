@@ -1,15 +1,15 @@
 <script lang="ts">
-import Seo from '#lib/seo/Seo.svelte';
-import { REPO_URL, SITE_ORIGIN } from '#lib/seo/site.ts';
+  import Seo from '#lib/seo/Seo.svelte';
+  import { REPO_URL, SITE_ORIGIN } from '#lib/seo/site.ts';
 
-const jsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
-  itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_ORIGIN}/` },
-    { '@type': 'ListItem', position: 2, name: 'Privacy', item: `${SITE_ORIGIN}/privacy` },
-  ],
-};
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_ORIGIN}/` },
+      { '@type': 'ListItem', position: 2, name: 'Privacy', item: `${SITE_ORIGIN}/privacy` },
+    ],
+  };
 </script>
 
 <Seo

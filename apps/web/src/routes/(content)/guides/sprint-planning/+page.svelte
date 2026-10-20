@@ -1,31 +1,31 @@
 <script lang="ts">
-import Seo from '#lib/seo/Seo.svelte';
-import { SITE_ORIGIN } from '#lib/seo/site.ts';
+  import Seo from '#lib/seo/Seo.svelte';
+  import { SITE_ORIGIN } from '#lib/seo/site.ts';
 
-const jsonLd = [
-  {
-    '@context': 'https://schema.org',
-    '@type': 'Article',
-    headline: 'Sprint planning with story points',
-    description: 'How to use story point estimates and velocity to plan a realistic sprint.',
-    url: `${SITE_ORIGIN}/guides/sprint-planning`,
-    publisher: { '@type': 'Organization', name: 'Backlogfit', url: `${SITE_ORIGIN}/` },
-  },
-  {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_ORIGIN}/` },
-      { '@type': 'ListItem', position: 2, name: 'Guides', item: `${SITE_ORIGIN}/guides` },
-      {
-        '@type': 'ListItem',
-        position: 3,
-        name: 'Sprint planning',
-        item: `${SITE_ORIGIN}/guides/sprint-planning`,
-      },
-    ],
-  },
-];
+  const jsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: 'Sprint planning with story points',
+      description: 'How to use story point estimates and velocity to plan a realistic sprint.',
+      url: `${SITE_ORIGIN}/guides/sprint-planning`,
+      publisher: { '@type': 'Organization', name: 'Backlogfit', url: `${SITE_ORIGIN}/` },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_ORIGIN}/` },
+        { '@type': 'ListItem', position: 2, name: 'Guides', item: `${SITE_ORIGIN}/guides` },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: 'Sprint planning',
+          item: `${SITE_ORIGIN}/guides/sprint-planning`,
+        },
+      ],
+    },
+  ];
 </script>
 
 <Seo

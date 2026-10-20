@@ -1,41 +1,46 @@
 <script lang="ts">
-import Seo from '#lib/seo/Seo.svelte';
-import { REPO_URL, SITE_ORIGIN } from '#lib/seo/site.ts';
+  import Seo from '#lib/seo/Seo.svelte';
+  import { REPO_URL, SITE_ORIGIN } from '#lib/seo/site.ts';
 
-const jsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
-  itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_ORIGIN}/` },
-    { '@type': 'ListItem', position: 2, name: 'Self-hosting', item: `${SITE_ORIGIN}/self-hosting` },
-  ],
-};
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_ORIGIN}/` },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Self-hosting',
+        item: `${SITE_ORIGIN}/self-hosting`,
+      },
+    ],
+  };
 
-const runCommand =
-  'podman run -d --name backlogfit -p 8080:8080 --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=256 --memory=512m -v backlogfit-data:/data -e PUBLIC_ORIGIN=https://estimate.example.com ghcr.io/sinet2000/backlogfit:latest';
+  const runCommand =
+    'podman run -d --name backlogfit -p 8080:8080 --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=256 --memory=512m -v backlogfit-data:/data -e PUBLIC_ORIGIN=https://estimate.example.com ghcr.io/sinet2000/backlogfit:latest';
 
-const verifyCommand =
-  "cosign verify ghcr.io/sinet2000/backlogfit@sha256:<digest> --certificate-identity-regexp '^https://github.com/Sinet2000/backlogfit/.github/workflows/release.yml@refs/tags/v' --certificate-oidc-issuer https://token.actions.githubusercontent.com";
+  const verifyCommand =
+    "cosign verify ghcr.io/sinet2000/backlogfit@sha256:<digest> --certificate-identity-regexp '^https://github.com/Sinet2000/backlogfit/.github/workflows/release.yml@refs/tags/v' --certificate-oidc-issuer https://token.actions.githubusercontent.com";
 
-const settings = [
-  {
-    name: 'PUBLIC_ORIGIN',
-    value: 'required',
-    note: 'Public URL of your instance; used for origin checks.',
-  },
-  { name: 'PORT', value: '8080', note: 'Listening port inside the container.' },
-  {
-    name: 'DATA_DIR',
-    value: '/data in the image',
-    note: 'SQLite storage directory (a volume); set it empty to keep rooms in memory only.',
-  },
-  { name: 'DEFAULT_LIFETIME_HOURS', value: '2', note: 'Default room lifetime.' },
-  { name: 'MAX_LIFETIME_HOURS', value: '8', note: 'Hard maximum, including extensions.' },
-  { name: 'IDLE_TIMEOUT_MINUTES', value: '30', note: 'Close rooms without activity.' },
-  { name: 'MAX_PARTICIPANTS', value: '50', note: 'Per room.' },
-  { name: 'MAX_ROOMS', value: '1000', note: 'Concurrent rooms per instance.' },
-  { name: 'TRUST_PROXY', value: 'false', note: 'Set to true behind a trusted reverse proxy.' },
-];
+  const settings = [
+    {
+      name: 'PUBLIC_ORIGIN',
+      value: 'required',
+      note: 'Public URL of your instance; used for origin checks.',
+    },
+    { name: 'PORT', value: '8080', note: 'Listening port inside the container.' },
+    {
+      name: 'DATA_DIR',
+      value: '/data in the image',
+      note: 'SQLite storage directory (a volume); set it empty to keep rooms in memory only.',
+    },
+    { name: 'DEFAULT_LIFETIME_HOURS', value: '2', note: 'Default room lifetime.' },
+    { name: 'MAX_LIFETIME_HOURS', value: '8', note: 'Hard maximum, including extensions.' },
+    { name: 'IDLE_TIMEOUT_MINUTES', value: '30', note: 'Close rooms without activity.' },
+    { name: 'MAX_PARTICIPANTS', value: '50', note: 'Per room.' },
+    { name: 'MAX_ROOMS', value: '1000', note: 'Concurrent rooms per instance.' },
+    { name: 'TRUST_PROXY', value: 'false', note: 'Set to true behind a trusted reverse proxy.' },
+  ];
 </script>
 
 <Seo

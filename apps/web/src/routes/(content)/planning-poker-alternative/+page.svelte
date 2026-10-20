@@ -1,36 +1,36 @@
 <script lang="ts">
-import Seo from '#lib/seo/Seo.svelte';
-import { REPO_URL, SITE_ORIGIN } from '#lib/seo/site.ts';
+  import Seo from '#lib/seo/Seo.svelte';
+  import { REPO_URL, SITE_ORIGIN } from '#lib/seo/site.ts';
 
-const jsonLd = [
-  {
-    '@context': 'https://schema.org',
-    '@type': 'SoftwareApplication',
-    name: 'Backlogfit',
-    url: `${SITE_ORIGIN}/`,
-    description:
-      'Free, open-source and privacy-friendly story point estimation for agile teams. No sign-up, self-hostable.',
-    applicationCategory: 'BusinessApplication',
-    operatingSystem: 'Web',
-    license: 'https://www.apache.org/licenses/LICENSE-2.0',
-    isAccessibleForFree: true,
-    codeRepository: REPO_URL,
-    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-  },
-  {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_ORIGIN}/` },
-      {
-        '@type': 'ListItem',
-        position: 2,
-        name: 'Planning poker alternative',
-        item: `${SITE_ORIGIN}/planning-poker-alternative`,
-      },
-    ],
-  },
-];
+  const jsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Backlogfit',
+      url: `${SITE_ORIGIN}/`,
+      description:
+        'Free, open-source and privacy-friendly story point estimation for agile teams. No sign-up, self-hostable.',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web',
+      license: 'https://www.apache.org/licenses/LICENSE-2.0',
+      isAccessibleForFree: true,
+      codeRepository: REPO_URL,
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_ORIGIN}/` },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'Planning poker alternative',
+          item: `${SITE_ORIGIN}/planning-poker-alternative`,
+        },
+      ],
+    },
+  ];
 </script>
 
 <Seo
