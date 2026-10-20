@@ -7,6 +7,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Prepare the task list in the configurator and put it in order before the session starts.
+- Reorder tasks by drag and drop in the room, estimate any task right away, and add a task
+  with "Add and estimate now" during the discussion.
+
+### Changed
+
+- Session rules are grouped into Time, Voting and Who can join; field heights are aligned.
+
 ## [0.1.0] - 2026-10-20
 
 First public release.
