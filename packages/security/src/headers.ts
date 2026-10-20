@@ -74,7 +74,7 @@ export const PERMISSIONS_POLICY_FEATURES: readonly string[] = Object.freeze([
   'xr-spatial-tracking',
 ]);
 
-const ORIGIN_RE = /^(?:https|wss|http|ws):\/\/[a-z0-9.-]+(?::[0-9]{1,5})?$/;
+const ORIGIN_RE = /^(?:https|wss|http|ws):\/\/(?:[a-z0-9.-]+|\[[0-9a-f:.]+\])(?::[0-9]{1,5})?$/;
 
 function checkedConnectSources(sources: readonly string[]): string[] {
   for (const s of sources) {

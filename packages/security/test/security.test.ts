@@ -54,6 +54,7 @@ describe('headers', () => {
     expect(contentSecurityPolicy({ connectSrc: ['wss://ws.example.com'] })).toContain(
       "connect-src 'self' wss://ws.example.com",
     );
+    expect(contentSecurityPolicy({ connectSrc: ['ws://[::1]:8080'] })).toContain('ws://[::1]:8080');
     for (const bad of [
       "wss://x.com; script-src 'unsafe-inline'",
       'wss://x.com/path',
