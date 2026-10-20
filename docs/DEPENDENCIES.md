@@ -11,7 +11,7 @@ package that uses it. This page is the index.
 | `@backlogfit/web` (`apps/web`) | [dependencies/web.md](dependencies/web.md) |
 | `@backlogfit/worker` (`apps/worker`) | [dependencies/worker.md](dependencies/worker.md) |
 | `@backlogfit/server` (`apps/server`) | [dependencies/server.md](dependencies/server.md) |
-| `@backlogfit/e2e` (`tests/e2e`, `tests/load`) | [dependencies/e2e.md](dependencies/e2e.md) |
+| `@backlogfit/e2e`, `@backlogfit/load` (`tests/e2e`, `tests/load`) | [dependencies/qa.md](dependencies/qa.md) |
 | Workspace root (tooling) | see below |
 
 ## Workspace root
