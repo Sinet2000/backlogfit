@@ -89,6 +89,12 @@ Use teams when different groups size different work, for example developers and 
 - **Manage people** from the ⋯ menu in the People list: change someone's team, make them a
   spectator or a voter, make them a co-host, or remove them from the session.
 
+![Invite dialog with one join link and QR code per team](assets/screenshots/teams-invite.png)
+
+![Reveal on a task for everyone, with the median and number of votes per team](assets/screenshots/teams-reveal.png)
+
+![A developer's view of a task only QA estimates: no cards, a calm note to follow along](assets/screenshots/teams-follow-along.png)
+
 ## Tips
 
 - **Anchoring.** Do not say your own estimate before the reveal, and ask the product owner not

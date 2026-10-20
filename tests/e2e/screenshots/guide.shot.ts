@@ -97,3 +97,54 @@ test('voter view, reveal and results', async ({ page, browser, contextOptions })
   await page.screenshot({ ...shot('results-full'), fullPage: true });
   await Promise.all(contexts.map((c) => c.close()));
 });
+
+test('teams: invite links, a team task and the per-team results', async ({
+  page,
+  browser,
+  contextOptions,
+}) => {
+  const teams = [
+    { id: 'dev', name: 'Dev' },
+    { id: 'qa', name: 'QA' },
+  ];
+  const room = await createRoomApi({ autoReveal: true, theme: 'corporate', teams });
+  await page.goto(room.adminLink);
+  await submitJoin(page, 'Maria (Scrum Master)', { spectator: true, team: '' });
+  const contexts: BrowserContext[] = [];
+  const pages = [];
+  for (const [name, team] of [
+    ['Alex', 'dev'],
+    ['Jonas', 'dev'],
+    ['Priya', 'qa'],
+    ['Mei', 'qa'],
+  ] as const) {
+    const ctx = await browser.newContext(contextOptions);
+    contexts.push(ctx);
+    const p = await ctx.newPage();
+    await p.goto(`${room.joinLink}@${team}`);
+    await submitJoin(p, name, { team: 'keep' });
+    pages.push(p);
+  }
+  const [alex, jonas, priya, mei] = pages;
+  if (!alex || !jonas || !priya || !mei) throw new Error('team not joined');
+  await addTasks(page, ['SCP-3660 Checkout redesign', 'SCP-3661 Regression test plan #qa']);
+  await nextTask(page);
+  for (const [p, v] of [
+    [alex, '5'],
+    [jonas, '8'],
+    [priya, '3'],
+    [mei, '3'],
+  ] as const) {
+    await vote(p, v);
+  }
+  await expect(id(page, 'team-summary')).toBeVisible();
+  await page.screenshot(shot('teams-reveal'));
+  await id(page, 'btn-save-next').click();
+  await expect(currentTask(alex)).toHaveAttribute('data-key', 'SCP-3661');
+  await alex.mouse.move(0, 0);
+  await alex.screenshot(shot('teams-follow-along'));
+  await id(page, 'btn-invite').click();
+  await page.locator('[data-testid="invite-tab"][data-team="qa"]').click();
+  await page.screenshot(shot('teams-invite'));
+  await Promise.all(contexts.map((c) => c.close()));
+});
