@@ -154,6 +154,23 @@ describe('WebSocket guards', () => {
     for (const f of c.frames) expect(f).not.toContain('not json');
   });
 
+  it('rate-limits a whole room without striking its sockets', async () => {
+    // Per-connection burst 2 → per-room burst 10. Six sockets × 2 frames exceed the room bucket.
+    server = await start({ RATE_MSGS_PER_SEC: '1', RATE_BURST: '2' });
+    const room = await createRoom(server);
+    const clients = await Promise.all(
+      Array.from({ length: 6 }, () => Client.open(server, room.roomId)),
+    );
+    for (const c of clients) for (let i = 0; i < 2; i++) c.send({ type: 'ping' });
+    await new Promise((r) => setTimeout(r, 200));
+    const codes = clients.flatMap((c) =>
+      c.messages.flatMap((m) => (m.type === 'error' ? [m.code] : [])),
+    );
+    expect(codes.filter((c) => c === 'rate_limited')).toHaveLength(2);
+    expect(codes).toHaveLength(12);
+    for (const c of clients) expect(c.ws.readyState).toBe(c.ws.OPEN);
+  });
+
   it('rate-limits messages per connection', async () => {
     server = await start({ RATE_MSGS_PER_SEC: '1', RATE_BURST: '3' });
     const room = await createRoom(server);

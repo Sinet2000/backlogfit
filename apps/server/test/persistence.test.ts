@@ -89,6 +89,24 @@ describe('sqlite persistence', () => {
     expect(rows()).toEqual([]);
   });
 
+  it('drops rows of an unknown state version on load', async () => {
+    server = await start({ DATA_DIR: dir.path });
+    const room = await createRoom(server);
+    await server.close();
+    const db = new DatabaseSync(join(dir.path, DB_FILE));
+    const row = db.prepare('SELECT state FROM rooms WHERE id = ?').get(room.roomId) as {
+      state: string;
+    };
+    const state = { ...(JSON.parse(row.state) as RoomState), v: 2 };
+    db.prepare('UPDATE rooms SET state = ? WHERE id = ?').run(JSON.stringify(state), room.roomId);
+    db.prepare('INSERT INTO rooms (id, state) VALUES (?, ?)').run('garbage', '{not json');
+    db.close();
+
+    server = await start({ DATA_DIR: dir.path });
+    expect(server.registry.size).toBe(0);
+    expect(rows()).toEqual([]);
+  });
+
   it('hard expiry closes sockets and wipes storage (accelerated clock)', async () => {
     // 1 h lifetime at x3600 ≈ 1 s of wall time; idle timeout set longer than the lifetime.
     server = await start({

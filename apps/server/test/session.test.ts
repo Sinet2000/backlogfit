@@ -84,8 +84,9 @@ describe('full session over real WebSockets', () => {
     expect((await admin.c.closed).code).toBe(4003);
     expect(server.registry.get(room.roomId)).toBeUndefined();
 
-    // The room is gone: a new socket is told not_found.
+    // The room is gone: a hello on a new socket is told not_found.
     const late = await Client.open(server, room.roomId);
+    late.send({ type: 'hello', v: 1, joinSecret: room.joinSecret, name: 'Late', role: 'voter' });
     expect(await late.next('closed')).toEqual({ type: 'closed', reason: 'not_found' });
     expect((await late.closed).code).toBe(4404);
   });
@@ -99,8 +100,24 @@ describe('full session over real WebSockets', () => {
     expect((await c.closed).code).toBe(4404);
 
     const unknown = await Client.open(server, 'doesNotExist123');
+    unknown.send({ type: 'hello', v: 1, joinSecret: 'A'.repeat(22), name: 'Eve', role: 'voter' });
     expect(await unknown.next('closed')).toEqual({ type: 'closed', reason: 'not_found' });
     expect((await unknown.closed).code).toBe(4404);
+  });
+
+  it('unknown and real rooms behave the same before hello', async () => {
+    server = await start({ HELLO_TIMEOUT_SECONDS: '1' });
+    const room = await createRoom(server);
+    const real = await Client.open(server, room.roomId);
+    const fake = await Client.open(server, 'doesNotExist1234567890');
+    for (const c of [real, fake]) {
+      c.send({ type: 'ping' });
+      c.ws.send('{');
+    }
+    const [r, f] = await Promise.all([real.closed, fake.closed]);
+    expect(f.code).toBe(r.code);
+    expect(fake.frames).toEqual(real.frames);
+    expect(server.registry.get('doesNotExist1234567890')).toBeUndefined();
   });
 
   it('resume token restores the participant and replaces the old socket', async () => {

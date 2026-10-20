@@ -10,10 +10,15 @@ import {
   expandEffects,
   type Outbound,
   parseClientMessage,
+  parseCreateRoomRequest,
+  presetScale,
+  type ReduceResult,
   type RoomEvent,
   type Limits as RoomLimits,
   type RoomState,
+  randomSalt,
   randomToken,
+  reconcileConnections,
   reduce,
   type ServerMessage,
   toEvent,
@@ -40,6 +45,9 @@ export interface RoomHostOptions {
   /** Invalid or rate-limited frames tolerated per connection before closing with 1008. */
   maxStrikes?: number;
 }
+
+/** The per-room bucket (ADR-0007) allows this many times the per-connection rate and burst. */
+export const ROOM_RATE_FACTOR = 5;
 
 /** Close code for policy violations (invalid frame flood, hello timeout). */
 export const CLOSE_POLICY = 1008;
@@ -73,10 +81,23 @@ export class Room {
   #timer: NodeJS.Timeout | null = null;
   #ended = false;
   #stopped = false;
+  /** Bounds the total fan-out work of one room across all of its sockets. */
+  readonly #roomBucket: RateLimiter<0>;
+  /**
+   * A decoy for an unknown roomId: same pipeline, never persisted, impossible join hash, so it
+   * answers exactly like a real room answers a wrong join secret (PROTOCOL §4, finding R2).
+   */
+  readonly #ephemeral: boolean;
 
-  constructor(state: RoomState, host: RoomRegistry) {
+  constructor(state: RoomState, host: RoomRegistry, ephemeral = false) {
     this.#state = state;
     this.#host = host;
+    this.#ephemeral = ephemeral;
+    this.#roomBucket = createRateLimiter<0>({
+      rate: host.opts.rateMsgsPerSec * ROOM_RATE_FACTOR,
+      burst: host.opts.rateBurst * ROOM_RATE_FACTOR,
+      maxKeys: 1,
+    });
   }
 
   get id(): string {
@@ -112,13 +133,8 @@ export class Room {
    */
   restore(): Promise<void> {
     return this.#enqueue(() => {
-      this.#dispatch({ type: 'tick' });
-      if (this.#ended) return;
-      for (const p of this.#state.participants) {
-        if (p.conn !== null) this.#dispatch({ type: 'disconnect', conn: p.conn });
-        if (this.#ended) return;
-      }
-      if (this.#timer === null) this.#arm(this.#state.alarmAt);
+      const prev = this.#state;
+      this.#apply(prev, reconcileConnections(prev, [], this.#ctx()));
     });
   }
 
@@ -140,8 +156,14 @@ export class Room {
     const conn = this.#conns.get(id);
     if (!conn || conn.closed || this.#ended || this.#stopped) return;
     const { opts, limiter } = this.#host;
-    if (!limiter.take(id, Date.now())) {
+    const now = Date.now();
+    if (!limiter.take(id, now)) {
       this.#strike(conn, 'rate_limited');
+      return;
+    }
+    if (!this.#roomBucket.take(0, now)) {
+      // The room as a whole is saturated; not this socket's fault, so no strike.
+      this.#sendTo(conn, { type: 'error', code: 'rate_limited' });
       return;
     }
     const parsed = parseClientMessage(raw, opts.maxMessageBytes);
@@ -192,17 +214,21 @@ export class Room {
     return this.#queue;
   }
 
+  #ctx() {
+    return { now: this.#host.opts.clock.now(), randomId: newId };
+  }
+
   #dispatch(event: RoomEvent): void {
     if (this.#ended) return;
     const prev = this.#state;
-    const { state, effects } = reduce(prev, event, {
-      now: this.#host.opts.clock.now(),
-      randomId: newId,
-    });
+    this.#apply(prev, reduce(prev, event, this.#ctx()));
+  }
+
+  #apply(prev: RoomState, { state, effects }: ReduceResult): void {
     const out = expandEffects(state, effects);
     this.#state = state;
     const end = out.find((o) => o.type === 'deleteAll');
-    if (!end && state !== prev) this.#host.opts.store.put(state);
+    if (!end && state !== prev && !this.#ephemeral) this.#host.opts.store.put(state);
     for (const o of out) {
       switch (o.type) {
         case 'send': {
@@ -229,7 +255,7 @@ export class Room {
     this.#ended = true;
     if (this.#timer) clearTimeout(this.#timer);
     this.#timer = null;
-    this.#host.opts.store.delete(this.id);
+    if (!this.#ephemeral) this.#host.opts.store.delete(this.id);
     for (const conn of this.#conns.values()) {
       if (conn.closed) continue;
       this.#sendTo(conn, { type: 'closed', reason });
@@ -241,7 +267,7 @@ export class Room {
   #arm(at: number | null): void {
     if (this.#timer) clearTimeout(this.#timer);
     this.#timer = null;
-    if (at === null || this.#ended || this.#stopped) return;
+    if (at === null || this.#ended || this.#stopped || this.#ephemeral) return;
     this.#timer = setTimeout(() => {
       this.#timer = null;
       this.#enqueue(() => this.#dispatch({ type: 'tick' }));
@@ -314,6 +340,25 @@ export class RoomRegistry {
     return { ok: true, roomId, expiresAt: state.expiresAt };
   }
 
+  /** A throwaway room standing in for an unknown roomId (see Room#ephemeral). */
+  decoy(roomId: string): Room {
+    const parsed = parseCreateRoomRequest({
+      v: 1,
+      config: { scale: presetScale('fibonacci') },
+      joinHash: randomSalt() + randomSalt(),
+      adminHash: randomSalt() + randomSalt(),
+      lifetimeHours: 1,
+    });
+    if (!parsed.ok) throw new Error('decoy room request rejected');
+    const { state } = createRoom(
+      parsed.msg,
+      roomId,
+      { now: this.opts.clock.now(), randomId: newId },
+      this.opts.roomLimits,
+    );
+    return new Room(state, this, true);
+  }
+
   /** Reload persisted rooms; overdue ones expire (and are deleted) immediately. */
   async restore(): Promise<void> {
     const jobs: Promise<void>[] = [];
@@ -327,6 +372,7 @@ export class RoomRegistry {
 
   /** Called by a room once it has ended and wiped its storage. */
   forget(room: Room): void {
+    if (!this.#rooms.has(room.id)) return;
     if (this.#rooms.get(room.id) === room) this.#rooms.delete(room.id);
   }
 

@@ -1,6 +1,5 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HOUR_MS, type Limits as RoomLimits } from '@backlogfit/core';
 import { type Limits, readLimits } from '@backlogfit/security';
 
 export interface ServerConfig {
@@ -79,16 +78,5 @@ export function readConfig(env: Env = process.env): ServerConfig {
     timeScale,
     heartbeatSeconds: int(env, 'HEARTBEAT_SECONDS', 30, 1, 3600),
     helloTimeoutSeconds: int(env, 'HELLO_TIMEOUT_SECONDS', 20, 1, 3600),
-  };
-}
-
-/** Map env-level limits onto the reducer's limits. */
-export function roomLimits(l: Limits): RoomLimits {
-  return {
-    maxLifetimeMs: l.maxLifetimeHours * HOUR_MS,
-    idleTimeoutMs: l.idleTimeoutMinutes * 60_000,
-    maxParticipants: l.maxParticipants,
-    maxTasks: l.maxTasks,
-    passcodeMaxAttempts: l.passcodeMaxAttempts,
   };
 }
