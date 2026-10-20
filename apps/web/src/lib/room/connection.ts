@@ -118,6 +118,7 @@ const CLOSE_CODE_REASONS: Record<number, CloseReason> = {
   4004: 'kicked',
   4005: 'denied',
   4006: 'replaced',
+  4007: 'left',
   4008: 'rejected',
   4404: 'not_found',
 };
@@ -205,8 +206,11 @@ export class RoomConnection {
     return 'queued';
   }
 
-  /** Leaves voluntarily: closes the socket and forgets the resume token. */
+  /** Leaves voluntarily: tells the server, closes the socket and forgets the resume token. */
   leave(): void {
+    if (this.#snap.status === 'joined' || this.#snap.status === 'lobby') {
+      this.#transport?.send(JSON.stringify({ type: 'leave' }));
+    }
     this.#teardown();
     this.#o.session.clear();
     this.#update({ status: 'ended', ended: 'left', queuedVote: null });
@@ -375,7 +379,7 @@ export class RoomConnection {
       return;
     }
     if (reason !== null) {
-      if (reason === 'kicked' || reason === 'denied' || reason === 'not_found') {
+      if (reason === 'kicked' || reason === 'denied' || reason === 'not_found' || reason === 'left') {
         this.#o.session.clear();
       }
       if (reason === 'expired' || reason === 'idle' || reason === 'closed') {

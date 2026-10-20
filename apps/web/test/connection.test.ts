@@ -206,6 +206,20 @@ describe('RoomConnection over the loopback engine', () => {
     expect(new RoomSessionStore(k.store, link.roomId).resumeToken).toBeNull();
   });
 
+  it('tells the server when leaving, so the others see the person go', async () => {
+    const { engine, link, admin } = await loopbackRoom();
+    const a = connect(admin, engine);
+    a.conn.join({ name: 'Host', role: 'voter' });
+    const k = connect(link, engine);
+    k.conn.join({ name: 'Kim', role: 'voter' });
+    await flush();
+    expect(a.last()?.view?.participants.map((p) => p.name)).toContain('Kim');
+    k.conn.leave();
+    await flush();
+    expect(k.last()).toMatchObject({ status: 'ended', ended: 'left' });
+    expect(a.last()?.view?.participants.map((p) => p.name)).not.toContain('Kim');
+  });
+
   it('reports not_found for unknown rooms', async () => {
     const link = {
       roomId: 'ZZZZZZZZZZZZZZZZZZZZZZ',
