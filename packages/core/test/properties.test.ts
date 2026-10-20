@@ -85,7 +85,7 @@ const opArb: fc.Arbitrary<{ dt: number; op: Op }> = fc.record({
       arbitrary: fc.record({
         k: fc.constant('admin' as const),
         c: fc.nat(CONNS.length - 1),
-        msg: fc.nat(27),
+        msg: fc.nat(28),
         target: fc.nat(8),
         n: fc.nat(30),
         flag: fc.boolean(),
@@ -130,6 +130,7 @@ function adminMessage(state: RoomState, o: Extract<Op, { k: 'admin' }>): ClientM
     { type: 'admin.teams', teams: o.flag ? TEAMS : TEAMS.slice(o.n % 2) },
     { type: 'admin.tasks.add', lines: [`T-${o.n} QA only #qa`, `Both #dev #qa`], voters: ['dev'] },
     { type: 'admin.teams', teams: [] },
+    { type: 'team', team: o.flag ? 'qa' : null },
   ];
   return all[o.msg % all.length] as ClientMessage;
 }
@@ -517,6 +518,7 @@ describe('properties', () => {
         for (const { before, event, result } of run(ops, config, passcode).steps) {
           eligibleVotes(result.state);
           if (event.type !== 'message' || event.msg.type !== 'vote') continue;
+          if (result.state.closed !== null) continue;
           const actor = before.participants.find((p) => p.conn === event.conn);
           const task = before.tasks.find((t) => t.id === before.currentTaskId);
           if (actor && task && !canEstimate(actor, task.voters)) {

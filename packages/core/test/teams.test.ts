@@ -261,6 +261,16 @@ describe('joining with a team hint', () => {
     expect(teamOf(sim, 'Dan')).toBe('qa');
   });
 
+  it('lets people pick their own team after joining', () => {
+    const { sim } = teamRoom();
+    send(sim, 'c-nell', { type: 'team', team: 'qa' });
+    expect(teamOf(sim, 'Nell')).toBe('qa');
+    expect(errorsOf(send(sim, 'c-nell', { type: 'team', team: 'ops' }))).toEqual(['unknown_team']);
+    send(sim, 'c-nell', { type: 'team', team: null });
+    expect(teamOf(sim, 'Nell')).toBeNull();
+    expect(errorsOf(send(sim, 'c-zed', { type: 'team', team: 'qa' }))).toEqual(['not_joined']);
+  });
+
   it('shows teams to everyone and the requested team in the lobby', () => {
     const sim = newRoom({ teams: TEAMS, lobby: true });
     const admin = join(sim, 'ca', 'Ada', { admin: true });

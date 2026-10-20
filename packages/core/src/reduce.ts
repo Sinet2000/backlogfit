@@ -319,7 +319,11 @@ function message(tx: Tx, conn: string, msg: ClientMessage, auth: HelloAuth | und
   }
   if (p.status === 'lobby') fail('lobby_waiting');
   if (msg.type === 'vote' || msg.type === 'unvote') vote(tx, p, msg);
-  else admin(tx, p, conn, msg);
+  else if (msg.type === 'team') {
+    if (msg.team !== null) knownTeams(tx.d, [msg.team]);
+    p.team = msg.team;
+    changed(tx);
+  } else admin(tx, p, conn, msg);
   tx.d.lastActivityAt = tx.ctx.now;
   tx.mutated = true;
 }

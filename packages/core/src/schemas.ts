@@ -195,6 +195,8 @@ export const ClientMessageSchema = v.variant('type', [
   msg('unvote', { ...taskId, round: int(1, ROUND_MAX) }),
   msg('ping', {}),
   msg('leave', {}),
+  /** Choose your own team; like the role chosen at join, it is self-declared. */
+  msg('team', { team: v.nullable(TeamIdSchema) }),
   msg('admin.tasks.add', {
     lines: v.pipe(
       v.array(v.pipe(v.string(), v.maxLength(TASK_LINE_MAX))),
