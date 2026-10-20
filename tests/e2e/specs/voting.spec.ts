@@ -173,6 +173,7 @@ test('keyboard: digits pick cards, Space reveals, N moves on, ? opens help', asy
   await expect(currentTask(a.page)).toHaveAttribute('data-key', 'SCP-61');
 
   // Typing in the task box must not trigger shortcuts.
+  await id(page, 'task-add-open').click();
   await id(page, 'task-input').fill('');
   await id(page, 'task-input').press('n');
   await expect(currentTask(a.page)).toHaveAttribute('data-key', 'SCP-61');

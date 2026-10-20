@@ -1,7 +1,7 @@
 /** Task lines: links are rendered safely, dangerous schemes never reach the DOM. */
 import { createRoomApi } from '../fixtures/api.ts';
 import { expect, joinAdmin, test } from '../fixtures/test.ts';
-import { addTasks, id } from '../fixtures/ui.ts';
+import { addTasks, createRoom, currentTask, id } from '../fixtures/ui.ts';
 
 test('link tasks render as safe external links and javascript: is rejected @smoke', async ({
   page,
@@ -69,4 +69,51 @@ test('ids policy keeps only the key of an issue URL and never stores the URL', a
     0,
   );
   expect(wire.received.some((f) => f.includes('evil.example.com'))).toBe(false);
+});
+
+const keys = (p: import('@playwright/test').Page) =>
+  p.getByTestId('task-item').evaluateAll((els) => els.map((e) => e.getAttribute('data-key')));
+
+test('tasks prepared in the configurator arrive in order; any task can be estimated now @smoke', async ({
+  page,
+  people,
+}) => {
+  const room = await createRoom(page, {
+    tasks: ['SCP-1 First', 'SCP-2 Second', 'SCP-3 Third', 'SCP-1 First'],
+    onStep: async (p) => {
+      const items = p.getByTestId('agenda-item');
+      if ((await items.count()) === 3) {
+        // Duplicates are dropped; move the last task to the top.
+        await items.nth(2).getByTestId('move-up').click();
+        await items.nth(1).getByTestId('move-up').click();
+      }
+    },
+  });
+  // Opening the room from the same tab adds the prepared list once.
+  await page.goto(room.adminLink);
+  await id(page, 'join-name').fill('Admin');
+  await id(page, 'join-submit').click();
+  await expect.poll(() => keys(page)).toEqual(['SCP-3', 'SCP-1', 'SCP-2']);
+
+  const alice = await people.join(room.joinLink, 'Alice');
+  await expect.poll(() => keys(alice.page)).toEqual(['SCP-3', 'SCP-1', 'SCP-2']);
+
+  // Reorder in the room: everyone sees the new order.
+  await page.getByTestId('task-item').first().getByTestId('move-down').click();
+  await expect.poll(() => keys(alice.page)).toEqual(['SCP-1', 'SCP-3', 'SCP-2']);
+
+  // Next follows the order; a task from the discussion can jump the queue.
+  await id(page, 'btn-next').click();
+  await expect(currentTask(alice.page)).toHaveAttribute('data-key', 'SCP-1');
+  await addTasks(page, ['SCP-9 Raised in standup'], { estimateNow: true });
+  await expect(currentTask(alice.page)).toHaveAttribute('data-key', 'SCP-9');
+  await page
+    .locator('[data-testid="task-item"][data-key="SCP-2"]')
+    .getByTestId('task-select')
+    .click();
+  await expect(currentTask(alice.page)).toHaveAttribute('data-key', 'SCP-2');
+
+  // A reload of the host tab never adds the prepared list a second time.
+  await page.reload();
+  await expect.poll(() => keys(page)).toEqual(['SCP-1', 'SCP-3', 'SCP-2', 'SCP-9']);
 });

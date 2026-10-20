@@ -21,6 +21,12 @@ test('landing and configurator', async ({ page }) => {
   await createRoom(page, {
     preset: 'fibonacci',
     autoReveal: false,
+    tasks: [
+      'SCP-3655 Fix login timeout',
+      'SCP-3656 Export results to PDF',
+      'SCP-3701 Audit log for admins',
+      'SCP-3702 Dark mode for reports',
+    ],
     onStep: async (p, step) => {
       await p.screenshot(shot(`configurator-step-${step}`));
     },

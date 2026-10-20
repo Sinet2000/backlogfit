@@ -50,6 +50,8 @@ export interface ConfiguratorOptions {
   lobby?: boolean;
   spectators?: boolean;
   passcode?: string;
+  /** Task lines prepared in the configurator. */
+  tasks?: string[];
   /** Called on every wizard step before moving on (screenshots, axe). */
   onStep?: (page: Page, step: number) => Promise<void>;
 }
@@ -88,6 +90,13 @@ export async function createRoom(page: Page, opts: ConfiguratorOptions = {}): Pr
   if (opts.passcode !== undefined) {
     const p = opts.passcode;
     pending.set('setting-passcode', (el) => el.fill(p));
+  }
+  if (opts.tasks !== undefined) {
+    const lines = opts.tasks;
+    pending.set('agenda-input', async (el) => {
+      await el.fill(lines.join('\n'));
+      await id(page, 'agenda-add').click();
+    });
   }
 
   for (let step = 1; step <= 8; step++) {
@@ -166,9 +175,17 @@ export function cssEscape(s: string): string {
   return s.replace(/["\\]/g, '\\$&');
 }
 
-export async function addTasks(page: Page, lines: string[]): Promise<void> {
-  await id(page, 'task-input').fill(lines.join('\n'));
-  await id(page, 'task-add').click();
+export async function addTasks(
+  page: Page,
+  lines: string[],
+  opts: { estimateNow?: boolean } = {},
+): Promise<void> {
+  // Once the room has tasks the add form is folded behind an "Add" button.
+  const input = id(page, 'task-input');
+  await expect(input.or(id(page, 'task-add-open')).first()).toBeVisible();
+  if (!(await input.isVisible())) await id(page, 'task-add-open').click();
+  await input.fill(lines.join('\n'));
+  await id(page, opts.estimateNow ? 'task-add-now' : 'task-add').click();
 }
 
 export async function vote(page: Page, value: string): Promise<void> {
