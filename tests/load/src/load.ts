@@ -224,6 +224,8 @@ async function connect(
   return c;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function runRoom(opts: LoadOptions, index: number): Promise<void> {
   if (opts.rampMs > 0) await new Promise((r) => setTimeout(r, (opts.rampMs * index) / opts.rooms));
   let created: Awaited<ReturnType<typeof createRoom>>;
@@ -288,6 +290,7 @@ async function runRoom(opts: LoadOptions, index: number): Promise<void> {
       await Promise.all(
         clients.map(async (c) => {
           const value = scale[Math.floor(Math.random() * scale.length)] ?? '1';
+          if (opts.thinkMs > 0) await sleep(Math.random() * opts.thinkMs);
           const m = c.mark();
           const s = performance.now();
           c.send({ type: 'vote', taskId, round, value });
@@ -319,6 +322,7 @@ async function runRoom(opts: LoadOptions, index: number): Promise<void> {
         ),
       );
       for (const at of revealed) metrics.broadcastReveal.push(at - t1);
+      if (opts.thinkMs > 0) await sleep(opts.thinkMs);
     }
     metrics.roomsCompleted++;
   } catch (e) {

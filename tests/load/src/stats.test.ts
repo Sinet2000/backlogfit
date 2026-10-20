@@ -38,6 +38,10 @@ test('options: defaults and flags', () => {
   assert.throws(() => parseOptions(['--rooms', 'x']));
   assert.throws(() => parseOptions(['--url', 'ftp://x']));
   assert.throws(() => parseOptions(['--bogus']));
+  const t = parseOptions(['--think', '4000']);
+  if (t === 'help') throw new Error('unexpected help');
+  assert.equal(t.thinkMs, 4000);
+  assert.throws(() => parseOptions(['--think', '-1']));
 });
 
 test('ws url', () => {

@@ -38,6 +38,7 @@ export interface LoadOptions {
   rounds: number;
   timeoutMs: number;
   rampMs: number;
+  thinkMs: number;
   json: string | null;
 }
 
@@ -50,6 +51,8 @@ export const USAGE = `Usage: node src/load.ts [options]
   --rounds <n>                 voting rounds per room   (default 3)
   --timeout <ms>               per-step timeout         (default 30000)
   --ramp <ms>                  spread room starts over this window (default 0)
+  --think <ms>                 voters pick a card within this time, and rooms pause this
+                               long after each reveal, like a real meeting (default 0)
   --json <file>                also write the report as JSON
   --help`;
 
@@ -71,6 +74,7 @@ export function parseOptions(argv: readonly string[]): LoadOptions | 'help' {
       rounds: { type: 'string' },
       timeout: { type: 'string' },
       ramp: { type: 'string' },
+      think: { type: 'string' },
       json: { type: 'string' },
       help: { type: 'boolean' },
     },
@@ -89,6 +93,7 @@ export function parseOptions(argv: readonly string[]): LoadOptions | 'help' {
     rounds: posInt('rounds', values.rounds, 3),
     timeoutMs: posInt('timeout', values.timeout, 30_000),
     rampMs: posInt('ramp', values.ramp, 0, 0),
+    thinkMs: posInt('think', values.think, 0, 0),
     json: values.json ?? null,
   };
 }
