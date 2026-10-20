@@ -16,5 +16,6 @@ playwright-report/
 
 # Local working notes, not part of the app
 PLAN.md
+DEPLOY-PLAN.md
 coordination/
 *.tmp.ts
