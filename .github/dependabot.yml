@@ -5,6 +5,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 3
     open-pull-requests-limit: 10
     versioning-strategy: increase
     commit-message:
@@ -23,6 +25,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 3
     commit-message:
       prefix: ci
     groups:
@@ -34,6 +38,8 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    cooldown:
+      default-days: 3
     commit-message:
       prefix: build
       include: scope
