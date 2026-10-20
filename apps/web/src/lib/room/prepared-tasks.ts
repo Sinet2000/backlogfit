@@ -1,8 +1,6 @@
-/**
- * The task list ("agenda") a host prepares before a session. It is parsed with the same rules
- * the server applies, handed to the room through sessionStorage (this tab only, never saved in
- * presets) and added by the host's own connection when the room is still empty.
- */
+// Tasks a host prepares in the configurator. They are handed to the room through sessionStorage
+// only (this tab, never presets, localStorage or the URL) and added by the host's own
+// connection once the room is open.
 import {
   LINES_PER_ADD_MAX,
   type ParsedTask,
@@ -10,30 +8,32 @@ import {
   type TaskLineError,
   type TaskParseOptions,
 } from '@backlogfit/core';
+import { STORAGE_KEYS } from '../storage-keys.ts';
 import type { KeyValueStore } from './storage.ts';
 
-export const AGENDA_MAX = 500;
+export const PREPARED_MAX = 500;
 
-export interface AgendaItem {
+export interface PreparedItem {
   line: string;
   task: ParsedTask | null;
   error: TaskLineError | null;
+  shortened: boolean;
 }
 
 const ERROR_TEXT: Record<TaskLineError, string> = {
-  empty: 'Empty line.',
+  empty: 'This line is empty.',
   too_long: 'This line is too long.',
-  unsafe_chars: 'Contains characters that are not allowed.',
-  invalid_url: 'Not a valid http(s) link.',
-  url_not_allowed: 'Links to this domain are not allowed.',
-  links_disabled: 'Links are off for this session. Use the task ID instead.',
-  title_too_long: 'The title is too long.',
+  unsafe_chars: 'This line contains characters that are not allowed.',
+  invalid_url: 'This is not a valid http(s) link.',
+  url_not_allowed: 'Links to this domain are not allowed. Change the link settings below.',
+  links_disabled:
+    'Links are off for this session. Use the task ID, or change the link settings below.',
+  title_too_long: 'The title is too long. Use at most 200 characters.',
   url_in_title: 'Put the link first, then the title.',
 };
 
-export const agendaErrorText = (e: TaskLineError): string => ERROR_TEXT[e];
+export const preparedErrorText = (e: TaskLineError): string => ERROR_TEXT[e];
 
-/** Pasted text → trimmed, non-empty lines. */
 export function splitLines(text: string): string[] {
   return text
     .split(/\r?\n/)
@@ -41,14 +41,31 @@ export function splitLines(text: string): string[] {
     .filter((l) => l !== '');
 }
 
-export function parseAgenda(lines: readonly string[], opts: TaskParseOptions): AgendaItem[] {
+export function uniqueLines(text: string): string[] {
+  return [...new Set(splitLines(text))].slice(0, PREPARED_MAX);
+}
+
+const URL_START = /^https?:\/\/\S+/i;
+
+function wasShortened(line: string, task: ParsedTask): boolean {
+  const first = line.match(URL_START)?.[0];
+  if (!first) return false;
+  try {
+    return task.url !== new URL(first).href;
+  } catch {
+    return false;
+  }
+}
+
+export function parsePrepared(lines: readonly string[], opts: TaskParseOptions): PreparedItem[] {
   return lines.map((line) => {
     const r = parseTaskLine(line, opts);
-    return r.ok ? { line, task: r.task, error: null } : { line, task: null, error: r.error };
+    return r.ok
+      ? { line, task: r.task, error: null, shortened: wasShortened(line, r.task) }
+      : { line, task: null, error: r.error, shortened: false };
   });
 }
 
-/** Moves one entry; out-of-range targets are clamped. Returns a new array. */
 export function moveItem<T>(list: readonly T[], from: number, to: number): T[] {
   if (from < 0 || from >= list.length) return [...list];
   const out = [...list];
@@ -57,31 +74,50 @@ export function moveItem<T>(list: readonly T[], from: number, to: number): T[] {
   return out;
 }
 
-/** Splits lines into protocol-sized `admin.tasks.add` batches. */
 export function batches(lines: readonly string[], size = LINES_PER_ADD_MAX): string[][] {
   const out: string[][] = [];
   for (let i = 0; i < lines.length; i += size) out.push(lines.slice(i, i + size));
   return out;
 }
 
-const key = (roomId: string) => `bf:agenda:${roomId}`;
-
 export function savePrepared(store: KeyValueStore, roomId: string, lines: readonly string[]): void {
   if (lines.length === 0) return;
-  store.setItem(key(roomId), JSON.stringify(lines.slice(0, AGENDA_MAX)));
+  store.setItem(STORAGE_KEYS.preparedTasks(roomId), JSON.stringify(lines.slice(0, PREPARED_MAX)));
 }
 
-/** Returns the prepared lines once, then forgets them. */
-export function takePrepared(store: KeyValueStore, roomId: string): string[] | null {
-  const raw = store.getItem(key(roomId));
-  store.removeItem(key(roomId));
+export function readPrepared(store: KeyValueStore, roomId: string): string[] | null {
+  const raw = store.getItem(STORAGE_KEYS.preparedTasks(roomId));
   if (!raw) return null;
   try {
     const v: unknown = JSON.parse(raw);
     if (!Array.isArray(v)) return null;
-    const lines = v.filter((l): l is string => typeof l === 'string').slice(0, AGENDA_MAX);
+    const lines = v.filter((l): l is string => typeof l === 'string').slice(0, PREPARED_MAX);
     return lines.length > 0 ? lines : null;
   } catch {
     return null;
   }
+}
+
+export function clearPrepared(store: KeyValueStore, roomId: string): void {
+  store.removeItem(STORAGE_KEYS.preparedTasks(roomId));
+}
+
+export type HandoffStep =
+  | { do: 'wait' }
+  | { do: 'send'; batches: string[][] }
+  | { do: 'done'; added: number };
+
+/**
+ * Decides the next step of handing prepared tasks to the room. The stored list is only cleared
+ * (`done`) once the room shows tasks, so a refused or lost add can be retried from this tab.
+ */
+export function handoffStep(
+  lines: readonly string[],
+  state: { sent: boolean; canAdd: boolean; taskCount: number },
+): HandoffStep {
+  if (!state.canAdd) return { do: 'wait' };
+  if (state.taskCount > 0)
+    return { do: 'done', added: state.sent ? Math.min(lines.length, state.taskCount) : 0 };
+  if (state.sent) return { do: 'wait' };
+  return { do: 'send', batches: batches(lines) };
 }
