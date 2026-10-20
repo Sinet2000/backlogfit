@@ -5,8 +5,10 @@ import {
   LINES_PER_ADD_MAX,
   type ParsedTask,
   parseTaskLine,
+  splitTeamTags,
   type TaskLineError,
   type TaskParseOptions,
+  type Team,
 } from '@backlogfit/core';
 import { STORAGE_KEYS } from '../storage-keys.ts';
 import type { KeyValueStore } from './storage.ts';
@@ -15,6 +17,8 @@ export const PREPARED_MAX = 500;
 
 export interface PreparedItem {
   line: string;
+  /** Teams from the line's #tags; null = everyone. */
+  voters: string[] | null;
   task: ParsedTask | null;
   error: TaskLineError | null;
   shortened: boolean;
@@ -57,12 +61,17 @@ function wasShortened(line: string, task: ParsedTask): boolean {
   }
 }
 
-export function parsePrepared(lines: readonly string[], opts: TaskParseOptions): PreparedItem[] {
+export function parsePrepared(
+  lines: readonly string[],
+  opts: TaskParseOptions,
+  teams: readonly Team[] = [],
+): PreparedItem[] {
   return lines.map((line) => {
-    const r = parseTaskLine(line, opts);
+    const { line: text, voters } = splitTeamTags(line, teams);
+    const r = parseTaskLine(text, opts);
     return r.ok
-      ? { line, task: r.task, error: null, shortened: wasShortened(line, r.task) }
-      : { line, task: null, error: r.error, shortened: false };
+      ? { line, voters, task: r.task, error: null, shortened: wasShortened(text, r.task) }
+      : { line, voters, task: null, error: r.error, shortened: false };
   });
 }
 
@@ -100,24 +109,4 @@ export function readPrepared(store: KeyValueStore, roomId: string): string[] | n
 
 export function clearPrepared(store: KeyValueStore, roomId: string): void {
   store.removeItem(STORAGE_KEYS.preparedTasks(roomId));
-}
-
-export type HandoffStep =
-  | { do: 'wait' }
-  | { do: 'send'; batches: string[][] }
-  | { do: 'done'; added: number };
-
-/**
- * Decides the next step of handing prepared tasks to the room. The stored list is only cleared
- * (`done`) once the room shows tasks, so a refused or lost add can be retried from this tab.
- */
-export function handoffStep(
-  lines: readonly string[],
-  state: { sent: boolean; canAdd: boolean; taskCount: number },
-): HandoffStep {
-  if (!state.canAdd) return { do: 'wait' };
-  if (state.taskCount > 0)
-    return { do: 'done', added: state.sent ? Math.min(lines.length, state.taskCount) : 0 };
-  if (state.sent) return { do: 'wait' };
-  return { do: 'send', batches: batches(lines) };
 }

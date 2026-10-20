@@ -1,10 +1,17 @@
-import type {
-  ClientMessageInput,
-  ErrorCode,
-  ParticipantView,
-  RoomView,
-  RoundView,
-  TaskView,
+import {
+  type ActionTarget,
+  type Actor,
+  type ClientMessageInput,
+  can,
+  canEstimate,
+  type ErrorCode,
+  nextTaskId,
+  type ParticipantView,
+  type RoomAction,
+  type RoomView,
+  type RoundView,
+  type TaskView,
+  type Team,
 } from '@backlogfit/core';
 import { toasts } from '../toast.svelte.ts';
 import { type ConnectionSnapshot, type JoinRequest, RoomConnection } from './connection.ts';
@@ -12,12 +19,23 @@ import { demoEngine } from './demo.ts';
 import type { RoomLink } from './link.ts';
 import { errorText } from './messages.ts';
 import { batches, splitLines } from './prepared-tasks.ts';
-import { type Actor, can, nextTaskId, type RoomAction } from './rules.ts';
 import { RoomSessionStore, sessionStore } from './storage.ts';
 import { loopbackTransport, type TransportFactory, webSocketTransport } from './transport.ts';
 
 export type SessionSettings = Extract<ClientMessageInput, { type: 'admin.settings' }>;
 export type SettingsPatch = Omit<SessionSettings, 'type'>;
+
+export interface AddOptions {
+  estimateNow?: boolean;
+  /** Teams for lines without a #team tag; null or omitted = everyone. */
+  voters?: string[] | null;
+}
+
+interface PendingAdd {
+  left: number;
+  ids: string[];
+  done: (ids: string[] | null) => void;
+}
 
 /** Reactive room state for the UI, with one typed method per protocol action. */
 export class RoomStore {
@@ -36,7 +54,11 @@ export class RoomStore {
   readonly demo: boolean;
   readonly session: RoomSessionStore;
   readonly #conn: RoomConnection;
-  #selectAfterAdd: { known: Set<string> } | null = null;
+  readonly #pending = new Map<string, PendingAdd>();
+  #requestSeq = 0;
+  /** True after a join from the form, until the person has confirmed their team. */
+  askTeam = $state(false);
+  teamHint = $state<string | null>(null);
 
   view = $derived<RoomView | null>(this.snap.view);
   authority = $derived(this.snap.view?.me?.authority ?? this.snap.you?.authority ?? 'none');
@@ -53,9 +75,17 @@ export class RoomStore {
   currentRound = $derived<RoundView | null>(
     this.currentTask?.rounds.find((r) => r.n === this.snap.view?.round) ?? null,
   );
-  upNextId = $derived(
-    this.snap.view ? nextTaskId(this.snap.view.tasks, this.snap.view.currentTaskId) : null,
+  upNextId = $derived(this.snap.view ? nextTaskId(this.snap.view) : null);
+  teams = $derived<Team[]>(this.snap.view?.config.teams ?? []);
+  me = $derived<ParticipantView | null>(
+    this.snap.view?.participants.find((p) => p.id === this.snap.view?.me?.participantId) ?? null,
   );
+  /** Voters who may estimate the current task (everyone with role voter on an Everyone task). */
+  eligible = $derived<ParticipantView[]>(
+    this.snap.view?.participants.filter((p) => canEstimate(p, this.currentTask?.voters)) ?? [],
+  );
+  canEstimateNow = $derived(!!this.me && canEstimate(this.me, this.currentTask?.voters));
+  needsTeam = $derived(this.askTeam && this.snap.status === 'joined' && this.teams.length > 0);
   myVote = $derived.by<string | null>(() => {
     const v = this.snap.view;
     const q = this.snap.queuedVote;
@@ -78,17 +108,30 @@ export class RoomStore {
         this.#afterChange();
       },
       onServerError: (code, ref) => this.#serverError(code, ref),
+      onTasksAdded: (requestId, ids) => this.#tasksAdded(requestId, ids),
     });
+  }
+
+  teamName(id: string | null | undefined): string | null {
+    return this.teams.find((t) => t.id === id)?.name ?? null;
   }
 
   serverNow = (): number => Date.now() + this.snap.clockOffset;
 
-  can(action: RoomAction, target?: Pick<ParticipantView, 'id' | 'authority'>): boolean {
+  can(action: RoomAction, target?: ActionTarget): boolean {
     return can(this.actor, action, target);
   }
 
-  join(req: JoinRequest): void {
+  /** Joins from the form; with teams in the room the person then confirms their team. */
+  join(req: JoinRequest, opts: { askTeam?: boolean } = {}): void {
+    this.askTeam = opts.askTeam ?? false;
+    this.teamHint = req.team ?? null;
     this.#conn.join(req);
+  }
+
+  chooseTeam(team: string | null): void {
+    this.askTeam = false;
+    if ((this.me?.team ?? null) !== team) this.#send({ type: 'team', team });
   }
 
   retry(): void {
@@ -140,14 +183,56 @@ export class RoomStore {
     this.next();
   }
 
-  addTasks(text: string | readonly string[], opts: { estimateNow?: boolean } = {}): number {
+  /**
+   * Sends the lines in batches. `added` resolves with the ids the server created, from its
+   * `tasks.added` replies, or with null when the add was refused or the connection dropped.
+   */
+  addTasks(
+    text: string | readonly string[],
+    opts: AddOptions = {},
+  ): { count: number; added: Promise<string[] | null> } {
     const lines = typeof text === 'string' ? splitLines(text) : [...text];
-    if (lines.length === 0) return 0;
-    if (opts.estimateNow) {
-      this.#selectAfterAdd = { known: new Set(this.snap.view?.tasks.map((t) => t.id)) };
+    if (lines.length === 0) return { count: 0, added: Promise.resolve([]) };
+    const parts = batches(lines);
+    const requestId = `add${++this.#requestSeq}`;
+    const added = new Promise<string[] | null>((done) => {
+      this.#pending.set(requestId, { left: parts.length, ids: [], done });
+    });
+    const voters = opts.voters ?? null;
+    for (const batch of parts) {
+      const sent = this.#conn.send({
+        type: 'admin.tasks.add',
+        lines: batch,
+        requestId,
+        ...(voters ? { voters } : {}),
+      });
+      if (!sent) {
+        toasts.show('Not connected right now. Reconnecting…', 'error');
+        this.#settleAdd(requestId, true);
+        break;
+      }
     }
-    for (const batch of batches(lines)) this.#send({ type: 'admin.tasks.add', lines: batch });
-    return lines.length;
+    if (opts.estimateNow) {
+      void added.then((ids) => {
+        if (ids?.[0]) this.select(ids[0]);
+      });
+    }
+    return { count: lines.length, added };
+  }
+
+  setVoters(taskId: string, voters: string[] | null): void {
+    this.#send({ type: 'admin.tasks.voters', taskId, voters });
+  }
+
+  setTeams(teams: Team[]): void {
+    this.#send({ type: 'admin.teams', teams });
+  }
+
+  updateParticipant(
+    participantId: string,
+    change: { role?: 'voter' | 'spectator'; team?: string | null },
+  ): void {
+    this.#send({ type: 'admin.participant', participantId, ...change });
   }
 
   removeTask(taskId: string): void {
@@ -204,17 +289,30 @@ export class RoomStore {
   }
 
   #afterChange(): void {
-    const pending = this.#selectAfterAdd;
-    const tasks = this.snap.view?.tasks;
-    if (!pending || !tasks) return;
-    const added = tasks.find((t) => !pending.known.has(t.id));
-    if (!added) return;
-    this.#selectAfterAdd = null;
-    this.select(added.id);
+    if (this.snap.status !== 'joined' && this.#pending.size > 0) {
+      for (const id of [...this.#pending.keys()]) this.#settleAdd(id, true);
+    }
+  }
+
+  #tasksAdded(requestId: string | undefined, ids: string[]): void {
+    const p = requestId ? this.#pending.get(requestId) : undefined;
+    if (!p || !requestId) return;
+    p.ids.push(...ids);
+    p.left -= 1;
+    if (p.left <= 0) this.#settleAdd(requestId);
+  }
+
+  #settleAdd(requestId: string, failed = false): void {
+    const p = this.#pending.get(requestId);
+    if (!p) return;
+    this.#pending.delete(requestId);
+    p.done(failed ? null : p.ids);
   }
 
   #serverError(code: ErrorCode, ref: string | undefined): void {
-    if (code === 'invalid_task' || code === 'too_many_tasks') this.#selectAfterAdd = null;
+    if (ref === 'admin.tasks.add' && code !== 'invalid_task') {
+      for (const id of [...this.#pending.keys()]) this.#settleAdd(id, true);
+    }
     toasts.show(errorText(code, ref), 'error');
   }
 }

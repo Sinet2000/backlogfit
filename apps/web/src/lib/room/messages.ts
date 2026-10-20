@@ -23,6 +23,8 @@ const ERRORS: Partial<Record<ErrorCode, string>> = {
   rate_limited: 'Slow down a little and try again.',
   too_large: 'That was too much text at once.',
   unauthorized: 'This host link is not valid.',
+  not_eligible: 'Another team is estimating this task. You can follow along.',
+  unknown_team: 'That team no longer exists.',
 };
 
 export function errorText(code: ErrorCode, ref?: string): string {

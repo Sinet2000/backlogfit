@@ -1,5 +1,11 @@
 // Room secrets live only in the URL fragment, which browsers never send to servers.
-import { formatRoomFragment, joinLinkOf, parseRoomFragment, type RoomLink } from '@backlogfit/core';
+import {
+  formatRoomFragment,
+  joinLinkOf,
+  parseRoomFragment,
+  type RoomLink,
+  teamLinkOf,
+} from '@backlogfit/core';
 import { STORAGE_KEYS } from '../storage-keys.ts';
 
 export type { RoomLink };
@@ -17,6 +23,11 @@ export function roomUrls(
     join: path + formatRoomFragment(joinLinkOf(link)),
     admin: link.adminSecret ? path + formatRoomFragment(link) : null,
   };
+}
+
+/** Invite link for one team. The team part is only a hint for the join form. */
+export function teamUrl(origin: string, link: RoomLink, team: string | null, query = ''): string {
+  return `${origin}/r${query ? `?${query}` : ''}#${formatRoomFragment(teamLinkOf(link, team))}`;
 }
 
 export interface SecretStore {

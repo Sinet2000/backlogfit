@@ -88,14 +88,16 @@ async function probeWelcome(engine: LoopbackEngine, link: RoomLink) {
 function connect(link: RoomLink, engine: LoopbackEngine | null, store = memoryStore()) {
   const snaps: ConnectionSnapshot[] = [];
   const errors: string[] = [];
+  const acks: { requestId?: string; ids: string[] }[] = [];
   const conn = new RoomConnection({
     link,
     transport: loopbackTransport(() => engine),
     session: new RoomSessionStore(store, link.roomId),
     onChange: (s) => snaps.push(s),
     onServerError: (c) => errors.push(c),
+    onTasksAdded: (requestId, ids) => acks.push({ ...(requestId ? { requestId } : {}), ids }),
   });
-  return { conn, snaps, errors, store, last: () => snaps[snaps.length - 1] };
+  return { conn, snaps, errors, acks, store, last: () => snaps[snaps.length - 1] };
 }
 
 describe('RoomConnection over the loopback engine', () => {
@@ -152,6 +154,24 @@ describe('RoomConnection over the loopback engine', () => {
     again.conn.join({ name: 'Rui', role: 'voter' });
     await flush();
     expect(again.last()?.you?.participantId).toBe(id);
+  });
+
+  it('sends the team hint and reports the ids of added tasks', async () => {
+    const teams = [
+      { id: 'dev', name: 'Dev' },
+      { id: 'qa', name: 'QA' },
+    ];
+    const { engine, link, admin } = await loopbackRoom({ teams });
+    const a = connect(admin, engine);
+    a.conn.join({ name: 'Host', role: 'voter' });
+    const q = connect({ ...link, team: 'qa' }, engine);
+    q.conn.join({ name: 'Quinn', role: 'voter', team: 'qa' });
+    await flush();
+    expect(q.last()?.view?.participants.find((p) => p.name === 'Quinn')?.team).toBe('qa');
+    a.conn.send({ type: 'admin.tasks.add', lines: ['SCP-1 #qa', 'SCP-2'], requestId: 'r7' });
+    await flush();
+    expect(a.acks).toEqual([{ requestId: 'r7', ids: a.last()?.view?.tasks.map((t) => t.id) }]);
+    expect(a.last()?.view?.tasks.map((t) => t.voters)).toEqual([['qa'], null]);
   });
 
   it('returns to the form on a wrong passcode', async () => {
