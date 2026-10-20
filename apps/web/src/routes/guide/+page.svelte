@@ -22,7 +22,7 @@
     },
     {
       title: 'Add the tasks',
-      body: 'Paste your list into “Add tasks”, one per line. An ID followed by a short title works best.',
+      body: 'Paste your list in the Tasks step, one per line, and drag it into the order you want. An ID followed by a short title works best. You can also add tasks in the room at any time.',
     },
     {
       title: 'Explain the first task',

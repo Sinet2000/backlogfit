@@ -22,16 +22,21 @@ understand an item differently, which is the most valuable outcome of the discus
    (with an optional title, for example `SCP-3655 Fix login`) from your tracker, one per line.
 2. **Start a session and pick a scale.** Open Backlogfit and choose **Start a session**. Pick a
    deck: Fibonacci is a good default, T-shirt sizes suit rough roadmap sizing.
-3. **Set task identifiers and session rules.** Choose how tasks may appear (IDs only, any links,
-   or only your own tracker domains), the session length, timer, automatic reveal, anonymous
+3. **Paste the tasks and set the session rules.** In the **Tasks** step, paste the list from
+   step 1 and drag it into the order you want to discuss it. Under **Task IDs and links** you can
+   choose how tasks may appear (IDs only, any links, or only your own tracker domains). Then set
+   the session length, timer, automatic reveal, anonymous
    results, spectators, approval before joining, and an optional passcode. Review and press
    **Create session**. You can save these settings as a preset file for next time.
 4. **Keep the host link.** Backlogfit shows it once. Keep it private: it gives full control of the
    session and lets you switch devices.
 5. **Share the join link.** Paste it in the meeting chat or show the QR code. People enter a
    display name and join as voters or spectators. Then **Open the room**.
-6. **Add the tasks and introduce the first item.** Paste the lines from step 1 into **Add tasks**.
-   The product owner explains the first item in two minutes; optionally start the timer.
+6. **Introduce the first item.** Your prepared list is already in the room. Press **Start first
+   task**; the product owner explains it in two minutes; optionally start the timer. **Next task**
+   follows your order and skips items that already have an estimate. To change course, press ▶
+   next to any task, drag tasks into a new order, or use **Add and estimate now** for an item
+   that comes up in the discussion.
 7. **Vote.** Everyone picks a card. You see *who* has voted, never *what*, until the reveal.
 8. **Reveal.** Press **Reveal votes** (or let automatic reveal do it when everyone has voted).
    Look at the distribution, median and agreement indicator.
@@ -41,9 +46,9 @@ understand an item differently, which is the most valuable outcome of the discus
     preselected), press **Next task**, and at the end download the results as CSV, JSON or
     Markdown, copy the summary, or print. Press **End session** when you are done; all its data is deleted.
 
-| Step 1: scale | Step 2: task identifiers |
+| Step 1: scale | Step 2: tasks |
 |---|---|
-| ![Configurator step 1: choosing the Fibonacci deck with a live card preview](assets/screenshots/configurator-step-1.png) | ![Configurator step 2: task ID format, tracker link and link policy](assets/screenshots/configurator-step-2.png) |
+| ![Configurator step 1: choosing the Fibonacci deck with a live card preview](assets/screenshots/configurator-step-1.png) | ![Configurator step 2: a prepared, reorderable task list](assets/screenshots/configurator-step-2.png) |
 
 | Step 3: session rules | Step 4: review |
 |---|---|
