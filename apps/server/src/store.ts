@@ -3,6 +3,9 @@ import { join } from 'node:path';
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import type { RoomState } from '@backlogfit/core';
 
+/** RoomState.v this build reads. Rooms live ≤ 24 h, so other versions are dropped, not migrated. */
+export const STATE_VERSION = 1;
+
 export const DB_FILE = 'backlogfit.sqlite';
 
 /**
@@ -49,13 +52,18 @@ export class RoomStore {
     if (this.persistent) this.#db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
   }
 
-  /** All stored rooms. Rows that fail to parse are dropped (and deleted). */
+  /** All stored rooms. Unreadable rows and rows of another state version are deleted. */
   loadAll(): RoomState[] {
     const out: RoomState[] = [];
     for (const row of this.#all.all() as { id: string; state: string }[]) {
       try {
         const state = JSON.parse(row.state) as RoomState;
-        if (state.v === 1 && state.roomId === row.id) {
+        if (
+          state.v === STATE_VERSION &&
+          state.roomId === row.id &&
+          typeof state.expiresAt === 'number' &&
+          Array.isArray(state.participants)
+        ) {
           out.push(state);
           continue;
         }

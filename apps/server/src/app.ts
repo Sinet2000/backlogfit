@@ -1,14 +1,14 @@
 import type { IncomingMessage, Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Duplex } from 'node:stream';
-import { parseCreateRoomRequest } from '@backlogfit/core';
+import { parseCreateRoomRequest, toCoreLimits } from '@backlogfit/core';
 import { createRateLimiter, isAllowedOrigin, securityHeaders } from '@backlogfit/security';
 import { createAdaptorServer, type HttpBindings } from '@hono/node-server';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { type WebSocket, WebSocketServer } from 'ws';
 import { createClock } from './clock.ts';
-import { roomLimits, type ServerConfig } from './config.ts';
+import type { ServerConfig } from './config.ts';
 import { RoomRegistry } from './rooms.ts';
 import { createStaticHandler } from './static.ts';
 import { RoomStore } from './store.ts';
@@ -57,7 +57,7 @@ export async function startServer(config: ServerConfig): Promise<RunningServer> 
   const registry = new RoomRegistry({
     store,
     clock,
-    roomLimits: roomLimits(limits),
+    roomLimits: toCoreLimits(limits),
     maxRooms: limits.maxRooms,
     maxMessageBytes: limits.maxMessageBytes,
     rateMsgsPerSec: limits.rateMsgsPerSec,
@@ -161,13 +161,10 @@ export async function startServer(config: ServerConfig): Promise<RunningServer> 
       alive.add(ws);
       ws.on('pong', () => alive.add(ws));
       ws.on('error', () => ws.terminate());
-      const room = registry.get(roomId);
-      if (!room || room.ended) {
-        // Browsers cannot read an upgrade's HTTP status, so unknown rooms get a protocol close.
-        ws.send(JSON.stringify({ type: 'closed', reason: 'not_found' }));
-        ws.close(4404);
-        return;
-      }
+      const known = registry.get(roomId);
+      // Unknown rooms get a decoy that behaves exactly like a real room refusing a wrong join
+      // secret, so a roomId alone does not reveal whether the room exists.
+      const room = known && !known.ended ? known : registry.decoy(roomId);
       if (room.connectionCount >= maxSocketsPerRoom) {
         ws.close(1013);
         return;
