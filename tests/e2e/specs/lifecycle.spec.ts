@@ -46,7 +46,7 @@ test('admin closes the room: everyone sees the closed screen', async ({ page, pe
   await joinAdmin(page, room.adminLink);
   const alice = await people.join(room.joinLink, 'Alice');
   await id(page, 'btn-close-room').click();
-  const confirm = page.getByRole('dialog').getByRole('button', { name: /close|end|confirm/i });
+  const confirm = page.getByTestId('btn-close-confirm');
   if (await confirm.isVisible().catch(() => false)) await confirm.click();
   await expectClosed(alice.page, 'closed');
   // The link is dead afterwards, and indistinguishable from a link that never existed.

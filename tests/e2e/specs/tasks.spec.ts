@@ -24,16 +24,31 @@ test('link tasks render as safe external links and javascript: is rejected @smok
   // The rejected lines are reported, never silently dropped.
   await expect(id(page, 'toast').first()).toBeVisible();
 
+  // Only the https line and the harmless plain-text title survive.
+  await expect(page.getByTestId('task-item').first()).toBeVisible();
+  for (const t of await page.getByTestId('task-item').allInnerTexts()) {
+    expect(t.toLowerCase()).not.toMatch(/javascript:|data:/);
+  }
+  await id(page, 'btn-next').click();
   for (const p of [page, alice.page]) {
     const items = p.getByTestId('task-item');
     await expect(items.first()).toBeVisible();
-    const link = p.locator('[data-testid="task-item"] a[href^="https://tracker.example.com/"]');
-    await expect(link).toHaveCount(1);
-    const rel = ((await link.getAttribute('rel')) ?? '').split(/\s+/);
-    expect(rel).toEqual(expect.arrayContaining(['noopener', 'noreferrer']));
+    const link = p.locator(
+      ':is([data-testid="task-item"], [data-testid="current-task"]) a[href^="https://tracker.example.com/"]',
+    );
+    await expect(link.first()).toBeVisible();
+    for (const a of await link.all()) {
+      const rel = ((await a.getAttribute('rel')) ?? '').split(/\s+/);
+      expect(rel).toEqual(expect.arrayContaining(['noopener', 'noreferrer']));
+    }
     // Title is plain text: no markup is interpreted.
-    await expect(p.locator('[data-testid="task-item"] b')).toHaveCount(0);
-    await expect(p.locator('[data-testid="task-item"] img')).toHaveCount(0);
+    await expect(
+      p.locator(':is([data-testid="task-item"], [data-testid="current-task"]) b'),
+    ).toHaveCount(0);
+    await expect(
+      p.locator(':is([data-testid="task-item"], [data-testid="current-task"]) img'),
+    ).toHaveCount(0);
+    await expect(id(p, 'current-task')).toContainText('<b>bold</b>');
     await expect(p.locator('a[href^="javascript:" i], a[href^="data:" i]')).toHaveCount(0);
     const all = await p
       .locator('a[href]')

@@ -17,41 +17,18 @@ export async function emulateMode(page: Page, mode: Mode): Promise<void> {
 }
 
 /**
- * Pick a theme/mode through the theme switcher, whatever its form (select, radio group or
- * menu). Returns false when the page has no switcher.
+ * Pick a theme/mode through the header's theme switcher (a trigger button that opens radio groups
+ * `theme-<corporate|colorful>` and `mode-<system|light|dark|contrast>`). Returns false when the
+ * page has no switcher.
  */
 export async function useSwitcher(page: Page, theme: Theme, mode: Mode): Promise<boolean> {
   const sw = page.getByTestId('theme-switcher');
-  if ((await sw.count()) === 0) return false;
-  const tag = await sw.evaluate((el) => el.tagName.toLowerCase());
-  const want = [theme, mode];
-  if (tag === 'select') {
-    const options = await sw
-      .locator('option')
-      .evaluateAll((os) =>
-        os.map((o) => ({ value: (o as HTMLOptionElement).value, label: o.textContent ?? '' })),
-      );
-    const hit = options.find((o) =>
-      want.every((w) => `${o.value} ${o.label}`.toLowerCase().includes(w.replace('-', ''))),
-    );
-    if (hit) {
-      await sw.selectOption(hit.value);
-      return true;
-    }
-  }
-  // Nested selects/radios: one control per dimension.
-  for (const w of want) {
-    const sel = sw.locator('select');
-    for (const s of await sel.all()) {
-      const values = await s
-        .locator('option')
-        .evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value));
-      const v = values.find((x) => x.toLowerCase().replace('-', '') === w.replace('-', ''));
-      if (v) await s.selectOption(v);
-    }
-    const radio = sw.getByRole('radio', { name: new RegExp(w.replace('-', '.?'), 'i') });
-    if ((await radio.count()) > 0) await radio.first().check();
-  }
+  if ((await sw.count()) === 0 || !(await sw.first().isVisible())) return false;
+  const radio = (tid: string) => page.getByTestId(tid);
+  if (!(await radio(`theme-${theme}`).isVisible())) await sw.first().click();
+  await radio(`theme-${theme}`).check();
+  await radio(`mode-${mode === 'high-contrast' ? 'contrast' : mode}`).check();
+  await page.keyboard.press('Escape');
   return true;
 }
 

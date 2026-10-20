@@ -71,7 +71,7 @@ for (const mode of MODES) {
       await checkA11y(page, `admin revealed ${theme} ${mode}`, info);
 
       await id(page, 'btn-close-room').click();
-      const confirm = page.getByRole('dialog').getByRole('button', { name: /close|end|confirm/i });
+      const confirm = page.getByTestId('btn-close-confirm');
       if (await confirm.isVisible().catch(() => false)) await confirm.click();
       await expectClosed(voter.page, 'closed');
       await checkA11y(voter.page, `closed ${theme} ${mode}`, info);

@@ -173,7 +173,15 @@ export async function addTasks(page: Page, lines: string[]): Promise<void> {
 export async function vote(page: Page, value: string): Promise<void> {
   const c = card(page, value);
   await c.click();
-  await expect.poll(() => isSelected(c), { message: `card ${value} selected` }).toBe(true);
+  // The last vote may auto-reveal, which replaces the deck's selection with the results.
+  await expect
+    .poll(
+      async () =>
+        (await page.getByTestId('reveal-results').isVisible()) ||
+        ((await c.count()) > 0 && (await isSelected(c))),
+      { message: `card ${value} selected` },
+    )
+    .toBe(true);
 }
 
 /** True when the card shows as selected (aria-pressed or aria-checked). */

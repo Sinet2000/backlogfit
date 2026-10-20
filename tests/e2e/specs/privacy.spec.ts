@@ -31,7 +31,9 @@ test('no other vote value reaches a voter before reveal @smoke', async ({ page, 
   expect(checkFrames(beforeReveal, ownVotes(alice.wire))).toEqual([]);
   // Raw substring check as a second net: no frame mentions Bob's/Carol's value as a vote.
   for (const raw of beforeReveal) {
-    expect(raw).not.toMatch(/"(value|vote|myVote)":"(13|21)"/);
+    const f = JSON.parse(raw) as { room?: { config?: unknown } };
+    if (f.room) f.room.config = null; // the scale legitimately lists every card value
+    expect(JSON.stringify(f)).not.toMatch(/"(13|21)"/);
   }
 
   // The socket URL carries only the room id, secrets travel in the first frame.
