@@ -70,7 +70,8 @@
       {#each view.tasks as t, i (t.id)}
         <li class:current={t.id === view.currentTaskId} data-testid="task-item" data-key={t.key ?? ''} data-final={t.final ?? ''}>
           <span class="text">
-            <span class="name">{label(t)}</span>
+            {#if t.key}<span class="key">{t.key}</span>{/if}
+            {#if t.title || !t.key}<span class="name" title={t.title ?? undefined}>{t.title ?? 'Untitled task'}</span>{/if}
             {#if t.id === view.currentTaskId}<span class="badge">Now</span>{/if}
           </span>
           {#if t.final !== null}<span class="final" title="Final estimate">{t.final}</span>{/if}
@@ -114,6 +115,7 @@
     margin: 0;
     padding: 0;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-1);
     counter-reset: task;
   }
@@ -142,14 +144,23 @@
   }
 
   .text {
-    flex: 1;
+    flex: 1 1 12rem;
     min-width: 0;
     display: flex;
     align-items: center;
     gap: var(--space-2);
   }
 
+  .key {
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    white-space: nowrap;
+  }
+
   .name {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -174,6 +185,7 @@
   .tools {
     display: inline-flex;
     align-items: center;
+    margin-left: auto;
   }
 
   .empty {

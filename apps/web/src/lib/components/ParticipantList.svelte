@@ -193,9 +193,10 @@
     font-size: var(--text-sm);
   }
 
+  /* Room for ~20-character names at desktop widths; the actions wrap to a second line. */
   .who {
     display: grid;
-    flex: 1;
+    flex: 1 1 11rem;
     min-width: 0;
   }
 
@@ -235,7 +236,9 @@
   }
 
   .status {
+    flex: none;
     font-size: var(--text-sm);
+    white-space: nowrap;
   }
 
   .voted {
@@ -252,6 +255,8 @@
 
   .actions {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: var(--space-1);
     margin-left: auto;
   }

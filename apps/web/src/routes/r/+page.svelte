@@ -7,10 +7,10 @@
   import Timer from '#lib/components/Timer.svelte';
   import Toasts from '#lib/components/Toasts.svelte';
   import { createDemoRoom, takeDemoTasks } from '#lib/room/demo.ts';
-  import { parseFragment, type RoomLink, roomUrls } from '#lib/room/link.ts';
+  import { parseFragment, type RoomLink, roomUrls, settleAdminSecret } from '#lib/room/link.ts';
   import { RoomStore } from '#lib/room/room.svelte.ts';
   import { shortcutFor } from '#lib/room/shortcuts.ts';
-  import { localStore } from '#lib/room/storage.ts';
+  import { localStore, sessionStore } from '#lib/room/storage.ts';
   import CurrentTask from '#lib/room-ui/CurrentTask.svelte';
   import EndedState from '#lib/room-ui/EndedState.svelte';
   import FacilitatorControls from '#lib/room-ui/FacilitatorControls.svelte';
@@ -52,7 +52,18 @@
     let link = parseFragment(location.hash);
     if (!link && demo && location.hash === '') {
       link = await createDemoRoom({ sampleTasks: true });
-      history.replaceState(history.state, '', `/r?demo#${roomUrls('', link).admin?.split('#')[1]}`);
+    }
+    if (link) {
+      // SEC-014: show the join link in the address bar; the admin secret stays in this tab.
+      const settled = settleAdminSecret(link, sessionStore());
+      link = settled.link;
+      if (settled.replace) {
+        history.replaceState(
+          history.state,
+          '',
+          `${location.pathname}${location.search}${settled.replace}`,
+        );
+      }
     }
     preparing = false;
     if (!link) {
@@ -141,6 +152,7 @@
 
 <div class="room-page container">
   {#if preparing}
+    <h1 class="visually-hidden">Estimation session</h1>
     <p class="muted center" aria-live="polite">Preparing the session…</p>
   {:else if invalidLink}
     <EndedState reason="not_found" joinError={null} />
@@ -178,6 +190,9 @@
           <Icon name="info" size={16} /> Offline demo with simulated teammates. Nothing leaves this tab.
         </p>
       {/if}
+      <h1 class="visually-hidden">
+        Estimation session{room.currentTask?.key ? `: ${room.currentTask.key}` : ''}
+      </h1>
       <p class="visually-hidden" aria-live="polite">{announce}</p>
 
       <div class="layout">
@@ -209,7 +224,7 @@
               {/if}
             {:else}
               <div class="empty-stage">
-                <h1>{view.tasks.length === 0 ? 'Ready when you are' : 'Waiting for the next task'}</h1>
+                <h2>{view.tasks.length === 0 ? 'Ready when you are' : 'Waiting for the next task'}</h2>
                 <p class="muted">
                   {#if room.isFacilitator}
                     {view.tasks.length === 0 ? 'Add tasks on the right, then start the first one.' : 'Press "Start first task" or pick a task from the list.'}
@@ -301,6 +316,12 @@
     }
   }
 
+  @media (min-width: 1280px) {
+    .layout {
+      grid-template-columns: minmax(0, 1fr) 420px;
+    }
+  }
+
   .main,
   .side {
     display: grid;
@@ -349,7 +370,7 @@
     gap: var(--space-2);
   }
 
-  .empty-stage h1 {
+  .empty-stage h2 {
     font-size: var(--text-2xl);
   }
 

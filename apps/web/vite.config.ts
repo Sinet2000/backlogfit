@@ -1,11 +1,14 @@
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
+import { announcerWithoutInlineStyle, noTemplateStyleAttrs } from './build-plugins/announcer.ts';
 
 const backend = 'http://localhost:8080';
 
 export default defineConfig({
   plugins: [
+    announcerWithoutInlineStyle(),
+    noTemplateStyleAttrs(),
     sveltekit({
       adapter: adapter({ pages: 'build', assets: 'build', strict: true }),
       // Strict CSP (style-src 'self'): never inline CSS into the HTML.

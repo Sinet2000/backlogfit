@@ -4,6 +4,8 @@
  * try/catch because storage can be unavailable (private mode, blocked site data).
  */
 
+import { adminKey } from './link.ts';
+
 export interface KeyValueStore {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
@@ -84,9 +86,11 @@ export class RoomSessionStore {
     else this.#s.setItem(`bf:who:${this.#id}`, JSON.stringify(who));
   }
 
-  clear(): void {
+  /** Forget this tab's place in the room. `withAdmin` also drops the host secret (room is over). */
+  clear(withAdmin = false): void {
     this.resumeToken = null;
     this.identity = null;
+    if (withAdmin) this.#s.removeItem(adminKey(this.#id));
   }
 }
 
