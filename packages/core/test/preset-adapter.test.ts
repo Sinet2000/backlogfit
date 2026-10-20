@@ -40,7 +40,6 @@ describe('presets', () => {
       },
     });
     expect(r.ok && r.msg.config.allowlist).toEqual(['jira.example.com']);
-    // Idempotent: serializing the parsed output gives the same file.
     if (r.ok) expect(serializePreset(r.msg.config, r.msg)).toBe(text);
   });
 
@@ -132,7 +131,6 @@ describe('reconcileConnections', () => {
     send(sim, 'c1', { type: 'admin.next' });
     const t = sim.state.tasks[0]?.id ?? '';
     send(sim, 'c1', { type: 'vote', taskId: t, round: 1, value: '3' });
-    // c2 died with the old process; only c1 is live.
     const r = reconcileConnections(sim.state, ['c1'], ctx(sim));
     expect(r.state.tasks[0]?.rounds[0]?.revealedAt).not.toBeNull();
   });

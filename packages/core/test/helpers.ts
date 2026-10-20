@@ -87,7 +87,6 @@ export function hello(
   return { type: 'hello', v: 1, joinSecret: 'j'.repeat(22), name, role: 'voter', ...over };
 }
 
-/** Join and return the new participant id. */
 export function join(
   sim: Sim,
   conn: string,
@@ -122,7 +121,6 @@ export function send(sim: Sim, conn: string, msg: ClientMessage): ReduceResult {
   return step(sim, { type: 'message', conn, msg });
 }
 
-/** Messages the reducer's effects would deliver to `conn` (after projection). */
 export function outbox(r: ReduceResult, conn: string): ServerMessage[] {
   return expandEffects(r.state, r.effects)
     .filter((o): o is Extract<typeof o, { type: 'send' }> => o.type === 'send' && o.to === conn)

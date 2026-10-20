@@ -1,7 +1,6 @@
 /**
- * In-memory room host: the reference adapter. Runs the exact pipeline a backend runs
- * (parse → authenticate → reduce → expand effects) for any number of fake clients.
- * Used by frontend tests, the offline demo, and as a model for the real adapters.
+ * In-memory room for the offline demo and frontend tests: parse, authenticate, reduce and
+ * expand effects for any number of fake clients, without sockets, rate limits or timers.
  */
 import { expandEffects, toEvent } from './adapter.ts';
 import { hashPasscode, hashSecret, randomSalt, randomToken } from './crypto.ts';
@@ -18,7 +17,6 @@ import {
 import { DEFAULT_LIMITS, type Limits, type RoomEvent, type RoomState } from './state.ts';
 
 export interface LoopbackOptions {
-  /** Clock in epoch ms. Required: core never reads the system clock itself. */
   now: () => number;
   randomId?: () => string;
   newToken?: () => string;

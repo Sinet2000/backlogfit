@@ -3,14 +3,10 @@ import { cleanText, hasUnsafeChars } from './text.ts';
 export type CardKind = 'number' | 'tshirt' | 'special';
 
 export interface Card {
-  /** What is stored as the vote. Unique within a scale. */
   value: string;
-  /** Visible text label (also the accessible name). Color is never the only signal. */
   label: string;
-  /** Present for kind 'number' only. */
   numeric?: number;
   kind: CardKind;
-  /** '#rrggbb' */
   color: string;
 }
 
@@ -29,10 +25,8 @@ const SPECIAL_LABELS: Record<string, string> = {
   [SPECIAL_INFINITY]: 'Too big',
 };
 
-/** Neutral grey for special cards, distinct from every gradient stop. */
 export const NEUTRAL_CARD_COLOR = '#8b8f97';
 
-// Viridis (perceptually uniform, readable with all common color-vision deficiencies).
 const VIRIDIS = [
   '#440154',
   '#482878',
@@ -202,7 +196,6 @@ export function validateScale(cards: readonly Card[]): ScaleError | null {
 export interface CustomCardInput {
   value: string;
   label?: string;
-  /** Force a card to be special (excluded from numeric stats). */
   special?: boolean;
 }
 
@@ -238,11 +231,8 @@ export type StatsBasis = 'numeric' | 'ordinal';
 
 export interface ScaleIndex {
   basis: StatsBasis;
-  /** Non-special card value → step position (0-based, ascending). */
   position: Map<string, number>;
-  /** Non-special card value → value used for median/average (numeric or position). */
   measure: Map<string, number>;
-  /** Non-special cards sorted by position. */
   ordered: Card[];
   special: Set<string>;
 }

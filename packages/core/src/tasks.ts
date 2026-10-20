@@ -10,15 +10,12 @@ export const TASK_LINE_MAX = 2400;
 export const ID_PATTERN_MAX = 100;
 export const ALLOWLIST_MAX = 50;
 
-/** Jira-style keys (PROJ-123). Matched case-insensitively; the key is upper-cased. */
 export const DEFAULT_ID_PATTERN = '[A-Z][A-Z0-9_]{0,15}-[0-9]{1,9}';
 
 export interface TaskParseOptions {
   policy: TaskPolicy;
-  /** Normalized hostnames (see normalizeAllowlistEntry). Subdomains are allowed. */
   allowlist?: readonly string[];
   idPattern?: string | null;
-  /** e.g. https://tracker.example/browse/{id} */
   linkTemplate?: string | null;
 }
 

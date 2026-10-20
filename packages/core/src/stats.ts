@@ -8,27 +8,18 @@ export interface CardCount {
 }
 
 export interface Stats {
-  /** Votes whose value is on the scale (special cards included). */
   total: number;
-  /** Votes on estimable (non-special) cards. */
   estimableCount: number;
   basis: StatsBasis;
-  /** Every estimable card in step order, zero counts included. */
   distribution: CardCount[];
-  /** Every special card in scale order, zero counts included. */
   special: CardCount[];
   min: string | null;
   max: string | null;
-  /** Numeric value (numeric basis) or 0-based step position (ordinal basis). */
   median: number | null;
-  /** Same basis as `median`. */
   average: number | null;
-  /** Most frequent estimable values, in step order. Empty when there are no estimable votes. */
   mode: string[];
-  /** Step distance between min and max. */
   spreadSteps: number | null;
   consensus: Consensus | null;
-  /** Card closest to the median (ties go to the larger card), a starting point for the final estimate. */
   suggested: string | null;
 }
 

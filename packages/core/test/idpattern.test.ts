@@ -12,7 +12,6 @@ import {
   parseTaskLine,
 } from '../src/index.ts';
 
-// Atoms and quantifiers from the supported language, biased towards overlapping sets.
 const atom = fc.constantFrom(
   'a',
   'b',
@@ -99,7 +98,7 @@ describe('ID pattern matcher (SEC-001)', () => {
     expect(m?.test('AB-12')).toBe(true);
     expect(m?.test('ab-12')).toBe(false);
     expect(m?.test('ABCD-1')).toBe(false);
-    expect(m?.test(`AB-${'1'.repeat(70)}`)).toBe(false); // over the input cap
+    expect(m?.test(`AB-${'1'.repeat(70)}`)).toBe(false);
     expect(compileIdMatcher('.+')?.test('ü-1')).toBe(true);
   });
 
@@ -108,7 +107,6 @@ describe('ID pattern matcher (SEC-001)', () => {
       fc.property(pattern, fc.array(input(10), { maxLength: 8 }), (p, tokens) => {
         const mine = compileIdMatcher(p);
         if (mine === null) return;
-        // Short inputs keep native backtracking cheap enough for a reference result.
         const re = new RegExp(
           `^(?:${p
             .replace(/\{1,\}/g, '{1,64}')

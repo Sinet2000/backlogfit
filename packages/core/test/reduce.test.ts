@@ -104,7 +104,6 @@ describe('hello', () => {
     step(sim, { type: 'disconnect', conn: 'c4' });
     r = step(sim, { type: 'message', conn: 'c6', msg: hello('F'), auth: auth() });
     expect(errorsOf(r)).toEqual(['room_locked']);
-    // admins bypass
     join(sim, 'c7', 'Ada2', { admin: true, role: 'spectator' });
   });
 
@@ -152,7 +151,6 @@ describe('hello', () => {
     expect(p?.name).toBe('Bob');
     expect(p?.resumeHash).toBe(HASH('f'));
     expect(project(sim.state, bob).myVote).toBe('5');
-    // second device takes over
     const r = step(sim, {
       type: 'message',
       conn: 'c-bob3',
@@ -195,7 +193,6 @@ describe('lobby', () => {
     expect(outbox(r, 'c1')).toEqual([
       { type: 'lobby', status: 'waiting', resumeToken: 'tok_tok_tok_tok_tok' },
     ]);
-    // lobby participants receive no state
     expect(outbox(r, 'c1').some((m) => m.type === 'state')).toBe(false);
     const bob = sim.state.participants.find((p) => p.conn === 'c1')?.id ?? '';
     expect(project(sim.state, admin).lobby).toHaveLength(1);
@@ -287,7 +284,6 @@ describe('voting', () => {
     send(sim, 'c-admin', { type: 'vote', taskId, round, value: '3' });
     send(sim, 'c-bob', { type: 'vote', taskId, round, value: '5' });
     expect(phaseOf(sim.state)).toBe('voting');
-    // Cy leaves: remaining voters have all voted
     step(sim, { type: 'disconnect', conn: 'c-cy' });
     expect(phaseOf(sim.state)).toBe('revealed');
     expect(errorsOf(send(sim, 'c-bob', { type: 'vote', taskId, round, value: '8' }))).toEqual([
@@ -417,7 +413,6 @@ describe('authority', () => {
     ]);
     send(sim, 'c-bob', { type: 'admin.tasks.add', lines: ['X-1'] });
     expect(sim.state.tasks).toHaveLength(1);
-    // co-admin can kick a voter but not an admin or another co-admin
     send(sim, 'c-admin', { type: 'admin.promote', participantId: cy });
     expect(errorsOf(send(sim, 'c-bob', { type: 'admin.kick', participantId: cy }))).toEqual([
       'forbidden',
@@ -468,7 +463,6 @@ describe('lifetime', () => {
       expect(r.effects.filter((e) => e.type === 'close')).toHaveLength(3);
       expect(sim.state.closed).toBe(reason);
       expect(sim.state.alarmAt).toBeNull();
-      // late messages on a closed room just get closed
       const late = send(sim, 'c-bob', { type: 'ping' });
       expect(late.effects).toEqual([{ type: 'close', to: 'c-bob', reason }]);
       expect(step(sim, { type: 'tick' }).effects).toEqual([]);
@@ -483,7 +477,7 @@ describe('lifetime', () => {
     const firstAlarm = sim.state.alarmAt ?? 0;
     sim.now += 20 * 60_000;
     send(sim, 'c-admin', { type: 'admin.tasks.add', lines: ['A-1'] });
-    expect(sim.state.alarmAt).toBe(firstAlarm); // not moved later on every action
+    expect(sim.state.alarmAt).toBe(firstAlarm);
     sim.now = firstAlarm;
     const r = step(sim, { type: 'tick' });
     expect(sim.state.closed).toBeNull();

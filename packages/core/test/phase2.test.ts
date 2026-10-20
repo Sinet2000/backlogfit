@@ -60,7 +60,6 @@ describe('e2ee: plaintext rooms are unchanged', () => {
     expect(sim.state.tasks.map((t) => Object.keys(t).sort())).toEqual(
       Array(3).fill(['final', 'id', 'key', 'rounds', 'title', 'url']),
     );
-    // Something that looks like ciphertext is just a title in a plaintext room.
     expect(view.tasks[2]?.title).toBe('{"t":"enc","iv":"x","ct":"y"}');
   });
 
@@ -115,9 +114,9 @@ describe('e2ee: encrypted payloads are opaque and size-capped', () => {
     const ok = (x: unknown) => v.safeParse(EncryptedContentSchema, x).success;
     expect(ok({ t: 'enc', iv, ct: ct(256 + 16) })).toBe(true);
     expect(ok({ t: 'enc', iv, ct: ct(ENC_PLAINTEXT_MAX_BYTES + ENC_PAD_BLOCK + 16) })).toBe(false);
-    expect(ok({ t: 'enc', iv, ct: ct(100) })).toBe(false); // not a pad bucket
-    expect(ok({ t: 'enc', iv, ct: ct(16) })).toBe(false); // tag only
-    expect(ok({ t: 'enc', iv, ct: 'a' })).toBe(false); // impossible base64 length
+    expect(ok({ t: 'enc', iv, ct: ct(100) })).toBe(false);
+    expect(ok({ t: 'enc', iv, ct: ct(16) })).toBe(false);
+    expect(ok({ t: 'enc', iv, ct: 'a' })).toBe(false);
     expect(ok({ t: 'enc', iv, ct: `${ct(272).slice(0, -1)}+` })).toBe(false);
     expect(ok({ t: 'enc', iv: 'short', ct: ct(272) })).toBe(false);
     expect(ok({ t: 'enc', iv, ct: ct(272), title: 'leak' })).toBe(false);
@@ -169,7 +168,7 @@ describe('e2ee: encrypted payloads are opaque and size-capped', () => {
     expect(p?.length).toBe(ENC_PAD_BLOCK);
     expect(p && unpadPlaintext(p)).toEqual(new Uint8Array([1, 2, 3]));
     expect(unpadPlaintext(new Uint8Array(0))).toBeNull();
-    expect(unpadPlaintext(new Uint8Array(ENC_PAD_BLOCK))).toBeNull(); // no marker
+    expect(unpadPlaintext(new Uint8Array(ENC_PAD_BLOCK))).toBeNull();
     expect(unpadPlaintext(new Uint8Array(10))).toBeNull();
     expect(padPlaintext(new Uint8Array(ENC_PLAINTEXT_MAX_BYTES))).toBeNull();
     expect(fromBase64Url('ab=')).toBeNull();
