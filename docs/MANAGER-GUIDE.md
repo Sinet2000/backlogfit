@@ -14,7 +14,7 @@ Why vote with cards? Everyone picks an estimate privately and all cards are reve
 That stops the first loud number from anchoring the others and quickly shows where people
 understand an item differently, which is the most valuable outcome of the discussion.
 
-![Voting screen: cards at the bottom, participants who have voted are marked](assets/screenshots/voting.png)
+![Voting screen: cards at the bottom, participants who have voted are marked](assets/screenshots/voter.png)
 
 ## Run a refinement session in 10 steps
 
@@ -42,7 +42,7 @@ understand an item differently, which is the most valuable outcome of the discus
 
 ![Reveal screen with distribution and consensus](assets/screenshots/reveal.png)
 
-![Facilitator controls: reveal, re-vote, timer, next task](assets/screenshots/admin.png)
+![Facilitator controls: reveal, re-vote, timer, next task](assets/screenshots/admin-voting.png)
 
 ## Tips
 

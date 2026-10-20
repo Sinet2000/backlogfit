@@ -19,11 +19,11 @@ with one container.
 
 | Voting | Reveal |
 |---|---|
-| ![A voter choosing a card from the Fibonacci deck while the participant list shows who has voted](docs/assets/screenshots/voting.png) | ![Revealed votes with distribution, median and consensus indicator](docs/assets/screenshots/reveal.png) |
+| ![A voter choosing a card from the Fibonacci deck while the participant list shows who has voted](docs/assets/screenshots/voter.png) | ![Revealed votes with distribution, median and consensus indicator](docs/assets/screenshots/reveal.png) |
 
 | Configurator | Facilitator controls |
 |---|---|
-| ![The four-step room configurator with a live card preview](docs/assets/screenshots/configurator.png) | ![The facilitator control bar with reveal, re-vote, timer and next task](docs/assets/screenshots/admin.png) |
+| ![A newly created room showing the join link, the one-time admin link and a QR code](docs/assets/screenshots/configurator-created.png) | ![The facilitator control bar with reveal, re-vote, timer and next task](docs/assets/screenshots/admin-voting.png) |
 
 ## Features
 
@@ -64,7 +64,7 @@ shipped with an SBOM and build provenance. It runs as a non-root user with a rea
 filesystem:
 
 ```sh
-podman run -d --name backlogfit -p 8080:8080 --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=256 --memory=512m -e PUBLIC_ORIGIN=https://estimate.example.com ghcr.io/sinet2000/backlogfit:latest
+podman run -d --name backlogfit -p 8080:8080 --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=256 --memory=512m -v backlogfit-data:/data -e PUBLIC_ORIGIN=https://estimate.example.com ghcr.io/sinet2000/backlogfit:latest
 ```
 
 `docker run` takes the same flags. Put it behind a TLS-terminating reverse proxy. All
