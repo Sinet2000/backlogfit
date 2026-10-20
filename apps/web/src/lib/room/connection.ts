@@ -1,9 +1,6 @@
-/**
- * Client side of the room protocol: hello/welcome, lobby, state snapshots, errors, close
- * reasons, keep-alive pings and automatic reconnect with exponential backoff using the resume
- * token. Framework-free (the Svelte store wraps it) so it can be unit-tested with fake timers
- * and a fake transport.
- */
+// Client side of the room protocol: hello/welcome, lobby, state snapshots, errors, close
+// reasons, keep-alive with a liveness deadline, and reconnect with backoff using the resume
+// token. Framework-free so it can be unit-tested with fake timers and a fake transport.
 import {
   type ClientMessageInput,
   type CloseReason,
@@ -17,18 +14,13 @@ import type { RoomSessionStore } from './storage.ts';
 import type { Transport, TransportFactory } from './transport.ts';
 
 export type ConnectionStatus =
-  /** Waiting for the user to fill in the join form. */
   | 'idle'
   | 'connecting'
-  /** In the lobby, waiting for a facilitator to approve. */
   | 'lobby'
   | 'joined'
-  /** Connection dropped after joining; retrying with backoff. */
   | 'reconnecting'
-  /** Terminal: see `ended`. */
   | 'ended';
 
-/** Why the session is over for this tab. `unreachable` = could not connect at all. */
 export type EndReason = CloseReason | 'unreachable' | 'left';
 
 export interface You {
@@ -44,17 +36,21 @@ export interface JoinRequest {
   passcode?: string;
 }
 
+export interface QueuedVote {
+  taskId: string;
+  round: number;
+  value: string | null;
+}
+
 export interface ConnectionSnapshot {
   status: ConnectionStatus;
   view: RoomView | null;
   you: You | null;
   ended: EndReason | null;
-  /** Why the last join attempt was refused (shown on the join form). */
   joinError: ErrorCode | null;
-  /** Reconnect attempts since the last successful connection. */
   attempt: number;
-  /** serverTime − local time, from welcome/pong. */
   clockOffset: number;
+  queuedVote: QueuedVote | null;
 }
 
 export interface Timers {
@@ -80,23 +76,26 @@ export interface ConnectionOptions {
   timers?: Timers;
   random?: () => number;
   onChange: (snapshot: ConnectionSnapshot) => void;
-  /** Non-fatal server errors after joining (e.g. forbidden, invalid_task). */
   onServerError?: (code: ErrorCode, ref: string | undefined) => void;
   pingIntervalMs?: number;
-  /** Give up connecting (never joined) after this many failed attempts. */
   maxInitialAttempts?: number;
 }
 
 export const BACKOFF_BASE_MS = 500;
 export const BACKOFF_MAX_MS = 30_000;
 
-/** Exponential backoff with jitter: base·2^attempt capped, scaled into [50%, 100%]. */
+/** Exponential backoff with jitter: base·2^attempt, capped, scaled into [50%, 100%]. */
 export function backoffDelay(attempt: number, random: () => number = Math.random): number {
   const ceiling = Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * 2 ** Math.max(0, attempt));
   return Math.round(ceiling * (0.5 + random() * 0.5));
 }
 
-/** Errors that refuse a join (the server follows them with closed{rejected}). */
+/** Clock offset from a server timestamp, assuming it was taken halfway through the round trip. */
+export function clockOffset(serverTime: number, sentAt: number | null, receivedAt: number): number {
+  const rtt = sentAt === null ? 0 : Math.max(0, receivedAt - sentAt);
+  return Math.round(serverTime + rtt / 2 - receivedAt);
+}
+
 const JOIN_ERRORS: ReadonlySet<ErrorCode> = new Set([
   'room_locked',
   'room_full',
@@ -106,7 +105,6 @@ const JOIN_ERRORS: ReadonlySet<ErrorCode> = new Set([
   'unauthorized',
 ]);
 
-/** Join errors the user can fix by editing the form (stay on the join screen). */
 const RETRYABLE_JOIN_ERRORS: ReadonlySet<ErrorCode> = new Set([
   'bad_passcode',
   'spectators_disabled',
@@ -137,6 +135,7 @@ export class RoomConnection {
     joinError: null,
     attempt: 0,
     clockOffset: 0,
+    queuedVote: null,
   };
   #transport: Transport | null = null;
   #request: JoinRequest | null = null;
@@ -146,6 +145,8 @@ export class RoomConnection {
   #retryTimer: unknown = null;
   #pingTimer: unknown = null;
   #generation = 0;
+  #lastSeen = 0;
+  #sentAt: number | null = null;
 
   constructor(opts: ConnectionOptions) {
     this.#o = {
@@ -161,12 +162,7 @@ export class RoomConnection {
     return this.#snap;
   }
 
-  /** Server time estimate in ms. */
-  serverNow(): number {
-    return this.#o.timers.now() + this.#snap.clockOffset;
-  }
-
-  /** Start (or restart after a refused join) with the given identity. */
+  /** Starts, or restarts after a refused join, with the given identity. */
   join(req: JoinRequest): void {
     this.#request = req;
     this.#o.session.identity = { name: req.name, role: req.role };
@@ -174,14 +170,14 @@ export class RoomConnection {
     this.#open();
   }
 
-  /** Reconnect after a terminal state such as `replaced` or `unreachable`. */
+  /** Reconnects after a terminal state such as `replaced` or `unreachable`. */
   retry(): void {
     if (!this.#request) return;
     this.#update({ ended: null, attempt: 0 });
     this.#open();
   }
 
-  /** Reconnect now if waiting for a backoff timer (e.g. the browser came back online). */
+  /** Skips the backoff wait, e.g. when the browser comes back online. */
   nudge(): void {
     if (this.#snap.status === 'reconnecting' && this.#retryTimer !== null) {
       this.#o.timers.clearTimeout(this.#retryTimer);
@@ -196,11 +192,24 @@ export class RoomConnection {
     return true;
   }
 
-  /** Leave voluntarily: close the socket and forget the resume token. */
+  /**
+   * Casts (or withdraws, with `null`) a vote. While reconnecting the latest choice is kept and
+   * sent after the resume if the same round is still open.
+   */
+  vote(taskId: string, round: number, value: string | null): 'sent' | 'queued' | 'dropped' {
+    const msg: ClientMessageInput =
+      value === null ? { type: 'unvote', taskId, round } : { type: 'vote', taskId, round, value };
+    if (this.send(msg)) return 'sent';
+    if (this.#snap.status !== 'reconnecting') return 'dropped';
+    this.#update({ queuedVote: { taskId, round, value } });
+    return 'queued';
+  }
+
+  /** Leaves voluntarily: closes the socket and forgets the resume token. */
   leave(): void {
     this.#teardown();
     this.#o.session.clear();
-    this.#update({ status: 'ended', ended: 'left' });
+    this.#update({ status: 'ended', ended: 'left', queuedVote: null });
   }
 
   dispose(): void {
@@ -251,12 +260,14 @@ export class RoomConnection {
       ...(link.adminSecret ? { adminSecret: link.adminSecret } : {}),
       ...(resumeToken ? { resumeToken } : {}),
     };
+    this.#sentAt = this.#o.timers.now();
     this.#transport.send(JSON.stringify(hello));
   }
 
   #receive(data: string): void {
     const parsed = parseServerMessage(data);
-    if (!parsed.ok) return; // ignore malformed frames; the server is the authority
+    if (!parsed.ok) return;
+    this.#lastSeen = this.#o.timers.now();
     this.#handle(parsed.msg);
   }
 
@@ -267,7 +278,7 @@ export class RoomConnection {
         if (msg.you.resumeToken) this.#o.session.resumeToken = msg.you.resumeToken;
         this.#everJoined = true;
         this.#startPing();
-        // A passcode is only needed once; resume bypasses it.
+        // A passcode is only needed once; the resume token covers later reconnects.
         if (this.#request?.passcode) this.#request = { ...this.#request, passcode: '' };
         this.#update({
           status: 'joined',
@@ -280,8 +291,9 @@ export class RoomConnection {
           },
           joinError: null,
           attempt: 0,
-          clockOffset: msg.serverTime - now,
+          clockOffset: clockOffset(msg.serverTime, this.#sentAt, now),
         });
+        this.#flushQueuedVote(msg.room);
         break;
       }
       case 'state': {
@@ -322,14 +334,33 @@ export class RoomConnection {
         this.#closedReason = msg.reason;
         break;
       case 'pong':
-        this.#update({ clockOffset: msg.serverTime - now });
+        this.#update({ clockOffset: clockOffset(msg.serverTime, this.#sentAt, now) });
+        this.#sentAt = null;
         break;
     }
   }
 
+  #flushQueuedVote(room: RoomView): void {
+    const q = this.#snap.queuedVote;
+    if (!q) return;
+    this.#update({ queuedVote: null });
+    if (room.phase !== 'voting' || room.currentTaskId !== q.taskId || room.round !== q.round)
+      return;
+    this.vote(q.taskId, q.round, q.value);
+  }
+
+  // Pings keep proxies from closing an idle socket. A socket that stays silent for two ping
+  // intervals is treated as dropped, so half-open connections reconnect instead of hanging.
   #startPing(): void {
     if (this.#pingTimer !== null) return;
+    this.#lastSeen = this.#o.timers.now();
     this.#pingTimer = this.#o.timers.setInterval(() => {
+      const now = this.#o.timers.now();
+      if (now - this.#lastSeen > this.#o.pingIntervalMs * 2) {
+        this.#dropped(1006);
+        return;
+      }
+      this.#sentAt = now;
       this.#transport?.send(JSON.stringify({ type: 'ping' }));
     }, this.#o.pingIntervalMs);
   }
@@ -340,7 +371,6 @@ export class RoomConnection {
     this.#teardown();
 
     if (reason === 'rejected' && joinError && RETRYABLE_JOIN_ERRORS.has(joinError)) {
-      // Back to the form with a message (wrong passcode, spectators off, room full).
       this.#update({ status: 'idle', joinError });
       return;
     }
@@ -351,11 +381,10 @@ export class RoomConnection {
       if (reason === 'expired' || reason === 'idle' || reason === 'closed') {
         this.#o.session.clear(true);
       }
-      this.#update({ status: 'ended', ended: reason, joinError });
+      this.#update({ status: 'ended', ended: reason, joinError, queuedVote: null });
       return;
     }
 
-    // Network drop or server restart: retry with backoff.
     const attempt = this.#snap.attempt + 1;
     if (!this.#everJoined && attempt >= this.#o.maxInitialAttempts) {
       this.#update({ status: 'ended', ended: 'unreachable', attempt });

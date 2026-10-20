@@ -71,6 +71,20 @@ async function loopbackRoom(config = {}) {
   return { ...r, link, admin };
 }
 
+async function probeWelcome(engine: LoopbackEngine, link: RoomLink) {
+  const probe = engine.connect();
+  await probe.send({
+    type: 'hello',
+    v: 1,
+    joinSecret: link.joinSecret,
+    name: 'Probe',
+    role: 'voter',
+  });
+  const welcome = probe.last('welcome');
+  if (!welcome) throw new Error('no welcome');
+  return welcome;
+}
+
 function connect(link: RoomLink, engine: LoopbackEngine | null, store = memoryStore()) {
   const snaps: ConnectionSnapshot[] = [];
   const errors: string[] = [];
@@ -332,6 +346,110 @@ describe('reconnect with backoff', () => {
     srv.sockets[2]?.h.onMessage(JSON.stringify(realWelcome));
     expect(conn.snapshot).toMatchObject({ status: 'joined', attempt: 0 });
     void srv.welcome;
+  });
+
+  async function joinedOverFakeSocket() {
+    const { engine, link } = await loopbackRoom();
+    const welcome = await probeWelcome(engine, link);
+    const timers = new FakeTimers();
+    const srv = fakeServer();
+    const conn = new RoomConnection({
+      link,
+      transport: srv.factory,
+      session: new RoomSessionStore(memoryStore(), link.roomId),
+      timers,
+      random: () => 1,
+      onChange: () => undefined,
+    });
+    conn.join({ name: 'Rae', role: 'voter' });
+    srv.sockets[0]?.h.onOpen();
+    return { conn, srv, timers, welcome };
+  }
+
+  it('treats a silent socket as dropped after two ping intervals', async () => {
+    const { conn, srv, timers, welcome } = await joinedOverFakeSocket();
+    srv.sockets[0]?.h.onMessage(JSON.stringify(welcome));
+    timers.advance(25_000);
+    srv.sockets[0]?.h.onMessage(JSON.stringify({ type: 'pong', serverTime: timers.now() }));
+    timers.advance(50_000);
+    expect(conn.snapshot.status).toBe('joined');
+    timers.advance(25_000);
+    expect(conn.snapshot.status).toBe('reconnecting');
+    expect(srv.sockets[0]?.open).toBe(false);
+  });
+
+  it('corrects the clock offset by half the round trip', async () => {
+    const { conn, srv, timers, welcome } = await joinedOverFakeSocket();
+    srv.sockets[0]?.h.onMessage(JSON.stringify(welcome));
+    timers.advance(25_000);
+    const sentAt = timers.now();
+    timers.advance(400);
+    srv.sockets[0]?.h.onMessage(JSON.stringify({ type: 'pong', serverTime: sentAt + 5_200 }));
+    expect(conn.snapshot.clockOffset).toBe(5_000);
+  });
+
+  it('queues a vote cast while reconnecting and sends it after the resume', async () => {
+    const { engine, link } = await loopbackRoom();
+    const room = (await probeWelcome(engine, link)) as { room: Record<string, unknown> };
+    const voting = {
+      ...room,
+      room: { ...room.room, phase: 'voting', currentTaskId: 't1', round: 1 },
+    };
+    const timers = new FakeTimers();
+    const srv = fakeServer();
+    const conn = new RoomConnection({
+      link,
+      transport: srv.factory,
+      session: new RoomSessionStore(memoryStore(), link.roomId),
+      timers,
+      random: () => 1,
+      onChange: () => undefined,
+    });
+    conn.join({ name: 'Rae', role: 'voter' });
+    srv.sockets[0]?.h.onOpen();
+    srv.sockets[0]?.h.onMessage(JSON.stringify(voting));
+    srv.sockets[0]?.h.onClose(1006);
+    expect(conn.vote('t1', 1, '5')).toBe('queued');
+    expect(conn.snapshot.queuedVote).toEqual({ taskId: 't1', round: 1, value: '5' });
+    timers.advance(500);
+    srv.sockets[1]?.h.onOpen();
+    srv.sockets[1]?.h.onMessage(JSON.stringify(voting));
+    expect(JSON.parse(srv.sockets[1]?.sent.at(-1) ?? '{}')).toEqual({
+      type: 'vote',
+      taskId: 't1',
+      round: 1,
+      value: '5',
+    });
+    expect(conn.snapshot.queuedVote).toBeNull();
+  });
+
+  it('drops a queued vote when the round moved on', async () => {
+    const { engine, link } = await loopbackRoom();
+    const room = (await probeWelcome(engine, link)) as { room: Record<string, unknown> };
+    const at = (round: number) => ({
+      ...room,
+      room: { ...room.room, phase: 'voting', currentTaskId: 't1', round },
+    });
+    const timers = new FakeTimers();
+    const srv = fakeServer();
+    const conn = new RoomConnection({
+      link,
+      transport: srv.factory,
+      session: new RoomSessionStore(memoryStore(), link.roomId),
+      timers,
+      random: () => 1,
+      onChange: () => undefined,
+    });
+    conn.join({ name: 'Rae', role: 'voter' });
+    srv.sockets[0]?.h.onOpen();
+    srv.sockets[0]?.h.onMessage(JSON.stringify(at(1)));
+    srv.sockets[0]?.h.onClose(1006);
+    conn.vote('t1', 1, '5');
+    timers.advance(500);
+    srv.sockets[1]?.h.onOpen();
+    srv.sockets[1]?.h.onMessage(JSON.stringify(at(2)));
+    expect(srv.sockets[1]?.sent.map((s) => JSON.parse(s).type)).toEqual(['hello']);
+    expect(conn.snapshot.queuedVote).toBeNull();
   });
 
   it('gives up with "unreachable" when it never connected', () => {
