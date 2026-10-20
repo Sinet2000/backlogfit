@@ -51,12 +51,14 @@ LABEL org.opencontainers.image.title="backlogfit" \
 WORKDIR /app
 COPY --from=prod /out/app /app
 COPY --from=prod --chown=65532:65532 /out/data /data
+# Rooms are kept in memory by default (PLAN §7: empty DATA_DIR = memory), so nothing is
+# written to disk. Opt in to surviving restarts with `-e DATA_DIR=/data -v <volume>:/data`;
+# /data exists and is owned by the runtime user for that purpose.
 ENV NODE_ENV=production \
     PORT=8080 \
-    DATA_DIR=/data \
+    DATA_DIR= \
     WEB_DIR=/app/apps/web/build
 USER 65532:65532
-VOLUME ["/data"]
 EXPOSE 8080
 STOPSIGNAL SIGTERM
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
