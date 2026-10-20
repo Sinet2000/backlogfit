@@ -76,10 +76,10 @@
   }
 
   .pick {
+    position: relative;
     display: grid;
     justify-items: center;
-    gap: var(--space-1);
-    padding: var(--space-1);
+    padding: var(--space-6) var(--space-1) var(--space-1);
     border: 0;
     border-radius: var(--radius-md);
     background: none;
@@ -91,6 +91,11 @@
   }
 
   .chip {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
     padding: 0 var(--space-2);
     border-radius: var(--radius-full);
     background: var(--color-accent-soft);
