@@ -1,14 +1,15 @@
 <script lang="ts">
+  import type { Team } from '@backlogfit/core';
   import Button from '../../components/Button.svelte';
   import CopyField from '../../components/CopyField.svelte';
   import Icon from '../../components/Icon.svelte';
-  import QR from '../../components/QR.svelte';
+  import InviteLinks from '../../components/InviteLinks.svelte';
   import { downloadText } from '../../download.ts';
-  import { type RoomLink, roomUrls } from '../../room/link.ts';
+  import { type RoomLink, roomUrls, teamUrl } from '../../room/link.ts';
   import { toasts } from '../../toast.svelte.ts';
 
   interface Props {
-    created: { link: RoomLink; demo: boolean; prepared: string[] };
+    created: { link: RoomLink; demo: boolean; prepared: string[]; teams: Team[] };
     onreset: () => void;
   }
   let { created, onreset }: Props = $props();
@@ -21,7 +22,14 @@
 
   function saveHostLink() {
     if (!urls.admin) return;
-    const text = `Backlogfit host link. Keep it private: it gives full control of the session.\n\n${urls.admin}\n\nJoin link for the team:\n${urls.join}\n`;
+    const query = created.demo ? 'demo' : '';
+    const teamLinks = created.teams
+      .map(
+        (t) =>
+          `\nJoin link for ${t.name}:\n${teamUrl(location.origin, created.link, t.id, query)}\n`,
+      )
+      .join('');
+    const text = `Backlogfit host link. Keep it private: it gives full control of the session.\n\n${urls.admin}\n\nJoin link for the team:\n${urls.join}\n${teamLinks}`;
     downloadText('backlogfit-host-link.txt', text, 'text/plain');
   }
 
@@ -38,14 +46,18 @@
 <section class="done" aria-labelledby="done-h">
   <span class="ok-icon" aria-hidden="true"><Icon name="check" size={28} /></span>
   <h1 id="done-h" bind:this={heading} tabindex="-1">Your session is ready</h1>
-  <p class="muted">Share the join link with your team. Keep the host link for yourself.</p>
+  <p class="muted">
+    {created.teams.length > 0
+      ? 'Share a join link with each team. Keep the host link for yourself.'
+      : 'Share the join link with your team. Keep the host link for yourself.'}
+  </p>
   {#if created.demo}
     <p class="note">Offline demo: this session lives only in this browser tab, with simulated teammates.</p>
   {/if}
 
   <div class="share panel">
+    <InviteLinks link={created.link} teams={created.teams} query={created.demo ? 'demo' : ''} layout="side" />
     <div class="share-main">
-      <CopyField label="Join link for your team" value={urls.join} inputTestId="join-link" buttonTestId="copy-join-link" hint="Anyone with this link can join. Paste it in your meeting chat." />
       {#if urls.admin}
         <div class="admin-box">
           <CopyField label="Host link (only for you)" value={urls.admin} inputTestId="admin-link" buttonTestId="copy-admin-link" tone="warning" />
@@ -56,10 +68,6 @@
           <div><Button size="sm" icon="download" onclick={saveHostLink} data-testid="save-admin-link">Save host link as a file</Button></div>
         </div>
       {/if}
-    </div>
-    <div class="share-qr">
-      <QR value={urls.join} label="QR code of the join link" size={168} />
-      <p class="muted small">Scan to join from a phone</p>
     </div>
   </div>
 
@@ -121,23 +129,10 @@
     padding: var(--space-6);
   }
 
-  @media (min-width: 640px) {
-    .share {
-      grid-template-columns: minmax(0, 1fr) auto;
-    }
-  }
-
   .share-main {
     display: grid;
     gap: var(--space-6);
     min-width: 0;
-  }
-
-  .share-qr {
-    display: grid;
-    justify-items: center;
-    align-content: start;
-    gap: var(--space-2);
   }
 
   .admin-box {

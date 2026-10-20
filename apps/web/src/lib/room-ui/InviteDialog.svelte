@@ -1,34 +1,28 @@
 <script lang="ts">
-  import CopyField from '../components/CopyField.svelte';
+  import type { Team } from '@backlogfit/core';
   import Dialog from '../components/Dialog.svelte';
-  import QR from '../components/QR.svelte';
+  import InviteLinks from '../components/InviteLinks.svelte';
+  import type { RoomLink } from '../room/link.ts';
 
-  let { url, open = $bindable() }: { url: string; open: boolean } = $props();
+  interface Props {
+    link: RoomLink;
+    teams: readonly Team[];
+    query?: string;
+    open: boolean;
+  }
+  let { link, teams, query = '', open = $bindable() }: Props = $props();
 </script>
 
 <Dialog bind:open title="Invite your team">
-  <div class="invite">
-    <CopyField label="Join link" value={url} hint="Anyone with this link can join. Share it only with your team." />
-    <div class="qr">
-      <QR value={url} label="QR code of the join link" size={180} />
-      <p class="muted small">Scan to join from a phone.</p>
-    </div>
-  </div>
+  {#if teams.length > 0}
+    <p class="muted intro">Send each team its own link, so their team is already picked when they join.</p>
+  {/if}
+  <InviteLinks {link} {teams} {query} qrSize={180} inputTestId="invite-link" buttonTestId="copy-invite-link" />
 </Dialog>
 
 <style>
-  .invite {
-    display: grid;
-    gap: var(--space-5);
-  }
-
-  .qr {
-    display: grid;
-    justify-items: center;
-    gap: var(--space-2);
-  }
-
-  .small {
+  .intro {
+    margin-bottom: var(--space-4);
     font-size: var(--text-sm);
   }
 </style>
