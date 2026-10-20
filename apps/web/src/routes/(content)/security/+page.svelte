@@ -32,7 +32,6 @@ const jsonLd = [
   title="Security for banks and enterprise"
   description="How Backlogfit protects estimation sessions: no accounts, secrets kept out of server logs, private votes, strict CSP, auto-deletion and signed releases."
   path="/security"
-  ogImage="/og/security.png"
   {jsonLd}
 />
 

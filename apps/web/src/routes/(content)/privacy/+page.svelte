@@ -16,7 +16,6 @@ const jsonLd = {
   title="Privacy: no sign-up, no tracking"
   description="What Backlogfit stores and for how long: a display name and votes for the room's lifetime, then deleted. No accounts, cookies, analytics or ads."
   path="/privacy"
-  ogImage="/og/privacy.png"
   {jsonLd}
 />
 

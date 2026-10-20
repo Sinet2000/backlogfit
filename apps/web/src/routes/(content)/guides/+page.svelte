@@ -54,7 +54,6 @@ const jsonLd = [
   title="Agile estimation guides"
   description="Practical guides for agile estimation: backlog refinement, sprint planning, and choosing between Fibonacci estimation and T-shirt sizing."
   path="/guides"
-  ogImage="/og/guides.png"
   {jsonLd}
 />
 

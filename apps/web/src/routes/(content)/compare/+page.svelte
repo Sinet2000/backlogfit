@@ -67,7 +67,6 @@ const rows = [
   title="Comparing estimation tools by capability"
   description="An honest comparison of agile estimation tool categories: hosted planning poker tools with accounts, tracker plugins, and Backlogfit."
   path="/compare"
-  ogImage="/og/compare.png"
   {jsonLd}
 />
 

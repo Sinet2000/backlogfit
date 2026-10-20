@@ -33,7 +33,6 @@ const jsonLd = [
   title="Fibonacci estimation vs T-shirt sizing"
   description="Fibonacci story points or T-shirt sizes? When each scale works best for agile estimation, how they map, and which special cards help."
   path="/guides/fibonacci-vs-t-shirt-sizing"
-  ogImage="/og/fibonacci-vs-t-shirt-sizing.png"
   type="article"
   {jsonLd}
 />

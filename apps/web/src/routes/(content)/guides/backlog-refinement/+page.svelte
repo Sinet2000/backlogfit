@@ -33,7 +33,6 @@ const jsonLd = [
   title="Backlog refinement with story points"
   description="Run a focused backlog refinement session: prepare items, estimate with story points, handle split votes and split items that are too big."
   path="/guides/backlog-refinement"
-  ogImage="/og/backlog-refinement.png"
   type="article"
   {jsonLd}
 />

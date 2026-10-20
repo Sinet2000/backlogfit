@@ -12,7 +12,7 @@ const jsonLd = {
 };
 
 const runCommand =
-  'podman run -d --name backlogfit -p 8080:8080 --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=256 --memory=512m -e PUBLIC_ORIGIN=https://estimate.example.com ghcr.io/sinet2000/backlogfit:latest';
+  'podman run -d --name backlogfit -p 8080:8080 --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=256 --memory=512m -v backlogfit-data:/data -e PUBLIC_ORIGIN=https://estimate.example.com ghcr.io/sinet2000/backlogfit:latest';
 
 const verifyCommand =
   "cosign verify ghcr.io/sinet2000/backlogfit@sha256:<digest> --certificate-identity-regexp '^https://github.com/Sinet2000/backlogfit/.github/workflows/release.yml@refs/tags/v' --certificate-oidc-issuer https://token.actions.githubusercontent.com";
@@ -26,8 +26,8 @@ const settings = [
   { name: 'PORT', value: '8080', note: 'Listening port inside the container.' },
   {
     name: 'DATA_DIR',
-    value: 'empty (memory)',
-    note: 'Directory for SQLite storage, to survive restarts.',
+    value: '/data in the image',
+    note: 'SQLite storage directory (a volume); set it empty to keep rooms in memory only.',
   },
   { name: 'DEFAULT_LIFETIME_HOURS', value: '2', note: 'Default room lifetime.' },
   { name: 'MAX_LIFETIME_HOURS', value: '8', note: 'Hard maximum, including extensions.' },
@@ -42,7 +42,6 @@ const settings = [
   title="Self-hosted story point estimation"
   description="Run Backlogfit on your own infrastructure: one hardened container for Podman or Docker, no database, no outbound requests, signed images."
   path="/self-hosting"
-  ogImage="/og/self-hosting.png"
   {jsonLd}
 />
 
@@ -75,8 +74,9 @@ const settings = [
   <pre><code>{runCommand}</code></pre>
   <p>
     Docker accepts the same flags. Put the container behind a reverse proxy that terminates TLS,
-    and set <code>PUBLIC_ORIGIN</code> to the address your team uses. To keep rooms across
-    restarts, mount a volume and set <code>DATA_DIR</code>.
+    and set <code>PUBLIC_ORIGIN</code> to the address your team uses. Rooms are stored in the
+    <code>/data</code> volume so they survive restarts; mount a named volume there (for example
+    <code>-v backlogfit-data:/data</code>) or set <code>DATA_DIR</code> empty to keep them in memory.
   </p>
 </section>
 

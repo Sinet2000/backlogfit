@@ -32,7 +32,6 @@ const jsonLd = [
   title="Sprint planning with story points"
   description="Plan a realistic sprint with story points and velocity: capacity, buffers, estimating new items on the spot, and mistakes to avoid."
   path="/guides/sprint-planning"
-  ogImage="/og/sprint-planning.png"
   type="article"
   {jsonLd}
 />
