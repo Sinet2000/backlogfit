@@ -7,6 +7,7 @@ import type {
   ServerMessage,
 } from './schemas.ts';
 import type { TaskPolicy } from './tasks.ts';
+import type { Team } from './teams.ts';
 
 export type Role = 'voter' | 'spectator';
 /** admin = holds the admin secret; coadmin = promoted by an admin; none = regular participant. */
@@ -18,6 +19,8 @@ export interface Participant {
   name: string;
   role: Role;
   authority: Authority;
+  /** Team id from config.teams, or null. */
+  team: string | null;
   status: 'active' | 'lobby';
   conn: string | null;
   /** SHA-256 hex of the current resume token. Rotated on every successful hello. */
@@ -28,6 +31,8 @@ export interface Participant {
 export interface Vote {
   pid: string;
   name: string;
+  /** The voter's team, kept current until the round is revealed, then fixed. */
+  team: string | null;
   value: string;
 }
 
@@ -45,6 +50,8 @@ export interface Task {
   key: string | null;
   title: string | null;
   url: string | null;
+  /** Team ids that estimate this task; null = everyone. */
+  voters: string[] | null;
   rounds: Round[];
   final: string | null;
 }
@@ -98,6 +105,7 @@ export interface RoomState {
     linkTemplate: string | null;
     maxParticipants: number;
     theme: 'corporate' | 'colorful';
+    teams: Team[];
   };
   settings: Settings;
   secrets: RoomSecretsState;
@@ -172,6 +180,30 @@ export function maxExpiresAt(state: RoomState): number {
 
 export function idleAt(state: RoomState): number {
   return state.lastActivityAt + state.limits.idleTimeoutMs;
+}
+
+/**
+ * Fills in fields added after a room was stored (teams, team, voters), so state written by an
+ * older build keeps working. Returns the input unchanged when nothing is missing.
+ */
+export function normalizeRoomState(state: RoomState): RoomState {
+  const s = state as RoomState & { config: { teams?: Team[] } };
+  const needs =
+    s.config.teams === undefined ||
+    s.participants.some((p) => p.team === undefined) ||
+    s.tasks.some(
+      (t) =>
+        t.voters === undefined || t.rounds.some((r) => r.votes.some((x) => x.team === undefined)),
+    );
+  if (!needs) return state;
+  const d = structuredClone(state);
+  d.config.teams ??= [];
+  for (const p of d.participants) p.team ??= null;
+  for (const t of d.tasks) {
+    t.voters ??= null;
+    for (const r of t.rounds) for (const x of r.votes) x.team ??= null;
+  }
+  return d;
 }
 
 export function isFacilitator(p: Participant | undefined | null): boolean {

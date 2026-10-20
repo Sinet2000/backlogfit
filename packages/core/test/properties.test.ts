@@ -3,6 +3,7 @@ import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import {
   type ClientMessage,
+  canEstimate,
   computeStats,
   csvCell,
   expandEffects,
@@ -22,6 +23,11 @@ import { auth, counterIds, HASH, hello, newRoom, T0 } from './helpers.ts';
 
 const CONNS = ['c0', 'c1', 'c2', 'c3', 'c4', 'c5'];
 const SCALE = PRESETS.fibonacci.cards.map((c) => c.value);
+const TEAMS = [
+  { id: 'dev', name: 'Dev' },
+  { id: 'qa', name: 'QA' },
+];
+const TEAM_IDS = ['dev', 'qa', 'ghost'];
 
 type Op =
   | {
@@ -32,6 +38,7 @@ type Op =
       resume: number | null;
       passOk: boolean;
       joinOk: boolean;
+      team?: number | null;
     }
   | { k: 'disconnect'; c: number }
   | { k: 'tick' }
@@ -55,6 +62,7 @@ const opArb: fc.Arbitrary<{ dt: number; op: Op }> = fc.record({
         resume: fc.option(fc.nat(8), { nil: null }),
         passOk: fc.boolean(),
         joinOk: fc.nat(9).map((n) => n > 0),
+        team: fc.option(fc.nat(TEAM_IDS.length - 1), { nil: null }),
       }),
     },
     {
@@ -77,7 +85,7 @@ const opArb: fc.Arbitrary<{ dt: number; op: Op }> = fc.record({
       arbitrary: fc.record({
         k: fc.constant('admin' as const),
         c: fc.nat(CONNS.length - 1),
-        msg: fc.nat(19),
+        msg: fc.nat(27),
         target: fc.nat(8),
         n: fc.nat(30),
         flag: fc.boolean(),
@@ -114,6 +122,14 @@ function adminMessage(state: RoomState, o: Extract<Op, { k: 'admin' }>): ClientM
     { type: 'admin.close' },
     { type: 'ping' },
     { type: 'admin.tasks.add', lines: ['javascript:alert(1)'] },
+    { type: 'admin.tasks.voters', taskId, voters: o.flag ? ['qa'] : null },
+    { type: 'admin.tasks.voters', taskId, voters: [o.n % 2 === 0 ? 'dev' : 'qa'] },
+    { type: 'admin.participant', participantId, team: o.flag ? 'dev' : 'qa' },
+    { type: 'admin.participant', participantId, role: o.flag ? 'voter' : 'spectator' },
+    { type: 'admin.participant', participantId, team: null },
+    { type: 'admin.teams', teams: o.flag ? TEAMS : TEAMS.slice(o.n % 2) },
+    { type: 'admin.tasks.add', lines: [`T-${o.n} QA only #qa`, `Both #dev #qa`], voters: ['dev'] },
+    { type: 'admin.teams', teams: [] },
   ];
   return all[o.msg % all.length] as ClientMessage;
 }
@@ -132,6 +148,7 @@ function toRoomEvent(state: RoomState, op: Op, seq: number): RoomEvent {
         msg: hello(`N${op.c}`, {
           role: op.spectator ? 'spectator' : 'voter',
           ...(op.admin ? { adminSecret: 'a'.repeat(22) } : {}),
+          ...(op.team != null ? { team: TEAM_IDS[op.team] ?? null } : {}),
         }),
         auth: auth({
           joinOk: op.joinOk,
@@ -184,6 +201,7 @@ const configArb = fc.record({
   lobby: fc.boolean(),
   allowSpectators: fc.boolean(),
   maxParticipants: fc.integer({ min: 2, max: 6 }),
+  teams: fc.constantFrom([], TEAMS),
 });
 
 const H = { admin: false, spectator: false, resume: null, passOk: true, joinOk: true } as const;
@@ -283,6 +301,7 @@ describe('properties', () => {
           if (t.startsWith('admin.')) {
             const ownerOnly = [
               'admin.settings',
+              'admin.teams',
               'admin.promote',
               'admin.demote',
               'admin.extend',
@@ -477,6 +496,67 @@ describe('properties', () => {
         },
       ),
       { numRuns: 200 },
+    );
+  });
+  it('(h) ineligible people never affect a round', () => {
+    const eligibleVotes = (s: RoomState) => {
+      for (const t of s.tasks) {
+        for (const r of t.rounds) {
+          if (r.revealedAt !== null) continue;
+          for (const vote of r.votes) {
+            const p = s.participants.find((x) => x.id === vote.pid);
+            expect(p && canEstimate(p, t.voters)).toBe(true);
+            expect(vote.team).toBe(p?.team ?? null);
+          }
+        }
+      }
+    };
+    let restricted = 0;
+    fc.assert(
+      fc.property(scenario, ([ops, config, passcode]) => {
+        for (const { before, event, result } of run(ops, config, passcode).steps) {
+          eligibleVotes(result.state);
+          if (event.type !== 'message' || event.msg.type !== 'vote') continue;
+          const actor = before.participants.find((p) => p.conn === event.conn);
+          const task = before.tasks.find((t) => t.id === before.currentTaskId);
+          if (actor && task && !canEstimate(actor, task.voters)) {
+            if (task.voters !== null) restricted++;
+            expect(result.state).toBe(before);
+          }
+        }
+      }),
+      RUNS,
+    );
+    expect(restricted).toBeGreaterThan(5);
+  });
+
+  it('(i) a team hint never grants anything', () => {
+    fc.assert(
+      fc.property(scenario, fc.nat(TEAM_IDS.length - 1), ([ops, config, passcode], t) => {
+        const team = TEAM_IDS[t] ?? 'dev';
+        for (const { before, event } of run(ops, config, passcode).steps) {
+          if (event.type !== 'message' || event.msg.type !== 'hello') continue;
+          const plain = { ...event, msg: { ...event.msg } };
+          delete (plain.msg as { team?: unknown }).team;
+          const hinted = { ...event, msg: { ...event.msg, team } };
+          const ctx = () => ({ now: before.lastActivityAt, randomId: counterIds('h') });
+          const a = reduce(before, plain, ctx());
+          const b = reduce(before, hinted, ctx());
+          const strip = (r: ReduceResult) =>
+            JSON.stringify({
+              effects: r.effects.map((e) => e.type),
+              participants: r.state.participants.map((p) => [p.id, p.role, p.authority, p.status]),
+              settings: r.state.settings,
+              tasks: r.state.tasks,
+            });
+          expect(strip(b)).toBe(strip(a));
+          const joined = b.state.participants.find((p) => p.conn === event.conn);
+          if (joined?.team != null) {
+            expect(b.state.config.teams.some((x) => x.id === joined.team)).toBe(true);
+          }
+        }
+      }),
+      { numRuns: 150 },
     );
   });
 });

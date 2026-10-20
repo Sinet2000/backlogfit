@@ -4,6 +4,7 @@
  */
 import type { RoomView, RoundView, TaskView } from './schemas.ts';
 import type { Stats } from './stats.ts';
+import { type TeamBreakdown, votersLabel } from './teams.ts';
 
 export interface ExportOptions {
   generatedAt?: string;
@@ -52,8 +53,33 @@ function statLabel(stats: Stats | null, basis: 'median' | 'average'): string {
   return fmt(n);
 }
 
-/** One row per revealed vote (long format), plus one row for tasks without revealed votes. */
+type Teams = RoomView['config']['teams'];
+
+function teamName(id: string | null, teams: Teams): string {
+  if (id === null) return 'No team';
+  return teams.find((t) => t.id === id)?.name ?? 'No team';
+}
+
+/** "Dev 5 (4 votes) · QA 3 (2 votes)", or a note when the breakdown is withheld. */
+export function teamBreakdownText(breakdown: TeamBreakdown | null, teams: Teams): string {
+  if (breakdown === null) return '';
+  if (breakdown.hidden) return 'hidden to keep votes anonymous';
+  return breakdown.groups
+    .map(
+      (g) =>
+        `${teamName(g.team, teams)} ${g.median ?? '–'} (${g.count} ${g.count === 1 ? 'vote' : 'votes'})`,
+    )
+    .join(' · ');
+}
+
+/**
+ * One row per revealed vote (long format), plus one row for tasks without revealed votes.
+ * Rooms with teams get three more columns: who estimates the task, the voter's team (empty in
+ * anonymous rounds) and the per-team summary.
+ */
 export function toCsv(view: RoomView): string {
+  const teams = view.config.teams;
+  const withTeams = teams.length > 0;
   const header = [
     'task_key',
     'task_title',
@@ -65,22 +91,39 @@ export function toCsv(view: RoomView): string {
     'median',
     'average',
     'consensus',
+    ...(withTeams ? ['estimated_by', 'participant_team', 'team_summary'] : []),
   ];
   const rows: (string | number | null)[][] = [header];
   for (const task of view.tasks) {
     const head = [task.key, task.title, task.url, task.final];
+    const by = votersLabel(task.voters, teams);
     const rounds = revealedRounds(task);
-    if (rounds.length === 0) rows.push([...head, null, null, null, null, null, null]);
+    if (rounds.length === 0) {
+      rows.push([
+        ...head,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        ...(withTeams ? [by, null, null] : []),
+      ]);
+    }
     for (const r of rounds) {
       const tail = [
         statLabel(r.stats, 'median'),
         statLabel(r.stats, 'average'),
         r.stats?.consensus ?? null,
       ];
+      const summary = teamBreakdownText(r.teams, teams) || null;
+      const extra = (team: string | null) => (withTeams ? [by, team, summary] : []);
       const votes = r.votes ?? [];
-      if (votes.length === 0) rows.push([...head, r.n, null, null, ...tail]);
-      for (const v of votes)
-        rows.push([...head, r.n, r.anonymous ? null : v.name, v.value, ...tail]);
+      if (votes.length === 0) rows.push([...head, r.n, null, null, ...tail, ...extra(null)]);
+      for (const v of votes) {
+        const team = r.anonymous || v.team === null ? null : teamName(v.team, teams);
+        rows.push([...head, r.n, r.anonymous ? null : v.name, v.value, ...tail, ...extra(team)]);
+      }
     }
   }
   return `${rows.map((row) => row.map(csvCell).join(',')).join('\r\n')}\r\n`;
@@ -91,36 +134,49 @@ export interface JsonExport {
   v: 1;
   generatedAt: string | null;
   scale: { value: string; label: string }[];
+  /** Present only for rooms with teams. */
+  teams?: { id: string; name: string }[];
   tasks: {
     key: string | null;
     title: string | null;
     url: string | null;
     final: string | null;
+    /** Team ids; null = everyone. Present only for rooms with teams. */
+    voters?: string[] | null;
     rounds: {
       n: number;
       anonymous: boolean;
-      votes: { name: string | null; value: string }[];
+      votes: { name: string | null; team?: string | null; value: string }[];
       stats: Stats | null;
+      teams?: TeamBreakdown | null;
     }[];
   }[];
 }
 
 export function toJson(view: RoomView, opts: ExportOptions = {}): string {
+  const withTeams = view.config.teams.length > 0;
   const data: JsonExport = {
     format: 'backlogfit-export',
     v: 1,
     generatedAt: opts.generatedAt ?? null,
     scale: view.config.scale.map((c) => ({ value: c.value, label: c.label })),
+    ...(withTeams ? { teams: view.config.teams.map((t) => ({ id: t.id, name: t.name })) } : {}),
     tasks: view.tasks.map((t) => ({
       key: t.key,
       title: t.title,
       url: t.url,
       final: t.final,
+      ...(withTeams ? { voters: t.voters } : {}),
       rounds: revealedRounds(t).map((r) => ({
         n: r.n,
         anonymous: r.anonymous,
-        votes: (r.votes ?? []).map((v) => ({ name: r.anonymous ? null : v.name, value: v.value })),
+        votes: (r.votes ?? []).map((v) => ({
+          name: r.anonymous ? null : v.name,
+          ...(withTeams ? { team: r.anonymous ? null : v.team } : {}),
+          value: v.value,
+        })),
         stats: r.stats,
+        ...(withTeams ? { teams: r.teams } : {}),
       })),
     })),
   };
@@ -134,23 +190,31 @@ export function mdCell(s: string | null): string {
 }
 
 export function toMarkdown(view: RoomView): string {
-  const lines = [
-    '| Task | Title | Final | Rounds | Votes | Median | Consensus |',
-    '| --- | --- | --- | --- | --- | --- | --- |',
-  ];
+  const teams = view.config.teams;
+  const withTeams = teams.length > 0;
+  const lines = withTeams
+    ? [
+        '| Task | Title | Estimated by | Final | Rounds | Votes | Median | Consensus | By team |',
+        '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
+      ]
+    : [
+        '| Task | Title | Final | Rounds | Votes | Median | Consensus |',
+        '| --- | --- | --- | --- | --- | --- | --- |',
+      ];
   for (const t of view.tasks) {
     const r = lastRevealed(t);
-    lines.push(
-      `| ${[
-        mdCell(t.key),
-        mdCell(t.title),
-        mdCell(t.final),
-        String(revealedRounds(t).length),
-        mdCell(r ? voteSummary(r) : null),
-        mdCell(r ? statLabel(r.stats, 'median') : null),
-        r?.stats?.consensus ?? '',
-      ].join(' | ')} |`,
-    );
+    const cells = [
+      mdCell(t.key),
+      mdCell(t.title),
+      ...(withTeams ? [mdCell(votersLabel(t.voters, teams))] : []),
+      mdCell(t.final),
+      String(revealedRounds(t).length),
+      mdCell(r ? voteSummary(r) : null),
+      mdCell(r ? statLabel(r.stats, 'median') : null),
+      r?.stats?.consensus ?? '',
+      ...(withTeams ? [mdCell(r ? teamBreakdownText(r.teams, teams) : null)] : []),
+    ];
+    lines.push(`| ${cells.join(' | ')} |`);
   }
   return `${lines.join('\n')}\n`;
 }
@@ -161,6 +225,8 @@ export function toSummary(view: RoomView, taskId?: string): string {
   return tasks
     .map((t) => {
       const parts = [taskLabel(t)];
+      if (t.voters !== null)
+        parts.push(`Estimated by: ${votersLabel(t.voters, view.config.teams)}`);
       if (t.final !== null) parts.push(`Final estimate: ${t.final}`);
       const r = lastRevealed(t);
       if (r) {
@@ -174,6 +240,8 @@ export function toSummary(view: RoomView, taskId?: string): string {
         const special = s?.special.filter((x) => x.count > 0) ?? [];
         if (special.length > 0)
           parts.push(`Other: ${special.map((x) => `${x.count}×${x.value}`).join(', ')}`);
+        const byTeam = teamBreakdownText(r.teams, view.config.teams);
+        if (byTeam !== '') parts.push(`By team: ${byTeam}`);
         if (!r.anonymous) {
           parts.push(`Votes: ${(r.votes ?? []).map((v) => `${v.name} ${v.value}`).join(', ')}`);
         }

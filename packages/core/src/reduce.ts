@@ -1,4 +1,5 @@
 import { project } from './project.ts';
+import { can, nextTaskId } from './rules.ts';
 import type {
   AdminMessage,
   ClientMessage,
@@ -28,6 +29,7 @@ import {
   type Task,
 } from './state.ts';
 import { parseTaskLine } from './tasks.ts';
+import { canEstimate, splitTeamTags } from './teams.ts';
 
 class Rejection extends Error {
   readonly code: ErrorCode | null;
@@ -92,6 +94,7 @@ export function createRoom(
       linkTemplate: c.linkTemplate,
       maxParticipants: Math.min(c.maxParticipants, limits.maxParticipants),
       theme: c.theme,
+      teams: c.teams.map((t) => ({ ...t })),
     },
     settings: {
       autoReveal: c.autoReveal,
@@ -219,8 +222,32 @@ function handle(tx: Tx, event: RoomEvent): void {
   }
 }
 
+/**
+ * Keeps every unrevealed round limited to people who may estimate its task right now, and their
+ * team current. Runs after every event, so a role, team, voter or team-list change can never let
+ * an ineligible vote reach a reveal.
+ */
+function pruneVotes(tx: Tx): void {
+  const { d } = tx;
+  for (const task of d.tasks) {
+    for (const round of task.rounds) {
+      if (round.revealedAt !== null || round.votes.length === 0) continue;
+      const kept = round.votes.flatMap((vote) => {
+        const p = byId(d, vote.pid);
+        if (!p || !canEstimate(p, task.voters)) return [];
+        return [vote.team === p.team ? vote : { ...vote, team: p.team }];
+      });
+      if (kept.length !== round.votes.length || kept.some((x, i) => x !== round.votes[i])) {
+        round.votes = kept;
+        changed(tx);
+      }
+    }
+  }
+}
+
 function settle(tx: Tx): void {
   const { d } = tx;
+  pruneVotes(tx);
   if (d.timer && tx.ctx.now >= d.timer.endsAt) {
     d.timer = null;
     if (phaseOf(d) === 'voting') reveal(tx);
@@ -228,8 +255,9 @@ function settle(tx: Tx): void {
   }
   if (d.settings.autoReveal && phaseOf(d) === 'voting') {
     const round = currentRound(d);
+    const task = currentTask(d);
     const voters = d.participants.filter(
-      (p) => p.status === 'active' && p.role === 'voter' && p.conn !== null,
+      (p) => p.status === 'active' && p.conn !== null && canEstimate(p, task?.voters),
     );
     if (
       round &&
@@ -343,11 +371,13 @@ function hello(tx: Tx, conn: string, msg: HelloMessage, auth: HelloAuth | undefi
   }
   pruneRecords(d);
 
+  const team = msg.team ?? null;
   const p: Participant = {
     id: tx.ctx.randomId(),
     name: msg.name,
     role: msg.role,
     authority: isAdmin ? 'admin' : 'none',
+    team: team !== null && d.config.teams.some((t) => t.id === team) ? team : null,
     status: !isAdmin && d.settings.lobby ? 'lobby' : 'active',
     conn,
     resumeHash: auth.resume.hash,
@@ -397,10 +427,11 @@ function vote(tx: Tx, p: Participant, msg: Extract<ClientMessage, { type: 'vote'
   if (!task || !round || round.revealedAt !== null) return fail('not_voting');
   if (msg.taskId !== task.id) fail('wrong_task');
   if (msg.round !== round.n) fail('wrong_round');
+  if (!canEstimate(p, task.voters)) fail('not_eligible');
   const others = round.votes.filter((v) => v.pid !== p.id);
   if (msg.type === 'vote') {
     if (!d.config.scale.some((c) => c.value === msg.value)) fail('invalid_value');
-    round.votes = [...others, { pid: p.id, name: p.name, value: msg.value }];
+    round.votes = [...others, { pid: p.id, name: p.name, team: p.team, value: msg.value }];
   } else {
     round.votes = others;
   }
@@ -432,6 +463,7 @@ function selectTask(tx: Tx, task: Task): void {
 
 const ADMIN_ONLY = new Set<AdminMessage['type']>([
   'admin.settings',
+  'admin.teams',
   'admin.promote',
   'admin.demote',
   'admin.extend',
@@ -452,12 +484,24 @@ function admin(tx: Tx, p: Participant, conn: string, msg: AdminMessage) {
         idPattern: d.config.idPattern,
         linkTemplate: d.config.linkTemplate,
       };
+      const teams = d.config.teams;
+      const fallback = msg.voters ?? null;
+      if (fallback !== null) knownTeams(d, fallback);
       const added: Task[] = [];
       const invalid: number[] = [];
-      msg.lines.forEach((line, i) => {
-        const r = parseTaskLine(line, opts);
-        if (r.ok) added.push({ id: '', ...r.task, rounds: [], final: null });
-        else if (r.error !== 'empty') invalid.push(i);
+      msg.lines.forEach((raw, i) => {
+        const tagged = splitTeamTags(raw, teams);
+        const r = parseTaskLine(tagged.line, opts);
+        if (r.ok) {
+          const voters = tagged.voters ?? fallback;
+          added.push({
+            id: '',
+            ...r.task,
+            voters: voters && unique(voters),
+            rounds: [],
+            final: null,
+          });
+        } else if (r.error !== 'empty') invalid.push(i);
       });
       if (d.tasks.length + added.length > d.limits.maxTasks) fail('too_many_tasks');
       for (const t of added) t.id = tx.ctx.randomId();
@@ -469,8 +513,39 @@ function admin(tx: Tx, p: Participant, conn: string, msg: AdminMessage) {
           ref: `lines:${invalid.slice(0, INVALID_LINE_REFS_MAX).join(',')}`,
         });
       }
+      send(tx, conn, {
+        type: 'tasks.added',
+        ...(msg.requestId !== undefined ? { requestId: msg.requestId } : {}),
+        taskIds: added.map((t) => t.id),
+      });
       if (added.length > 0) changed(tx);
       return;
+    }
+    case 'admin.tasks.voters': {
+      const task = taskById(d, msg.taskId);
+      if (msg.voters !== null) knownTeams(d, msg.voters);
+      task.voters = msg.voters && unique(msg.voters);
+      return changed(tx);
+    }
+    case 'admin.teams': {
+      const ids = new Set(msg.teams.map((t) => t.id));
+      d.config.teams = msg.teams.map((t) => ({ ...t }));
+      for (const x of d.participants) if (x.team !== null && !ids.has(x.team)) x.team = null;
+      for (const task of d.tasks) {
+        if (task.voters === null) continue;
+        const left = task.voters.filter((id) => ids.has(id));
+        task.voters = left.length > 0 ? left : null;
+      }
+      return changed(tx);
+    }
+    case 'admin.participant': {
+      const target = byId(d, msg.participantId) ?? fail('unknown_participant');
+      if (target.status !== 'active') fail('unknown_participant');
+      if (!can(p, 'manage', target)) fail('forbidden');
+      if (msg.team != null) knownTeams(d, [msg.team]);
+      if (msg.role !== undefined) target.role = msg.role;
+      if (msg.team !== undefined) target.team = msg.team;
+      return changed(tx);
     }
     case 'admin.tasks.remove': {
       const task = taskById(d, msg.taskId);
@@ -492,9 +567,8 @@ function admin(tx: Tx, p: Participant, conn: string, msg: AdminMessage) {
       selectTask(tx, taskById(d, msg.taskId));
       return changed(tx);
     case 'admin.next': {
-      const start = d.tasks.findIndex((t) => t.id === d.currentTaskId);
-      const ordered = [...d.tasks.slice(start + 1), ...d.tasks.slice(0, Math.max(start, 0))];
-      const next = ordered.find((t) => t.final === null);
+      const id = nextTaskId(d);
+      const next = id === null ? undefined : d.tasks.find((t) => t.id === id);
       if (next) selectTask(tx, next);
       else {
         d.currentTaskId = null;
@@ -587,6 +661,14 @@ function admin(tx: Tx, p: Participant, conn: string, msg: AdminMessage) {
     case 'admin.close':
       return closeRoom(tx, 'closed');
   }
+}
+
+function unique(ids: readonly string[]): string[] {
+  return [...new Set(ids)];
+}
+
+function knownTeams(d: RoomState, ids: readonly string[]): void {
+  if (!ids.every((id) => d.config.teams.some((t) => t.id === id))) fail('unknown_team');
 }
 
 function approve(tx: Tx, p: Participant): void {

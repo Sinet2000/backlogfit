@@ -55,10 +55,10 @@ describe('e2ee: plaintext rooms are unchanged', () => {
     const view = project(sim.state, sim.state.participants[0]?.id ?? null);
     expect(v.safeParse(RoomViewSchema, view).success).toBe(true);
     expect(view.tasks.map((t) => Object.keys(t).sort())).toEqual(
-      Array(3).fill(['final', 'id', 'key', 'rounds', 'title', 'url']),
+      Array(3).fill(['final', 'id', 'key', 'rounds', 'title', 'url', 'voters']),
     );
     expect(sim.state.tasks.map((t) => Object.keys(t).sort())).toEqual(
-      Array(3).fill(['final', 'id', 'key', 'rounds', 'title', 'url']),
+      Array(3).fill(['final', 'id', 'key', 'rounds', 'title', 'url', 'voters']),
     );
     expect(view.tasks[2]?.title).toBe('{"t":"enc","iv":"x","ct":"y"}');
   });

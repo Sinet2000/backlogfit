@@ -10,6 +10,7 @@ import {
   type Round,
 } from './state.ts';
 import { computeStats } from './stats.ts';
+import { type Team, teamBreakdown } from './teams.ts';
 
 /**
  * Anonymous rounds list values sorted by scale order, so nothing links a value to a person
@@ -21,17 +22,22 @@ function anonymousVotes(round: Round, scale: readonly Card[]): VoteView[] {
   return round.votes
     .map((v) => v.value)
     .sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0) || (a < b ? -1 : a > b ? 1 : 0))
-    .map((value) => ({ participantId: null, name: null, value }));
+    .map((value) => ({ participantId: null, name: null, team: null, value }));
 }
 
-function roundView(round: Round, scale: readonly Card[]): RoundView {
+function roundView(round: Round, scale: readonly Card[], teams: readonly Team[]): RoundView {
   const revealed = round.revealedAt !== null;
   const base = { n: round.n, revealed, anonymous: round.anonymous, voteCount: round.votes.length };
   // Before reveal: counts only, never values.
-  if (!revealed) return { ...base, votes: null, stats: null };
+  if (!revealed) return { ...base, votes: null, stats: null, teams: null };
   const votes = round.anonymous
     ? anonymousVotes(round, scale)
-    : round.votes.map((v) => ({ participantId: v.pid, name: v.name, value: v.value }));
+    : round.votes.map((v) => ({
+        participantId: v.pid,
+        name: v.name,
+        team: v.team,
+        value: v.value,
+      }));
   return {
     ...base,
     votes,
@@ -39,6 +45,8 @@ function roundView(round: Round, scale: readonly Card[]): RoundView {
       round.votes.map((v) => v.value),
       scale,
     ),
+    // Aggregates only; anonymous rounds withhold groups of one (see teamBreakdown).
+    teams: teamBreakdown(round.votes, teams, scale, round.anonymous),
   };
 }
 
@@ -54,6 +62,7 @@ export function project(state: RoomState, viewerId: string | null): RoomView {
   const round = currentRound(state);
   const mine = viewer && round ? round.votes.find((v) => v.pid === viewer.id) : undefined;
   const scale = state.config.scale;
+  const teams = state.config.teams;
 
   return {
     roomId: state.roomId,
@@ -72,6 +81,7 @@ export function project(state: RoomState, viewerId: string | null): RoomView {
       linkTemplate: state.config.linkTemplate,
       maxParticipants: state.config.maxParticipants,
       theme: state.config.theme,
+      teams: teams.map((t) => ({ id: t.id, name: t.name })),
     },
     settings: {
       autoReveal: state.settings.autoReveal,
@@ -90,13 +100,14 @@ export function project(state: RoomState, viewerId: string | null): RoomView {
         name: p.name,
         role: p.role,
         authority: p.authority,
+        team: p.team,
         connected: p.conn !== null,
         hasVoted: round ? round.votes.some((v) => v.pid === p.id) : false,
       })),
     lobby: facilitator
       ? state.participants
           .filter((p) => p.status === 'lobby')
-          .map((p) => ({ id: p.id, name: p.name, role: p.role }))
+          .map((p) => ({ id: p.id, name: p.name, role: p.role, team: p.team }))
       : [],
     tasks: state.tasks.map((t) => ({
       id: t.id,
@@ -104,7 +115,8 @@ export function project(state: RoomState, viewerId: string | null): RoomView {
       title: t.title,
       url: t.url,
       final: t.final,
-      rounds: t.rounds.map((r) => roundView(r, scale)),
+      voters: t.voters === null ? null : [...t.voters],
+      rounds: t.rounds.map((r) => roundView(r, scale, teams)),
     })),
     currentTaskId: state.currentTaskId,
     phase: phaseOf(state),

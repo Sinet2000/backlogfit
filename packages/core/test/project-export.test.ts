@@ -77,9 +77,9 @@ describe('project', () => {
     send(anon.sim, 'ca', { type: 'admin.reveal' });
     const r = project(anon.sim.state, anon.bob).tasks[0]?.rounds[0];
     expect(r?.votes).toEqual([
-      { participantId: null, name: null, value: '3' },
-      { participantId: null, name: null, value: '8' },
-      { participantId: null, name: null, value: '?' },
+      { participantId: null, name: null, team: null, value: '3' },
+      { participantId: null, name: null, team: null, value: '8' },
+      { participantId: null, name: null, team: null, value: '?' },
     ]);
     expect(JSON.stringify(project(anon.sim.state, anon.bob).tasks)).not.toContain('Ada');
   });
