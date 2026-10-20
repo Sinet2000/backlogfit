@@ -38,7 +38,7 @@ How to remove it:
    file, and a `git grep -n -i` for the company name must return no results.
 3. Commit with `git commit -s -m "docs: remove company attribution"`.
 
-The personal author line (`NN Y2K0 (Nikita Nikitins)`) is independent of this block. No website
+The personal author line (`Nikita Nikitins (NN Y2K0)`) is independent of this block. No website
 links, email addresses or other contact details for authors are published anywhere in the
 repository; please keep it that way.
 

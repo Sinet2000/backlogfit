@@ -2,7 +2,7 @@
 
 Backlogfit is written and maintained by:
 
-NN Y2K0 (Nikita Nikitins)
+Nikita Nikitins (NN Y2K0)
 
 <!-- company-attribution:start -->
 Dexlaris
