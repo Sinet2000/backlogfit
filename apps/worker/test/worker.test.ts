@@ -49,7 +49,7 @@ async function createRoom(): Promise<Room> {
   const joinSecret = randomToken();
   const adminSecret = randomToken();
   const res = await post(body(await hashSecret(joinSecret), await hashSecret(adminSecret)), {
-    'cf-connecting-ip': randomToken(4),
+    'cf-connecting-ip': randomIp(),
   });
   expect(res.status).toBe(201);
   const { roomId } = (await res.json()) as { roomId: string };
