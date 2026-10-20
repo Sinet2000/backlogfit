@@ -21,9 +21,12 @@ with one container.
 |---|---|
 | ![A voter choosing a card from the Fibonacci deck while the participant list shows who has voted](docs/assets/screenshots/voter.png) | ![Revealed votes with distribution, median and consensus indicator](docs/assets/screenshots/reveal.png) |
 
-| Configurator | Facilitator controls |
+| Room created | Facilitator controls |
 |---|---|
-| ![A newly created room showing the join link, the one-time admin link and a QR code](docs/assets/screenshots/configurator-created.png) | ![The facilitator control bar with reveal, re-vote, timer and next task](docs/assets/screenshots/admin-voting.png) |
+| ![A newly created room showing the join link, the one-time admin link and a QR code](docs/assets/screenshots/configurator-created.png) | ![The facilitator view while the team is voting, with reveal, re-vote, timer and next task](docs/assets/screenshots/admin-voting.png) |
+
+More screenshots (configurator steps, results, landing page) are in
+[docs/assets/screenshots](docs/assets/screenshots/) and the [Manager Guide](docs/MANAGER-GUIDE.md).
 
 ## Features
 
@@ -49,28 +52,40 @@ Requirements: Node 24 and pnpm 11.
 pnpm install && pnpm dev
 ```
 
+`pnpm dev` starts the Node server (port 8080) and the web app with hot reload
+(<http://localhost:5173>, which proxies `/api` and `/ws` to the server).
+
 Useful scripts:
 
 ```sh
 pnpm verify   # lint + typecheck + unit tests
 pnpm build    # build all packages and apps
-pnpm e2e      # Playwright end-to-end tests
+pnpm e2e      # Playwright end-to-end, accessibility and visual tests (see tests/e2e/README.md)
+pnpm load     # WebSocket load test against a running server (see tests/load)
 ```
 
 ## Self-host with Podman or Docker
 
 The container image is published to `ghcr.io/sinet2000/backlogfit`, signed with cosign and
-shipped with an SBOM and build provenance. It runs as a non-root user with a read-only root
-filesystem:
+shipped with an SBOM and build provenance. It is distroless, runs as a non-root user with a
+read-only root filesystem, and keeps rooms in memory by default:
 
 ```sh
-podman run -d --name backlogfit -p 8080:8080 --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=256 --memory=512m -v backlogfit-data:/data -e PUBLIC_ORIGIN=https://estimate.example.com ghcr.io/sinet2000/backlogfit:latest
+podman run -d --name backlogfit -p 127.0.0.1:8080:8080 --read-only --tmpfs /tmp:rw,size=16m,mode=1777,noexec,nosuid,nodev --cap-drop=ALL --security-opt=no-new-privileges --memory=256m --pids-limit=128 -e PUBLIC_ORIGIN=https://estimate.example.com -e TRUST_PROXY=true ghcr.io/sinet2000/backlogfit:latest
 ```
 
-`docker run` takes the same flags. Put it behind a TLS-terminating reverse proxy. All
-settings are environment variables with safe defaults (`PORT`, `PUBLIC_ORIGIN`, `DATA_DIR`,
-lifetimes, limits and rate limits); see [docs/security/SELF_HOSTING.md](docs/security/SELF_HOSTING.md)
-for the full list, hardening advice and how to verify the image signature.
+`docker run` takes the same flags. Put it behind a TLS-terminating reverse proxy (hence
+`TRUST_PROXY=true` and the loopback-only port). To keep rooms across restarts add
+`-e DATA_DIR=/data -v backlogfit-data:/data`. To build the image yourself:
+
+```sh
+podman build --format docker -f apps/server/Containerfile -t backlogfit .
+```
+
+(`--format docker` keeps the image's `HEALTHCHECK`.) All settings are environment variables with
+safe defaults (origins, lifetimes, room and connection limits, rate limits); see
+[docs/security/SELF_HOSTING.md](docs/security/SELF_HOSTING.md) for the full list, hardening
+advice and how to verify the image signature.
 
 ## Security and privacy
 
