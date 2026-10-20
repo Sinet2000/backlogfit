@@ -30,6 +30,8 @@ for (const [vpName, viewport] of Object.entries(VIEWPORTS)) {
         await id(page, 'btn-next').click();
         await expect(currentTask(p)).toHaveAttribute('data-key', 'SCP-1000');
         await p.evaluate(() => document.fonts.ready);
+        // Park the pointer: a hovered card lifts and would make snapshots depend on the last click.
+        await p.mouse.move(0, 0);
 
         const deck = p.getByTestId('card').first().locator('xpath=..');
         await expect(deck).toHaveScreenshot(`deck-${theme}-${mode}-${vpName}.png`);
@@ -42,6 +44,7 @@ for (const [vpName, viewport] of Object.entries(VIEWPORTS)) {
         await id(page, 'btn-reveal').click();
         const panel = id(p, 'reveal-results');
         await expect(panel).toBeVisible();
+        await p.mouse.move(0, 0);
         await expect(panel).toHaveScreenshot(`reveal-${theme}-${mode}-${vpName}.png`);
         await expect(p.getByTestId('reveal-card').first()).toHaveScreenshot(
           `revealed-card-${theme}-${mode}-${vpName}.png`,
