@@ -9,7 +9,7 @@ import {
   type RoomConfigInput,
   RoomConfigSchema,
 } from './schemas.ts';
-import { hasUnsafeChars } from './text.ts';
+import { hasUnsafeChars, hasVisibleChar } from './text.ts';
 
 export const PRESET_FORMAT = 'backlogfit-preset';
 export const PRESET_VERSION = 1;
@@ -29,6 +29,7 @@ const NameSchema = v.pipe(
   v.minLength(1),
   v.maxLength(PRESET_NAME_MAX),
   v.check((s) => !hasUnsafeChars(s), 'unsafe characters'),
+  v.check(hasVisibleChar, 'no visible characters'),
 );
 
 export const PresetSchema = v.strictObject({
