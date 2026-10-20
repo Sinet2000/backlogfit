@@ -7,14 +7,17 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @backlogfit/server --filter @backlogfit/web dev",
+    "dev": "node scripts/run.ts dev",
+    "start": "node scripts/run.ts start",
     "build": "pnpm -r --if-present build",
     "lint": "biome check .",
     "format": "biome check --write .",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "verify": "pnpm lint && pnpm typecheck && pnpm test",
-    "e2e": "pnpm --filter @backlogfit/e2e e2e",
+    "e2e": "E2E_BASE_URL=http://localhost:18080 E2E_FAST_URL=http://localhost:18081 pnpm --filter @backlogfit/e2e e2e",
+    "test:visual": "tests/e2e/scripts/in-container.sh --project=visual",
+    "test:all": "pnpm verify && pnpm build && pnpm e2e && pnpm test:visual",
     "load": "pnpm --filter @backlogfit/load load"
   },
   "devDependencies": {
