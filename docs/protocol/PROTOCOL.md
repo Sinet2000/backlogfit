@@ -257,7 +257,72 @@ for (const out of expandEffects(next, effects)) …            // send | close |
 - A resumed participant may exceed `maxParticipants` by reconnecting into a full room; resume
   also bypasses lock and passcode (they were admitted before).
 
-## 9. Examples
+### Helpers for adapters
+
+- `toCoreLimits({ maxLifetimeHours, idleTimeoutMinutes, maxParticipants, maxTasks,
+  passcodeMaxAttempts })` converts env-style limits (as returned by `readLimits` in
+  packages/security) into reducer `Limits` (ms). Missing fields keep `DEFAULT_LIMITS`.
+- `reconcileConnections(state, liveConns, ctx) → ReduceResult` after loading persisted state:
+  disconnects every participant whose `conn` is not in `liveConns` (Node after a restart: `[]`;
+  a Durable Object: the ids from surviving sockets' attachments), then runs a `tick`. Its effects
+  always end with a `scheduleAlarm` (re-arm even if `alarmAt` is unchanged) or, if the room
+  expired meanwhile, contain `deleteAll`. Same persistence rule as `reduce`.
+- Note that `state.limits` is fixed at creation; changing env limits affects new rooms only.
+
+## 9. Links and presets
+
+### Link fragments (`parseRoomFragment` / `formatRoomFragment`)
+
+```
+join   https://<host>/r#<roomId>.<joinSecret>
+admin  https://<host>/r#<roomId>.<joinSecret>.<adminSecret>
+Phase 2 encrypted rooms append ~<contentKey> (43 base64url chars) to either form.
+```
+
+`roomId` is 16–64 base64url chars, secrets 16–128. `parseRoomFragment` accepts the fragment
+with or without `#` and returns `{ roomId, joinSecret, adminSecret|null, contentKey|null }` or
+`null`. `joinLinkOf(link)` drops the admin secret.
+
+### Presets (`parsePreset` / `serializePreset`)
+
+Local JSON files written and read by the configurator; never sent to the server.
+
+```ts
+{
+  format: 'backlogfit-preset',
+  v: 1,
+  name: string(1–60) | null,        // optional, text hygiene as for names
+  lifetimeHours: 1 | 2 | 4 | 8 | null,
+  config: RoomConfig                // validated with RoomConfigSchema, defaults filled in
+}
+```
+
+- `parsePreset(jsonString | value)` never throws: `too_large` (> 64 KiB), `bad_json`,
+  `unsupported_version` (envelope with another `v`), `invalid_message`. A bare `RoomConfig`
+  (no envelope) is accepted as an unnamed v1 preset. Unknown keys are rejected, so a preset can
+  never carry a passcode or link.
+- `serializePreset(config, { name?, lifetimeHours? })` validates and pretty-prints; throws
+  `TypeError` for invalid input. `serializePreset(parsePreset(x).config, meta)` is idempotent.
+- `LIFETIME_CHOICES_HOURS = [1, 2, 4, 8]`, `DEFAULT_LIFETIME_HOURS = 2`.
+
+## 10. Phase 2 (reserved, not active in v1)
+
+These exist as exported types/schemas only. A v1 server rejects them like any unknown input.
+
+| Item | Core export | ADR |
+|---|---|---|
+| Encrypted task content `{ t:'enc', iv, ct }` | `EncryptedContentSchema`, `TaskContentSchema`, `parseEncryptedContent` | 0008 |
+| `admin.tasks.addEncrypted { items: enc[1..200] }` | `EncryptedTasksAddSchema` (not in `ClientMessageSchema`) | 0008 |
+| Browser crypto | `generateContentKey`, `encryptTaskLine`, `decryptTaskLine`, `decryptTask` | 0008 |
+| `hello.auth { kind:'oidc', idToken }` | `OidcCredentialSchema` (not in `HelloSchema`) | 0010 |
+| Sign-in provider | `AuthProvider`, `evaluateIdTokenClaims`, `displayNameFromClaims`, `authorityFromGroups` | 0010 |
+
+Encrypted payload limits: `iv` = 16 base64url chars (96 bits); `ct` canonical base64url
+decoding to `k × 256 + 16` bytes (padded plaintext + GCM tag), padded plaintext ≤ 4096 bytes,
+so `ct` ≤ `ENC_CT_MAX_CHARS` (5483). AES-256-GCM with additional data
+`backlogfit:e2ee:v1:<roomId>`.
+
+## 11. Examples
 
 ```json
 → {"type":"hello","v":1,"joinSecret":"3q2-7wX0Vb1nM4kP9sL2aQ","name":"Ada","role":"voter"}

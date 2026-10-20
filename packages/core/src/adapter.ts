@@ -1,8 +1,18 @@
 /** Helpers that keep backend adapters thin and uniform. */
 import { randomToken, secretsOf, verifyHello } from './crypto.ts';
 import { project } from './project.ts';
+import { reduce } from './reduce.ts';
 import type { ClientMessage, CloseReason, ServerMessage } from './schemas.ts';
-import type { Effect, RoomEvent, RoomState } from './state.ts';
+import {
+  type Ctx,
+  DEFAULT_LIMITS,
+  type Effect,
+  HOUR_MS,
+  type Limits,
+  type ReduceResult,
+  type RoomEvent,
+  type RoomState,
+} from './state.ts';
 
 /** Wrap a parsed client message as a reducer event, authenticating it first if it is a hello. */
 export async function toEvent(
@@ -72,4 +82,73 @@ export function expandEffects(state: RoomState, effects: readonly Effect[]): Out
     }
   }
   return out;
+}
+
+/**
+ * Env-style limits (hours/minutes, as read by packages/security `readLimits`) → reducer Limits
+ * (milliseconds). Missing fields keep DEFAULT_LIMITS. Both backends should use this instead of
+ * converting units themselves.
+ */
+export interface LimitsInput {
+  maxLifetimeHours?: number;
+  idleTimeoutMinutes?: number;
+  maxParticipants?: number;
+  maxTasks?: number;
+  passcodeMaxAttempts?: number;
+}
+
+export function toCoreLimits(input: LimitsInput = {}): Limits {
+  return {
+    maxLifetimeMs:
+      input.maxLifetimeHours !== undefined
+        ? input.maxLifetimeHours * HOUR_MS
+        : DEFAULT_LIMITS.maxLifetimeMs,
+    idleTimeoutMs:
+      input.idleTimeoutMinutes !== undefined
+        ? input.idleTimeoutMinutes * 60_000
+        : DEFAULT_LIMITS.idleTimeoutMs,
+    maxParticipants: input.maxParticipants ?? DEFAULT_LIMITS.maxParticipants,
+    maxTasks: input.maxTasks ?? DEFAULT_LIMITS.maxTasks,
+    passcodeMaxAttempts: input.passcodeMaxAttempts ?? DEFAULT_LIMITS.passcodeMaxAttempts,
+  };
+}
+
+/**
+ * Bring persisted state in line with the sockets that actually exist, e.g. after a process
+ * restart (Node: no sockets survive, pass []) or a Durable Object waking up (pass the
+ * connection ids from the surviving sockets' attachments). Every participant whose `conn` is
+ * not live gets a `disconnect` event, so presence, capacity and auto-reveal stop counting ghosts.
+ * Also runs a `tick`, so an expired room is closed and the alarm is (re)scheduled.
+ * Effects are concatenated in order; persist `state` only if it differs from the input.
+ */
+export function reconcileConnections(
+  state: RoomState,
+  liveConns: Iterable<string>,
+  ctx: Ctx,
+): ReduceResult {
+  const live = new Set(liveConns);
+  const stale = state.participants.flatMap((p) =>
+    p.conn !== null && !live.has(p.conn) ? [p.conn] : [],
+  );
+  let current = state;
+  const effects: Effect[] = [];
+  for (const conn of stale) {
+    const r = reduce(current, { type: 'disconnect', conn }, ctx);
+    current = r.state;
+    effects.push(...r.effects);
+  }
+  const r = reduce(current, { type: 'tick' }, ctx);
+  effects.push(...r.effects);
+  // One broadcast and one alarm at the end are enough (all are projected from the final state).
+  const merged: Effect[] = effects.filter(
+    (e) => e.type !== 'broadcastState' && e.type !== 'scheduleAlarm',
+  );
+  if (r.state.closed === null) {
+    if (effects.some((e) => e.type === 'broadcastState')) merged.push({ type: 'broadcastState' });
+    // Always re-arm: a restarted process has no timer even if the stored alarmAt is unchanged.
+    merged.push({ type: 'scheduleAlarm', at: r.state.alarmAt });
+  } else if (effects.some((e) => e.type === 'scheduleAlarm')) {
+    merged.push({ type: 'scheduleAlarm', at: null });
+  }
+  return { state: r.state, effects: merged };
 }
