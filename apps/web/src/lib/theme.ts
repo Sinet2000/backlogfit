@@ -1,5 +1,5 @@
-/** Theme and mode preference, mirrored on <html data-theme / data-mode> (see static/theme.js). */
 import { localStore } from './room/storage.ts';
+import { LEGACY_THEME_KEYS, STORAGE_KEYS } from './storage-keys.ts';
 
 export type Theme = 'corporate' | 'colorful';
 export type Mode = 'system' | 'light' | 'dark' | 'contrast';
@@ -12,14 +12,22 @@ export const MODE_LABELS: Record<Mode, string> = {
   contrast: 'High contrast',
 };
 
-export function readTheme(): { theme: Theme; mode: Mode } {
+function stored(key: 'theme' | 'mode'): string | null {
   const s = localStore();
-  const t = s.getItem('bf-theme');
-  const m = s.getItem('bf-mode');
+  return s.getItem(STORAGE_KEYS[key]) ?? s.getItem(LEGACY_THEME_KEYS[key]);
+}
+
+export function readTheme(): { theme: Theme; mode: Mode } {
+  const t = stored('theme');
+  const m = stored('mode');
   return {
     theme: t === 'colorful' ? 'colorful' : 'corporate',
     mode: m === 'light' || m === 'dark' || m === 'contrast' ? m : 'system',
   };
+}
+
+export function hasThemePreference(): boolean {
+  return stored('theme') !== null;
 }
 
 export function applyTheme(theme: Theme, mode: Mode, persist = true): void {
@@ -31,8 +39,10 @@ export function applyTheme(theme: Theme, mode: Mode, persist = true): void {
   else root.setAttribute('data-mode', mode);
   if (!persist) return;
   const s = localStore();
-  if (theme === 'corporate') s.removeItem('bf-theme');
-  else s.setItem('bf-theme', theme);
-  if (mode === 'system') s.removeItem('bf-mode');
-  else s.setItem('bf-mode', mode);
+  s.removeItem(LEGACY_THEME_KEYS.theme);
+  s.removeItem(LEGACY_THEME_KEYS.mode);
+  if (theme === 'corporate') s.removeItem(STORAGE_KEYS.theme);
+  else s.setItem(STORAGE_KEYS.theme, theme);
+  if (mode === 'system') s.removeItem(STORAGE_KEYS.mode);
+  else s.setItem(STORAGE_KEYS.mode, mode);
 }

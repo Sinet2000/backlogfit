@@ -1,10 +1,7 @@
-/**
- * Per-tab storage for a room session. Resume tokens are secrets: they live only in
- * sessionStorage (cleared when the tab closes) and are never logged. Everything is wrapped in
- * try/catch because storage can be unavailable (private mode, blocked site data).
- */
-
-import { adminKey } from './link.ts';
+// Resume tokens and the host secret are secrets: they live only in sessionStorage (cleared when
+// the tab closes) and are never logged. Every access is wrapped because storage can be
+// unavailable (private mode, blocked site data).
+import { STORAGE_KEYS } from '../storage-keys.ts';
 
 export interface KeyValueStore {
   getItem(key: string): string | null;
@@ -48,7 +45,6 @@ export interface SavedIdentity {
   role: 'voter' | 'spectator';
 }
 
-/** What this tab remembers about one room. */
 export class RoomSessionStore {
   readonly #s: KeyValueStore;
   readonly #id: string;
@@ -59,16 +55,16 @@ export class RoomSessionStore {
   }
 
   get resumeToken(): string | null {
-    return this.#s.getItem(`bf:resume:${this.#id}`);
+    return this.#s.getItem(STORAGE_KEYS.resume(this.#id));
   }
 
   set resumeToken(token: string | null) {
-    if (token === null) this.#s.removeItem(`bf:resume:${this.#id}`);
-    else this.#s.setItem(`bf:resume:${this.#id}`, token);
+    if (token === null) this.#s.removeItem(STORAGE_KEYS.resume(this.#id));
+    else this.#s.setItem(STORAGE_KEYS.resume(this.#id), token);
   }
 
   get identity(): SavedIdentity | null {
-    const raw = this.#s.getItem(`bf:who:${this.#id}`);
+    const raw = this.#s.getItem(STORAGE_KEYS.identity(this.#id));
     if (!raw) return null;
     try {
       const v = JSON.parse(raw) as Partial<SavedIdentity>;
@@ -82,23 +78,22 @@ export class RoomSessionStore {
   }
 
   set identity(who: SavedIdentity | null) {
-    if (who === null) this.#s.removeItem(`bf:who:${this.#id}`);
-    else this.#s.setItem(`bf:who:${this.#id}`, JSON.stringify(who));
+    if (who === null) this.#s.removeItem(STORAGE_KEYS.identity(this.#id));
+    else this.#s.setItem(STORAGE_KEYS.identity(this.#id), JSON.stringify(who));
   }
 
-  /** Forget this tab's place in the room. `withAdmin` also drops the host secret (room is over). */
+  /** Forgets this tab's place in the room; `withAdmin` also drops the host secret. */
   clear(withAdmin = false): void {
     this.resumeToken = null;
     this.identity = null;
-    if (withAdmin) this.#s.removeItem(adminKey(this.#id));
+    if (withAdmin) this.#s.removeItem(STORAGE_KEYS.admin(this.#id));
   }
 }
 
-/** Display name convenience across rooms (not a secret). */
 export function rememberedName(store: KeyValueStore = localStore()): string {
-  return store.getItem('bf:name') ?? '';
+  return store.getItem(STORAGE_KEYS.name) ?? '';
 }
 
 export function rememberName(name: string, store: KeyValueStore = localStore()): void {
-  store.setItem('bf:name', name);
+  store.setItem(STORAGE_KEYS.name, name);
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { adminKey, parseFragment, roomUrls, settleAdminSecret } from '../src/lib/room/link.ts';
+import { parseFragment, roomUrls, settleAdminSecret } from '../src/lib/room/link.ts';
 import { memoryStore, RoomSessionStore } from '../src/lib/room/storage.ts';
+import { STORAGE_KEYS } from '../src/lib/storage-keys.ts';
 
 const ROOM = 'AAAAAAAAAAAAAAAAAAAAAA';
 const JOIN = 'jjjjjjjjjjjjjjjjjjjjjj';
@@ -55,7 +56,7 @@ describe('SEC-014: admin secret out of the address bar', () => {
     expect(r.link.adminSecret).toBe(ADMIN);
     expect(r.replace).toBe(`#${ROOM}.${JOIN}`);
     expect(r.replace).not.toContain(ADMIN);
-    expect(store.getItem(adminKey(ROOM))).toBe(ADMIN);
+    expect(store.getItem(STORAGE_KEYS.admin(ROOM))).toBe(ADMIN);
   });
 
   it('restores it after a reload from the join link', () => {
@@ -71,8 +72,8 @@ describe('SEC-014: admin secret out of the address bar', () => {
       link: { ...base, adminSecret: null },
       replace: null,
     });
-    store.setItem(adminKey('BBBBBBBBBBBBBBBBBBBBBB'), ADMIN);
-    store.setItem(adminKey(ROOM), 'bad secret!');
+    store.setItem(STORAGE_KEYS.admin('BBBBBBBBBBBBBBBBBBBBBB'), ADMIN);
+    store.setItem(STORAGE_KEYS.admin(ROOM), 'bad secret!');
     expect(settleAdminSecret({ ...base, adminSecret: null }, store).link.adminSecret).toBeNull();
   });
 
@@ -81,8 +82,8 @@ describe('SEC-014: admin secret out of the address bar', () => {
     settleAdminSecret({ ...base, adminSecret: ADMIN }, store);
     const session = new RoomSessionStore(store, ROOM);
     session.clear();
-    expect(store.getItem(adminKey(ROOM))).toBe(ADMIN);
+    expect(store.getItem(STORAGE_KEYS.admin(ROOM))).toBe(ADMIN);
     session.clear(true);
-    expect(store.getItem(adminKey(ROOM))).toBeNull();
+    expect(store.getItem(STORAGE_KEYS.admin(ROOM))).toBeNull();
   });
 });

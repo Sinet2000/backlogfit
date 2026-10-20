@@ -3,13 +3,12 @@
 (() => {
   try {
     const root = document.documentElement;
-    const theme = localStorage.getItem('bf-theme');
-    const mode = localStorage.getItem('bf-mode');
+    const read = (key, legacy) => localStorage.getItem(key) ?? localStorage.getItem(legacy);
+    const theme = read('bf:theme', 'bf-theme');
+    const mode = read('bf:mode', 'bf-mode');
     if (theme === 'colorful') root.setAttribute('data-theme', 'colorful');
     if (mode === 'light' || mode === 'dark' || mode === 'contrast') {
       root.setAttribute('data-mode', mode);
     }
-  } catch {
-    // Storage unavailable (private mode, blocked): the CSS follows the system preference.
-  }
+  } catch {}
 })();
