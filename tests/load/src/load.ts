@@ -218,7 +218,7 @@ async function runRoom(opts: LoadOptions, index: number): Promise<void> {
       .filter((c) => c.kind !== 'special')
       .map((c) => c.value);
 
-    let mark = adminClient.mark();
+    const mark = adminClient.mark();
     adminClient.send({
       type: 'admin.tasks.add',
       lines: Array.from({ length: opts.rounds }, (_, i) => `LOAD-${i + 1}`),

@@ -21,7 +21,7 @@ function serverEnv(base: string, extra: Record<string, string> = {}): Record<str
     PORT: new URL(base).port || '8080',
     PUBLIC_ORIGIN: new URL(base).origin,
     // Specs create many rooms from one address; the production default (10/min) would trip.
-    ROOM_CREATE_PER_MIN: '100000',
+    ROOM_CREATE_PER_MIN: '10000',
     MAX_ROOMS: '5000',
     ...extra,
   };

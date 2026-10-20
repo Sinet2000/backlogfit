@@ -44,12 +44,20 @@ for (const path of PAGES) {
     expect(html).not.toMatch(/<style\b/i);
     expect(html).not.toMatch(/\sstyle\s*=/i);
     expect(html).not.toMatch(/\son[a-z]+\s*=/i);
-    // No third-party URLs in markup.
-    const urls = [...html.matchAll(/\b(?:src|href)\s*=\s*["']([^"']+)["']/gi)].map(
+    // No third-party resources in markup (plain <a href> navigation links are fine).
+    const srcs = [...html.matchAll(/\b(?:src|srcset|poster|data)\s*=\s*["']([^"']+)["']/gi)].map(
       (m) => m[1] ?? '',
     );
-    const external = urls.filter((u) => /^(https?:)?\/\//i.test(u));
-    expect(external.filter((u) => !/^https:\/\/(www\.)?backlogfit\.com\//.test(u))).toEqual([]);
+    const loaded = [...html.matchAll(/<link\b[^>]*>/gi)]
+      .map((m) => m[0])
+      .filter((tag) =>
+        /\brel\s*=\s*["']?[^"'>]*(stylesheet|preload|modulepreload|icon|manifest|prefetch|preconnect|dns-prefetch)/i.test(
+          tag,
+        ),
+      )
+      .map((tag) => tag.match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1] ?? '');
+    const external = [...srcs, ...loaded].filter((u) => /^(https?:)?\/\//i.test(u));
+    expect(external).toEqual([]);
   });
 }
 
@@ -105,4 +113,23 @@ test('a whole session: no cookies, no third-party requests, no CSP violations @s
   // The guard fixture asserts at teardown; check early here for a clearer failure.
   expect(guard.external).toEqual([]);
   expect(guard.csp).toEqual([]);
+});
+
+test('static pages render without CSP violations or third-party requests @smoke', async ({
+  page,
+  guard,
+}) => {
+  for (const path of ['/', '/guide', '/new', '/r']) {
+    await page.goto(path);
+    await page.waitForLoadState('networkidle');
+  }
+  // Client-side navigation too (SvelteKit renders its route announcer then).
+  await page.goto('/');
+  const guideLink = page.locator('a[href="/guide"]').first();
+  if ((await guideLink.count()) > 0) {
+    await guideLink.click();
+    await page.waitForURL('**/guide');
+  }
+  expect(guard.csp).toEqual([]);
+  expect(guard.external).toEqual([]);
 });
