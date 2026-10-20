@@ -29,7 +29,7 @@ export const ENC_CT_MAX_CHARS = Math.ceil(((ENC_PLAINTEXT_MAX_BYTES + ENC_TAG_BY
 
 const B64URL = /^[A-Za-z0-9_-]*$/;
 const encoder = new TextEncoder();
-const strictDecoder = new TextDecoder('utf-8', { fatal: true });
+const strictDecoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false });
 
 /** Byte length encoded by an unpadded base64url string, or null if no length maps to it. */
 function decodedLength(chars: number): number | null {
@@ -146,14 +146,14 @@ export const ContentKeySchema = v.pipe(v.string(), v.length(43), v.regex(B64URL)
 /** New 256-bit room content key, base64url (43 chars), for the link fragment only. */
 export function generateContentKey(): string {
   const buf = new Uint8Array(CONTENT_KEY_BYTES);
-  globalThis.crypto.getRandomValues(buf);
+  crypto.getRandomValues(buf);
   return toBase64Url(buf);
 }
 
 async function importContentKey(key: string): Promise<CryptoKey> {
   const raw = fromBase64Url(key);
   if (raw === null || raw.length !== CONTENT_KEY_BYTES) throw new TypeError('invalid content key');
-  return globalThis.crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+  return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
 }
 
 /** Additional data binds a ciphertext to its room, so it cannot be replayed into another one. */
@@ -174,8 +174,8 @@ export async function encryptTaskLine(
   const padded = padPlaintext(encoder.encode(line));
   if (padded === null) throw new RangeError('task line too long to encrypt');
   const iv = new Uint8Array(ENC_IV_BYTES);
-  globalThis.crypto.getRandomValues(iv);
-  const ct = await globalThis.crypto.subtle.encrypt(
+  crypto.getRandomValues(iv);
+  const ct = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv, additionalData: aad(roomId) },
     await importContentKey(key),
     padded,
@@ -193,7 +193,7 @@ export async function decryptTaskLine(
   const ct = fromBase64Url(content.ct);
   if (iv === null || iv.length !== ENC_IV_BYTES || ct === null) return null;
   try {
-    const plain = await globalThis.crypto.subtle.decrypt(
+    const plain = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv, additionalData: aad(roomId) },
       await importContentKey(key),
       ct,

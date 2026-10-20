@@ -408,7 +408,7 @@ export type ServerMessage = v.InferOutput<typeof ServerMessageSchema>;
 
 export type ParseResult<T> = { ok: true; msg: T } | { ok: false; code: ErrorCode };
 
-const decoder = new TextDecoder('utf-8', { fatal: true });
+const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false });
 const encoder = new TextEncoder();
 
 function exceedsBytes(s: string, maxBytes: number): boolean {

@@ -1,7 +1,7 @@
 /**
- * Adapter-side authentication helpers (see ADR-0005). These are async because WebCrypto is, and
- * they are the only part of core that touches globalThis.crypto. The reducer itself only sees
- * the boolean outcome (HelloAuth).
+ * Adapter-side authentication helpers (see ADR-0005). These are async because WebCrypto is.
+ * Together with the Phase 2 e2ee helpers they are the only code in core that uses the `crypto`
+ * global. The reducer itself only sees the boolean outcome (HelloAuth).
  */
 import type { HelloMessage } from './schemas.ts';
 import type { HelloAuth, RoomState } from './state.ts';
@@ -16,7 +16,7 @@ function toHex(bytes: Uint8Array): string {
 
 /** Lower-case hex SHA-256 of the UTF-8 encoding of `s`. */
 export async function hashSecret(s: string): Promise<string> {
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', encoder.encode(s));
+  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(s));
   return toHex(new Uint8Array(digest));
 }
 
@@ -41,7 +41,7 @@ export function ctEqual(a: Uint8Array | string, b: Uint8Array | string): boolean
 /** base64url random token (default 128 bits) from the platform CSPRNG. */
 export function randomToken(bytes = 16): string {
   const buf = new Uint8Array(bytes);
-  globalThis.crypto.getRandomValues(buf);
+  crypto.getRandomValues(buf);
   let bin = '';
   for (const b of buf) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -50,7 +50,7 @@ export function randomToken(bytes = 16): string {
 /** 32 hex chars of salt for a new passcode. */
 export function randomSalt(): string {
   const buf = new Uint8Array(16);
-  globalThis.crypto.getRandomValues(buf);
+  crypto.getRandomValues(buf);
   return toHex(buf);
 }
 
