@@ -1,0 +1,19 @@
+Backlogfit
+Copyright 2026 The Backlogfit Authors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+-------------------------------------------------------------------------------
+Third-party assets vendored in this repository
+-------------------------------------------------------------------------------
+
+Inter typeface
+  Location: apps/web/static/fonts/
+  Copyright (c) 2016 The Inter Project Authors (https://github.com/rsms/inter)
+  Licensed under the SIL Open Font License, Version 1.1.
+  The full license text is distributed alongside the font files
+  (apps/web/static/fonts/OFL.txt) and is available at https://openfontlicense.org.
+
+Third-party npm packages are not vendored; their licenses travel with the
+packages themselves and are listed in docs/DEPENDENCIES.md and in the CycloneDX
+SBOM attached to each release.
