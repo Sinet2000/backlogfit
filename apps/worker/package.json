@@ -1,0 +1,26 @@
+{
+  "name": "@backlogfit/worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backlogfit on Cloudflare Workers: Hono router and one Durable Object per room.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "headers": "node scripts/write-headers.ts",
+    "dev": "node scripts/write-headers.ts --dev && wrangler dev --port 8787",
+    "typecheck": "node scripts/typecheck.ts && tsc --noEmit -p scripts",
+    "test": "node scripts/write-headers.ts --dev test/fixtures/web && vitest run"
+  },
+  "dependencies": {
+    "@backlogfit/core": "workspace:*",
+    "@backlogfit/security": "workspace:*",
+    "hono": "4.13.13"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.4.4",
+    "@cloudflare/workers-types": "5.20261019.1",
+    "@types/node": "26.6.5",
+    "vitest": "5.0.5",
+    "wrangler": "4.151.1"
+  }
+}

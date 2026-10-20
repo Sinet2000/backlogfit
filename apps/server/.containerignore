@@ -1,0 +1,17 @@
+# Build-context filter for apps/server/Containerfile (context = repo root).
+**/node_modules
+**/.git
+.git
+**/.svelte-kit
+**/build
+**/dist
+**/.wrangler
+**/coverage
+**/test-results
+**/playwright-report
+**/*.sqlite
+**/*.sqlite-*
+**/.env
+**/.env.*
+**/.DS_Store
+**/*.log

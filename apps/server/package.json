@@ -1,0 +1,30 @@
+{
+  "name": "@backlogfit/server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted Backlogfit server: Node 24, Hono, ws and node:sqlite.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/main.ts",
+    "dev": "node --disable-warning=ExperimentalWarning --watch src/main.ts",
+    "smoke": "node scripts/smoke.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@backlogfit/core": "workspace:*",
+    "@backlogfit/security": "workspace:*",
+    "@hono/node-server": "2.1.5",
+    "hono": "4.13.13",
+    "ws": "8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "@types/ws": "8.18.2",
+    "vitest": "5.0.5"
+  }
+}

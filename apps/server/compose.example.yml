@@ -1,0 +1,43 @@
+# Example deployment for the Backlogfit self-hosted server (Docker Compose or podman-compose).
+# Build first from the repository root:
+#   podman build --format docker -f apps/server/Containerfile -t backlogfit:latest .
+# Put a TLS-terminating reverse proxy in front and set PUBLIC_ORIGIN to its https origin.
+#
+# Storage modes:
+#   1. In memory (default, privacy-maximal): no DATA_DIR, no volume. Nothing is written to
+#      disk; rooms vanish on restart.
+#   2. Survive restarts: uncomment DATA_DIR and both `volumes` blocks. Rooms are kept in
+#      /data/backlogfit.sqlite only until they end, then deleted (secure_delete + WAL truncate).
+services:
+  backlogfit:
+    image: localhost/backlogfit:latest
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    # volumes:                         # storage mode 2
+    #   - backlogfit-data:/data
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      PUBLIC_ORIGIN: https://estimate.example.com
+      # DATA_DIR: /data                # storage mode 2
+      # TRUST_PROXY: "1"               # number of trusted proxies appending X-Forwarded-For
+      # ALLOWED_ORIGINS: ""            # extra exact origins, comma separated
+      # MAX_CONNECTIONS: "5000"        # global WebSocket cap
+      # MAX_CONNECTIONS_PER_CLIENT: "50"
+      # WS_UPGRADES_PER_MIN: "120"
+      # MAX_LIFETIME_HOURS: "8"
+      # IDLE_TIMEOUT_MINUTES: "30"
+      # MAX_ROOMS: "1000"
+      # ROOM_CREATE_PER_MIN: "10"
+    stop_signal: SIGTERM
+    stop_grace_period: 10s
+    mem_limit: 256m
+    pids_limit: 128
+
+# volumes:                             # storage mode 2
+#   backlogfit-data:
