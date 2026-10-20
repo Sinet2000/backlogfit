@@ -1,0 +1,274 @@
+/**
+ * Configurator model: the editable draft behind /new, conversion to a RoomConfig (validated by
+ * core), saved preset files (JSON, local only) and the "last used" draft in localStorage.
+ */
+import {
+  buildCustomScale,
+  type Card,
+  DEFAULT_ID_PATTERN,
+  DEFAULT_LIFETIME_HOURS,
+  type ErrorCode,
+  isSafeIdPattern,
+  LIFETIME_CHOICES_HOURS,
+  type LifetimeHours,
+  linkFor,
+  normalizeAllowlistEntry,
+  PRESET_NAME_MAX,
+  PRESETS,
+  type PresetId,
+  parsePreset,
+  parseRoomConfig,
+  presetScale,
+  type RoomConfig,
+  type RoomConfigInput,
+  type ScaleError,
+  SPECIAL_COFFEE,
+  SPECIAL_INFINITY,
+  SPECIAL_UNSURE,
+  serializePreset,
+  validateLinkTemplate,
+  validateScale,
+} from '@backlogfit/core';
+import type { KeyValueStore } from '../room/storage.ts';
+
+export type ScaleChoice = PresetId | 'custom';
+export type { LifetimeHours };
+export const LIFETIMES: readonly LifetimeHours[] = LIFETIME_CHOICES_HOURS;
+export const SPECIALS = [SPECIAL_UNSURE, SPECIAL_COFFEE, SPECIAL_INFINITY] as const;
+
+export const SPECIAL_NAMES: Record<string, string> = {
+  [SPECIAL_UNSURE]: 'Unclear',
+  [SPECIAL_COFFEE]: 'Coffee break',
+  [SPECIAL_INFINITY]: 'Too big, split it',
+};
+
+export interface Draft {
+  scaleChoice: ScaleChoice;
+  /** The deck in order. For presets this is the preset (colors may be edited). */
+  scale: Card[];
+  taskPolicy: 'ids' | 'links' | 'allowlist';
+  allowlist: string[];
+  /** Empty = the default pattern (e.g. SCP-3655). */
+  idPattern: string;
+  /** Empty = no links built from IDs. */
+  linkTemplate: string;
+  autoReveal: boolean;
+  anonymousAfterReveal: boolean;
+  allowSpectators: boolean;
+  lobby: boolean;
+  /** null = no round timer. */
+  timerSeconds: number | null;
+  maxParticipants: number;
+  lifetimeHours: LifetimeHours;
+  /** Never saved to files or storage. */
+  passcode: string;
+  theme: 'corporate' | 'colorful';
+}
+
+export function defaultDraft(): Draft {
+  return {
+    scaleChoice: 'fibonacci',
+    scale: presetScale('fibonacci'),
+    taskPolicy: 'ids',
+    allowlist: [],
+    idPattern: '',
+    linkTemplate: '',
+    autoReveal: true,
+    anonymousAfterReveal: false,
+    allowSpectators: true,
+    lobby: false,
+    timerSeconds: null,
+    maxParticipants: 50,
+    lifetimeHours: DEFAULT_LIFETIME_HOURS,
+    passcode: '',
+    theme: 'corporate',
+  };
+}
+
+export function withPreset(draft: Draft, choice: ScaleChoice): Draft {
+  if (choice === 'custom') {
+    return { ...draft, scaleChoice: 'custom', scale: draft.scale.map((c) => ({ ...c })) };
+  }
+  return { ...draft, scaleChoice: choice, scale: presetScale(choice) };
+}
+
+/** Parse chip-editor text like "1, 2, 3, 5, 8, ?" into cards (colors auto-assigned). */
+export function scaleFromText(
+  text: string,
+): { ok: true; scale: Card[] } | { ok: false; error: ScaleError } {
+  const values = text
+    .split(/[,;\s]+/)
+    .map((s) => s.trim())
+    .filter((s) => s !== '');
+  return buildCustomScale(values.map((value) => ({ value })));
+}
+
+/** Re-run auto colors over an edited deck (keeps order, values and labels). */
+export function recolor(scale: readonly Card[]): Card[] {
+  const rebuilt = buildCustomScale(
+    scale.map((c) => ({ value: c.value, label: c.label, special: c.kind === 'special' })),
+  );
+  return rebuilt.ok ? rebuilt.scale : scale.map((c) => ({ ...c }));
+}
+
+export const SCALE_ERROR_TEXT: Record<ScaleError, string> = {
+  too_few_cards: 'Add at least two cards.',
+  too_many_cards: 'Use at most 20 cards.',
+  duplicate_value: 'Each card value can appear only once.',
+  invalid_value: 'Card values must be 1 to 8 characters.',
+  invalid_label: 'Card labels must be 1 to 24 characters.',
+  no_estimable_cards: 'Add at least one card that is not ?, ☕ or ∞.',
+  mixed_kinds: 'Use either numbers or sizes (like S, M, L), not both.',
+  invalid_numeric: 'One of the numbers is not valid.',
+  duplicate_numeric: 'Two cards have the same number.',
+};
+
+export interface DraftErrors {
+  scale?: string;
+  idPattern?: string;
+  linkTemplate?: string;
+  allowlist?: string;
+  maxParticipants?: string;
+  passcode?: string;
+}
+
+export function draftErrors(d: Draft): DraftErrors {
+  const e: DraftErrors = {};
+  const scaleErr = validateScale(d.scale);
+  if (scaleErr) e.scale = SCALE_ERROR_TEXT[scaleErr];
+  if (d.idPattern.trim() !== '' && !isSafeIdPattern(d.idPattern.trim())) {
+    e.idPattern = 'Use a simpler pattern (letters, digits, ranges like [A-Z] and {1,9}).';
+  }
+  const bad = d.allowlist.filter((h) => normalizeAllowlistEntry(h) === null);
+  if (bad.length > 0) e.allowlist = `Not a valid domain: ${bad.join(', ')}`;
+  else if (d.taskPolicy === 'allowlist' && d.allowlist.length === 0) {
+    e.allowlist = 'Add at least one domain, for example jira.yourcompany.com.';
+  }
+  const tpl = d.linkTemplate.trim();
+  if (tpl !== '' && !e.allowlist) {
+    const allow = d.allowlist.map((h) => normalizeAllowlistEntry(h) ?? '');
+    if (!tpl.includes('{id}')) e.linkTemplate = 'Include {id} where the task ID goes.';
+    else if (!validateLinkTemplate(tpl, d.taskPolicy, allow)) {
+      e.linkTemplate =
+        d.taskPolicy === 'allowlist'
+          ? 'The link must start with https:// and use one of the allowed domains.'
+          : 'The link must start with https:// (or http://) and contain {id} once.';
+    }
+  }
+  if (!Number.isInteger(d.maxParticipants) || d.maxParticipants < 2 || d.maxParticipants > 500) {
+    e.maxParticipants = 'Choose between 2 and 500 people.';
+  }
+  if (d.passcode.length > 64) e.passcode = 'Use at most 64 characters.';
+  return e;
+}
+
+export function toConfigInput(d: Draft): RoomConfigInput {
+  return {
+    scale: d.scale.map((c) => ({ ...c })),
+    taskPolicy: d.taskPolicy,
+    allowlist: d.taskPolicy === 'allowlist' ? [...d.allowlist] : [],
+    idPattern: d.idPattern.trim() === '' ? null : d.idPattern.trim(),
+    linkTemplate: d.linkTemplate.trim() === '' ? null : d.linkTemplate.trim(),
+    autoReveal: d.autoReveal,
+    anonymousAfterReveal: d.anonymousAfterReveal,
+    allowSpectators: d.allowSpectators,
+    lobby: d.lobby,
+    timerSeconds: d.timerSeconds,
+    maxParticipants: d.maxParticipants,
+    theme: d.theme,
+  };
+}
+
+/** Validated RoomConfig, or null when core rejects the draft. */
+export function toRoomConfig(d: Draft): RoomConfig | null {
+  const parsed = parseRoomConfig(toConfigInput(d));
+  return parsed.ok ? parsed.msg : null;
+}
+
+/** Example link for the configurator's live preview. */
+export function exampleLink(d: Draft, key = 'SCP-3655'): string | null {
+  const tpl = d.linkTemplate.trim();
+  if (tpl === '' || !tpl.includes('{id}')) return null;
+  return linkFor(tpl, key);
+}
+
+export function exampleIdPattern(d: Draft): string {
+  return d.idPattern.trim() === '' ? DEFAULT_ID_PATTERN : d.idPattern.trim();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Preset files (format, validation and serialization from core)
+
+/** Which preset (if any) a deck is identical to, ignoring colors. */
+export function matchPreset(scale: readonly Card[]): ScaleChoice {
+  const sig = (cards: readonly Card[]) => cards.map((c) => `${c.kind}:${c.value}`).join('|');
+  const target = sig(scale);
+  for (const [id, p] of Object.entries(PRESETS)) {
+    if (sig(p.cards) === target) return id as PresetId;
+  }
+  return 'custom';
+}
+
+/** JSON for a downloadable preset. The passcode is never included. Null if the draft is invalid. */
+export function presetFileJson(d: Draft, name = 'Backlogfit preset'): string | null {
+  try {
+    return serializePreset(toConfigInput(d), {
+      name: name.slice(0, PRESET_NAME_MAX),
+      lifetimeHours: d.lifetimeHours,
+    });
+  } catch {
+    return null;
+  }
+}
+
+export type PresetImport = { ok: true; draft: Draft; name: string } | { ok: false; error: string };
+
+const IMPORT_ERRORS: Partial<Record<ErrorCode, string>> = {
+  too_large: 'The file is too large.',
+  bad_json: 'This is not a valid preset file (not JSON).',
+  unsupported_version: 'This preset was made by a newer version of Backlogfit.',
+};
+
+/** Validate an imported preset (or a bare RoomConfig) with core's parsePreset. */
+export function parsePresetFile(text: string): PresetImport {
+  const parsed = parsePreset(text);
+  if (!parsed.ok) {
+    return {
+      ok: false,
+      error: IMPORT_ERRORS[parsed.code] ?? 'The preset contains invalid settings.',
+    };
+  }
+  const c = parsed.msg.config;
+  const draft: Draft = {
+    scaleChoice: matchPreset(c.scale),
+    scale: c.scale.map((card) => ({ ...card })),
+    taskPolicy: c.taskPolicy,
+    allowlist: [...c.allowlist],
+    idPattern: c.idPattern ?? '',
+    linkTemplate: c.linkTemplate ?? '',
+    autoReveal: c.autoReveal,
+    anonymousAfterReveal: c.anonymousAfterReveal,
+    allowSpectators: c.allowSpectators,
+    lobby: c.lobby,
+    timerSeconds: c.timerSeconds,
+    maxParticipants: c.maxParticipants,
+    lifetimeHours: parsed.msg.lifetimeHours ?? DEFAULT_LIFETIME_HOURS,
+    passcode: '',
+    theme: c.theme,
+  };
+  return { ok: true, draft, name: parsed.msg.name ?? 'Imported preset' };
+}
+
+const LAST_KEY = 'bf:last-config';
+
+export function saveLastDraft(store: KeyValueStore, d: Draft): void {
+  const json = presetFileJson(d, 'Last used');
+  if (json) store.setItem(LAST_KEY, json);
+}
+
+export function loadLastDraft(store: KeyValueStore): Draft | null {
+  const raw = store.getItem(LAST_KEY);
+  if (!raw) return null;
+  const r = parsePresetFile(raw);
+  return r.ok ? r.draft : null;
+}
