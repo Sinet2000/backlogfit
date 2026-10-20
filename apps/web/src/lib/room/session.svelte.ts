@@ -1,8 +1,8 @@
 import { applyTheme, hasThemePreference, readTheme } from '../theme.ts';
 import { toasts } from '../toast.svelte.ts';
 import { createDemoRoom, takeDemoTasks } from './demo.ts';
-import { parseFragment, type RoomLink, roomUrls, settleAdminSecret } from './link.ts';
-import { clearPrepared, handoffStep, readPrepared } from './prepared-tasks.ts';
+import { parseFragment, type RoomLink, settleAdminSecret } from './link.ts';
+import { clearPrepared, readPrepared } from './prepared-tasks.ts';
 import { RoomStore } from './room.svelte.ts';
 import { type ShortcutAction, shortcutFor } from './shortcuts.ts';
 import { sessionStore } from './storage.ts';
@@ -14,11 +14,7 @@ export class RoomSession {
   boot = $state<Boot>('preparing');
   room = $state<RoomStore | null>(null);
   #generation = 0;
-  #handoff: { lines: string[]; sent: boolean } | null = null;
-
-  joinUrl = $derived(
-    this.room ? roomUrls(location.origin, this.room.link, this.room.demo ? 'demo' : '').join : '',
-  );
+  #handoff: { lines: string[]; sending: boolean } | null = null;
 
   announcement = $derived.by(() => {
     const view = this.room?.view;
@@ -110,7 +106,7 @@ export class RoomSession {
     this.room = store;
     this.boot = 'ready';
     const prepared = readPrepared(sessionStore(), link.roomId);
-    this.#handoff = prepared ? { lines: prepared, sent: false } : null;
+    this.#handoff = prepared ? { lines: prepared, sending: false } : null;
     const who = store.session.identity;
     if (who) store.join(who);
   }
@@ -129,28 +125,36 @@ export class RoomSession {
     if (lines) room.addTasks(lines);
   }
 
+  /**
+   * Adds the configurator's tasks once the host is in. The list is cleared only when the server
+   * confirms the add, or when the room already has tasks (an earlier add went through before a
+   * reconnect). A lost add is retried after the reconnect; a refused one stays stored, so a
+   * reload of this tab tries again.
+   */
   #handOffPrepared(): void {
     const room = this.room;
     const h = this.#handoff;
-    if (!room || !h) return;
+    if (!room || !h || h.sending) return;
     const view = room.view;
-    const step = handoffStep(h.lines, {
-      sent: h.sent,
-      canAdd: room.snap.status === 'joined' && room.isHost && view !== null,
-      taskCount: view?.tasks.length ?? 0,
+    if (room.snap.status !== 'joined' || !room.isHost || !view) return;
+    if (view.tasks.length > 0) {
+      this.#finishHandoff(room, 0);
+      return;
+    }
+    h.sending = true;
+    void room.addTasks(h.lines).added.then((ids) => {
+      if (this.#handoff !== h || this.room !== room) return;
+      if (ids !== null) this.#finishHandoff(room, ids.length);
+      else if (room.snap.status === 'joined') this.#handoff = null;
+      else h.sending = false;
     });
-    if (step.do === 'send') {
-      h.sent = true;
-      room.addTasks(h.lines);
-    } else if (step.do === 'done') {
-      this.#handoff = null;
-      clearPrepared(sessionStore(), room.link.roomId);
-      if (step.added > 0) {
-        toasts.show(
-          `${step.added} ${step.added === 1 ? 'task' : 'tasks'} added from your list.`,
-          'success',
-        );
-      }
+  }
+
+  #finishHandoff(room: RoomStore, added: number): void {
+    this.#handoff = null;
+    clearPrepared(sessionStore(), room.link.roomId);
+    if (added > 0) {
+      toasts.show(`${added} ${added === 1 ? 'task' : 'tasks'} added from your list.`, 'success');
     }
   }
 }

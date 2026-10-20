@@ -77,12 +77,14 @@ one every 25 s. The Node server additionally sends protocol-level pings every
 
 | type | payload | who | notes |
 |---|---|---|---|
-| `hello` | `v:1, joinSecret, name (1–40), role:'voter'\|'spectator', passcode? (≤64), adminSecret?, resumeToken?` | anyone, first | secrets are base64url 16–128 chars |
-| `vote` | `taskId, round (1–1000), value` | voter | current task, current round, voting phase, value on scale |
+| `hello` | `v:1, joinSecret, name (1–40), role:'voter'\|'spectator', passcode? (≤64), adminSecret?, resumeToken?, team? (team id \| null)` | anyone, first | secrets are base64url 16–128 chars. `team` is a hint only: an id not in `config.teams` is ignored, and a resumed participant keeps their team |
+| `vote` | `taskId, round (1–1000), value` | voter | current task, current round, voting phase, value on scale, and eligible (`not_eligible`): on a task with `voters`, only voters in one of those teams |
 | `unvote` | `taskId, round` | voter | same checks |
+| `team` | `team: team id \| null` | any joined (not lobby) | choose your own team (`unknown_team` for an id not in the room) |
 | `ping` | `{}` | any joined, lobby too | `pong{serverTime}`; does not count as room activity |
 | `leave` | `{}` | any joined, lobby too | optional; removes the participant (unrevealed votes dropped), then `closed{left}` |
-| `admin.tasks.add` | `lines: string[]` (1–200, each ≤ 2400 chars) | facilitator | each line re-parsed with the room's link policy |
+| `admin.tasks.add` | `lines: string[]` (1–200, each ≤ 2400 chars), `voters?: teamId[1..6] \| null`, `requestId?: [A-Za-z0-9_-]{1,32}` | facilitator | each line re-parsed with the room's link policy. In rooms with teams, trailing `#team` tags that name a team (by name without spaces, case-insensitive, then by id) are removed and become the task's voters; `voters` applies to lines without a tag (`unknown_team` rejects the whole message). Always answered with `tasks.added` to the sender |
+| `admin.tasks.voters` | `taskId, voters: teamId[1..6] \| null` | facilitator | who estimates the task; null = everyone. Unrevealed votes that are no longer eligible are dropped |
 | `admin.tasks.remove` | `taskId` | facilitator | clears current task if removed |
 | `admin.tasks.move` | `taskId, toIndex` | facilitator | index clamped |
 | `admin.select` | `taskId` | facilitator | starts round 1 if the task has none |
@@ -92,6 +94,8 @@ one every 25 s. The Node server additionally sends protocol-level pings every
 | `admin.final` | `taskId, value: string(1–16) \| null` | facilitator | any text (not limited to the scale); `null` clears |
 | `admin.timer` | `action:'start'\|'stop', seconds? (5–3600)` | facilitator | default: settings.timerSeconds, else 60 |
 | `admin.settings` | partial `autoReveal, anonymousAfterReveal, allowSpectators, lobby, timerSeconds (5–3600 \| null)` | **admin** | turning the lobby off admits everyone waiting |
+| `admin.teams` | `teams: Team[0..6]` | **admin** | replaces the team list (same rules as `config.teams`). People in a removed team get no team; removed teams leave task voters, and a task left with none goes back to everyone |
+| `admin.participant` | `participantId, role?: 'voter'\|'spectator', team?: teamId \| null` (at least one) | facilitator | admin: anyone; co-admin: participants without authority and themselves (`forbidden` otherwise). Active participants only. Moving someone to spectators (or out of a task's teams) drops their unrevealed vote |
 | `admin.lock` | `locked` | facilitator | unlocking also resets the passcode failure counter |
 | `admin.kick` | `participantId` | facilitator | co-admins can kick regular participants only; nobody can kick an admin |
 | `admin.promote` / `admin.demote` | `participantId` | **admin** | none ↔ coadmin |
@@ -101,7 +105,14 @@ one every 25 s. The Node server additionally sends protocol-level pings every
 
 Authority levels: **admin** (presented a valid `adminSecret`), **coadmin** (promoted by an
 admin), **none**. "Facilitator" = admin or coadmin. Role (`voter`/`spectator`) is independent of
-authority: an admin who joined as a spectator cannot vote.
+authority: an admin who joined as a spectator cannot vote. Core exports the same rules for
+clients: `can(actor, action, target?)` and `nextTaskId({ tasks, currentTaskId })`.
+
+**Eligibility** (`canEstimate(participant, task.voters)`): role `voter`, and when the task has
+`voters`, a team in that list. After every event the reducer removes unrevealed votes whose
+author is no longer eligible and keeps each vote's team current, so only eligible votes are ever
+revealed. Auto-reveal waits for every connected eligible participant (and never fires while none
+is connected). See ADR-0012.
 
 ## 4. Server → client
 
@@ -112,6 +123,7 @@ authority: an admin who joined as a spectator cannot vote.
 | `lobby` | `status:'waiting'\|'denied', resumeToken?` (token sent with `waiting`) |
 | `error` | `code: ErrorCode, ref?` (`ref` = offending message type, or `lines:0,3` for task lines) |
 | `closed` | `reason: CloseReason` (always followed by the socket closing) |
+| `tasks.added` | `requestId?, taskIds: string[]`: reply to `admin.tasks.add`, to the sender only, in line order (empty when no line was valid) |
 | `pong` | `serverTime` |
 
 Clients can validate with `parseServerMessage()`.
@@ -133,6 +145,8 @@ Clients can validate with `parseServerMessage()`.
 | `too_many_tasks` | would exceed MAX_TASKS (whole message rejected) |
 | `invalid_task` | some lines rejected (`ref: lines:<indices>`), valid lines were added |
 | `rate_limited` | per-connection or per-room bucket empty (sent by the host, not the reducer) |
+| `not_eligible` | vote on a task this participant's team does not estimate |
+| `unknown_team` | a team id that is not in `config.teams` |
 
 ### Close reasons and codes (`closeCodeFor`)
 
@@ -171,8 +185,10 @@ Transport-level closes (no `closed` message before them):
   lobby?: boolean,                            // default false
   timerSeconds?: 5..3600 | null,              // default null
   maxParticipants?: 2..500,                   // default 50, clamped to MAX_PARTICIPANTS
-  theme?: 'corporate' | 'colorful'            // default 'corporate'
+  theme?: 'corporate' | 'colorful',           // default 'corporate'
+  teams?: Team[0..6]                          // default []
 }
+Team { id: [A-Za-z0-9_-]{1,24}, name (1–24, text hygiene) }   // ids and #tag names unique
 Card { value (1–8), label (1–24), numeric? (number cards only), kind: 'number'|'tshirt'|'special', color: '#rrggbb' }
 ```
 
@@ -208,18 +224,19 @@ nothing else.
 RoomView {
   roomId, createdAt, expiresAt, maxExpiresAt, idleAt,
   me: { participantId, role, authority } | null,
-  config: { scale, taskPolicy, allowlist /* facilitators only, else [] */, idPattern, linkTemplate, maxParticipants, theme },
+  config: { scale, taskPolicy, allowlist /* facilitators only, else [] */, idPattern, linkTemplate, maxParticipants, theme, teams },
   settings: { autoReveal, anonymousAfterReveal, allowSpectators, lobby, timerSeconds, locked,
               passcodeRequired, passcodeLocked /* facilitators only, else false */ },
-  participants: { id, name, role, authority, connected, hasVoted }[],   // active only
-  lobby: { id, name, role }[],                                          // facilitators only, else []
-  tasks: { id, key, title, url, final, rounds: RoundView[] }[],
+  participants: { id, name, role, authority, team, connected, hasVoted }[],   // active only
+  lobby: { id, name, role, team }[],                                          // facilitators only, else []
+  tasks: { id, key, title, url, final, voters, rounds: RoundView[] }[],
   currentTaskId, phase: 'idle'|'voting'|'revealed', round: number|null,
   myVote: string | null,            // viewer's own vote in the current round
   timer: { endsAt, seconds } | null,
 }
-RoundView { n, revealed, anonymous, voteCount, votes: VoteView[] | null, stats: Stats | null }
-VoteView  { participantId: string|null, name: string|null, value }
+RoundView { n, revealed, anonymous, voteCount, votes: VoteView[] | null, stats: Stats | null,
+            teams: { hidden, groups: { team: string|null, count, median: string|null }[] } | null }
+VoteView  { participantId: string|null, name: string|null, team: string|null, value }
 ```
 
 Rules (asserted by fast-check properties over arbitrary event sequences):
@@ -234,6 +251,11 @@ Rules (asserted by fast-check properties over arbitrary event sequences):
    turning the setting off never de-anonymizes votes already cast.
 4. Never present: join/admin/passcode hashes, salts, resume hashes, connection ids, failure
    counters, other participants' tokens.
+5. **Teams.** `teams` is null before the reveal, and also when fewer than two groups voted or no
+   vote came from a team. It holds aggregates only (count, median label). In anonymous rounds
+   `VoteView.team` is null, and the breakdown is `{ hidden: true, groups: [] }` when any group
+   (including "no team") has a single vote, because that vote could be read off or worked out
+   by subtraction (ADR-0012).
 
 ### Stats (`computeStats`)
 
@@ -347,7 +369,8 @@ for (const out of expandEffects(next, effects)) …            // send | close |
   `RoomHost.restore`: disconnects every participant whose `conn` was not adopted, then runs a
   `tick`, so an overdue room expires at once.
 - `readStoredState(json, roomId?)` (host) accepts only rows of the current `STATE_VERSION`;
-  adapters delete anything else.
+  adapters delete anything else. Rows written before teams existed get the team fields filled
+  in (`normalizeRoomState`, core).
 - `state.limits` is fixed at creation; changing env limits affects new rooms only.
 
 ### Contract tests
@@ -355,7 +378,8 @@ for (const out of expandEffects(next, effects)) …            // send | close |
 `packages/host/test/contract.ts` (`@backlogfit/host/contract`) holds the scenarios every
 backend must pass: full session and wipe, wrong secret vs unknown room, pre-hello behaviour,
 1009 and 1008 closes, resume, disconnect, `leave`, lobby `ping`, capacity and pending-socket
-eviction. They run against the host with fake ports and against the Node server and the Worker.
+eviction, team hints with team-only tasks and the `tasks.added` reply, and moving people
+between roles with a per-team summary. They run against the host with fake ports and against the Node server and the Worker.
 
 ## 9. Links and presets
 
@@ -363,13 +387,17 @@ eviction. They run against the host with fake ports and against the Node server 
 
 ```
 join   https://<host>/r#<roomId>.<joinSecret>
+team   https://<host>/r#<roomId>.<joinSecret>@<teamId>
 admin  https://<host>/r#<roomId>.<joinSecret>.<adminSecret>
-Phase 2 encrypted rooms append ~<contentKey> (43 base64url chars) to either form.
+Phase 2 encrypted rooms append ~<contentKey> (43 base64url chars) to either form, before @.
 ```
 
-`roomId` is 16–64 base64url chars, secrets 16–128. `parseRoomFragment` accepts the fragment
-with or without `#` and returns `{ roomId, joinSecret, adminSecret|null, contentKey|null }` or
-`null`. `joinLinkOf(link)` drops the admin secret.
+`roomId` is 16–64 base64url chars, secrets 16–128, team ids 1–24. `parseRoomFragment` accepts
+the fragment with or without `#` and returns `{ roomId, joinSecret, adminSecret|null,
+contentKey|null, team? }` or `null` (`team` only when present; admin links never carry one).
+The team part is a hint for the join form, not a secret and not an authorization.
+`joinLinkOf(link)` drops the admin secret and the team; `teamLinkOf(link, teamId|null)` builds a
+team invite link.
 
 ### Presets (`parsePreset` / `serializePreset`)
 
@@ -378,7 +406,7 @@ Local JSON files written and read by the configurator; never sent to the server.
 ```ts
 {
   format: 'backlogfit-preset',
-  v: 1,
+  v: 2,                             // 2 since teams; version 1 files are still read
   name: string(1–60) | null,        // optional, text hygiene as for names
   lifetimeHours: 1 | 2 | 4 | 8 | null,
   config: RoomConfig                // validated with RoomConfigSchema, defaults filled in
@@ -387,7 +415,7 @@ Local JSON files written and read by the configurator; never sent to the server.
 
 - `parsePreset(jsonString | value)` never throws: `too_large` (> 64 KiB), `bad_json`,
   `unsupported_version` (envelope with another `v`), `invalid_message`. A bare `RoomConfig`
-  (no envelope) is accepted as an unnamed v1 preset. Unknown keys are rejected, so a preset can
+  (no envelope) is accepted as an unnamed preset. A version 1 file with teams is invalid. Unknown keys are rejected, so a preset can
   never carry a passcode or link.
 - `serializePreset(config, { name?, lifetimeHours? })` validates and pretty-prints; throws
   `TypeError` for invalid input. `serializePreset(parsePreset(x).config, meta)` is idempotent.

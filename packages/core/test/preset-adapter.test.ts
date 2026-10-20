@@ -33,7 +33,7 @@ describe('presets', () => {
       ok: true,
       msg: {
         format: 'backlogfit-preset',
-        v: 1,
+        v: 2,
         name: 'Team Rocket',
         lifetimeHours: 4,
         config: parsed.msg,
@@ -59,7 +59,7 @@ describe('presets', () => {
     });
     expect(parsePreset('[]')).toEqual({ ok: false, code: 'invalid_message' });
     expect(parsePreset(null)).toEqual({ ok: false, code: 'invalid_message' });
-    expect(parsePreset({ format: 'backlogfit-preset', v: 2, config })).toEqual({
+    expect(parsePreset({ format: 'backlogfit-preset', v: 3, config })).toEqual({
       ok: false,
       code: 'unsupported_version',
     });

@@ -9,6 +9,10 @@
     disabled?: boolean;
     testid?: string;
     shortcut?: string;
+    /** Items with the same group follow each other under a small heading. */
+    group?: string;
+    /** Makes the item a radio choice within its group. */
+    checked?: boolean;
   }
 </script>
 
@@ -43,7 +47,13 @@
   let menu: HTMLDivElement | undefined = $state();
   const uid = $props.id();
 
-  const entries = () => [...(menu?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not([disabled])') ?? [])];
+  const entries = () => [
+    ...(menu?.querySelectorAll<HTMLButtonElement>('[role^="menuitem"]:not([disabled])') ?? []),
+  ];
+  const startsGroup = (i: number) => {
+    const item = items[i];
+    return item?.group !== undefined && items[i - 1]?.group !== item.group;
+  };
 
   async function show(focus: 'first' | 'last' = 'first') {
     open = true;
@@ -128,17 +138,28 @@
       tabindex="-1"
       onkeydown={onMenuKey}
     >
-      {#each items as item (item.label)}
+      {#each items as item, i (`${item.group ?? ''}:${item.label}`)}
+        {#if startsGroup(i)}
+          {#if i > 0}<div class="sep" role="separator"></div>{/if}
+          <div class="group-label" aria-hidden="true">{item.group}</div>
+        {:else if i > 0 && item.group === undefined && items[i - 1]?.group !== undefined}
+          <div class="sep" role="separator"></div>
+        {/if}
         <button
           type="button"
-          role="menuitem"
+          role={item.checked === undefined ? 'menuitem' : 'menuitemradio'}
+          aria-checked={item.checked === undefined ? undefined : item.checked}
+          aria-label={item.group ? `${item.group}: ${item.label}` : undefined}
           class="item"
           class:danger={item.danger}
           disabled={item.disabled}
           data-testid={item.testid}
+          data-checked={item.checked === undefined ? undefined : String(item.checked)}
           onclick={() => choose(item)}
         >
-          {#if item.icon}<Icon name={item.icon} size={18} />{/if}
+          {#if item.checked !== undefined}
+            <span class="radio" aria-hidden="true">{#if item.checked}<Icon name="check" size={16} />{/if}</span>
+          {:else if item.icon}<Icon name={item.icon} size={18} />{/if}
           <span class="label">{item.label}</span>
           {#if item.shortcut}<kbd>{item.shortcut}</kbd>{/if}
         </button>
@@ -196,6 +217,8 @@
     position: absolute;
     z-index: 45;
     min-width: 13rem;
+    max-height: min(70vh, 30rem);
+    overflow-y: auto;
     padding: var(--space-1);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
@@ -256,6 +279,32 @@
 
   .label {
     flex: 1;
+  }
+
+  .sep {
+    height: 1px;
+    margin: var(--space-1) calc(-1 * var(--space-1));
+    background: var(--color-border);
+  }
+
+  .group-label {
+    padding: var(--space-2) var(--space-3) var(--space-1);
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .radio {
+    display: inline-grid;
+    place-items: center;
+    width: 18px;
+    color: var(--color-accent);
+  }
+
+  .item[aria-checked='true'] {
+    font-weight: var(--weight-semibold);
   }
 
   kbd {

@@ -16,7 +16,13 @@ import {
   hostOptions,
   RoomHost,
 } from '../src/index.ts';
-import { CONTRACT_ENV, type WireClient, type WireHarness, type WireRoom } from './contract.ts';
+import {
+  CONTRACT_ENV,
+  type WireClient,
+  type WireHarness,
+  type WireRoom,
+  type WireRoomOptions,
+} from './contract.ts';
 
 export const T0 = 1_700_000_000_000;
 
@@ -161,12 +167,16 @@ export function ports(
   };
 }
 
-export async function request(lobby = false) {
+export async function request(opts: WireRoomOptions = {}) {
   const joinSecret = randomToken();
   const adminSecret = randomToken();
   const parsed = parseCreateRoomRequest({
     v: 1,
-    config: { scale: presetScale('fibonacci'), lobby },
+    config: {
+      scale: presetScale('fibonacci'),
+      lobby: opts.lobby ?? false,
+      teams: opts.teams ?? [],
+    },
     joinHash: await hashSecret(joinSecret),
     adminHash: await hashSecret(adminSecret),
     lifetimeHours: 2,
@@ -197,7 +207,7 @@ export async function rig(
   const storage = new FakeStorage();
   const out = { errors: [] as unknown[], ended: 0 };
   const p = ports(clock, wakeup, opts.decoy ? null : storage, out);
-  const { req, joinSecret, adminSecret } = await request(opts.lobby);
+  const { req, joinSecret, adminSecret } = await request({ lobby: opts.lobby ?? false });
   const roomId = randomToken(16);
   const host = opts.decoy
     ? RoomHost.decoy(roomId, p, options)
@@ -240,7 +250,7 @@ export function fakeHarness(): WireHarness {
 
   return {
     async createRoom(opts = {}) {
-      const { req, joinSecret, adminSecret } = await request(opts.lobby);
+      const { req, joinSecret, adminSecret } = await request(opts);
       const roomId = randomToken(16);
       const wakeup = new FakeWakeup();
       const host = await RoomHost.create(

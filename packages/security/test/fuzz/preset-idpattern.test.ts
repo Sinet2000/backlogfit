@@ -3,6 +3,7 @@ import {
   ID_MATCH_MAX_INPUT,
   isSafeIdPattern,
   isValidIdPattern,
+  PRESET_VERSION,
   parsePreset,
   parseTaskLine,
   presetScale,
@@ -56,7 +57,7 @@ describe('parsePreset fuzz', () => {
     const again = parsePreset(
       serializePreset(r.msg.config, { name: r.msg.name, lifetimeHours: 2 }),
     );
-    expect(again).toEqual(r);
+    expect(again).toEqual({ ok: true, msg: { ...r.msg, v: PRESET_VERSION } });
     expect(JSON.stringify(r.msg)).not.toMatch(/passcode|secret|hash/i);
   });
 

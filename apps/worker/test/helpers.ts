@@ -19,10 +19,15 @@ export interface Room {
   adminSecret: string;
 }
 
-export function body(joinHash: string, adminHash: string, lobby = false) {
+export function body(
+  joinHash: string,
+  adminHash: string,
+  lobby = false,
+  teams: { id: string; name: string }[] = [],
+) {
   return {
     v: 1,
-    config: { scale: presetScale('fibonacci'), lobby },
+    config: { scale: presetScale('fibonacci'), lobby, teams },
     joinHash,
     adminHash,
     lifetimeHours: 2,
@@ -37,11 +42,14 @@ export function post(data: unknown, headers: Record<string, string> = {}) {
   });
 }
 
-export async function createRoom(lobby = false): Promise<Room> {
+export async function createRoom(
+  lobby = false,
+  teams: { id: string; name: string }[] = [],
+): Promise<Room> {
   const joinSecret = randomToken();
   const adminSecret = randomToken();
   const hashes = [await hashSecret(joinSecret), await hashSecret(adminSecret)] as const;
-  const res = await post(body(...hashes, lobby), {
+  const res = await post(body(...hashes, lobby, teams), {
     'cf-connecting-ip': randomIp(),
   });
   if (res.status !== 201) throw new Error(`create failed: ${res.status}`);

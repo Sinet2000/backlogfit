@@ -15,8 +15,16 @@ export interface FrameViolation {
 
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json };
 
-const PARTICIPANT_KEYS = new Set(['id', 'name', 'role', 'authority', 'connected', 'hasVoted']);
-const ROUND_KEYS = new Set(['n', 'revealed', 'anonymous', 'voteCount', 'votes', 'stats']);
+const PARTICIPANT_KEYS = new Set([
+  'id',
+  'name',
+  'role',
+  'authority',
+  'team',
+  'connected',
+  'hasVoted',
+]);
+const ROUND_KEYS = new Set(['n', 'revealed', 'anonymous', 'voteCount', 'votes', 'stats', 'teams']);
 /** Keys that carry a vote value somewhere in a RoomView. */
 const VOTE_CARRIERS = new Set(['votes', 'myVote', 'vote', 'value', 'distribution', 'stats']);
 
@@ -73,6 +81,9 @@ export function checkRoomView(
         if (r.revealed === true) return;
         if (r.votes !== null) bad(`${path}.votes`, 'votes present before reveal');
         if (r.stats !== null) bad(`${path}.stats`, 'stats present before reveal');
+        if (r.teams !== null && r.teams !== undefined) {
+          bad(`${path}.teams`, 'team summary present before reveal');
+        }
       });
     });
   }

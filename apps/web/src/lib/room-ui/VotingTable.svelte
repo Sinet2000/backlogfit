@@ -4,11 +4,7 @@
 
   const room = useRoom();
   const view = $derived(viewOf(room));
-  const voters = $derived(
-    view.participants
-      .filter((p) => p.role === 'voter')
-      .sort((a, b) => a.name.localeCompare(b.name)),
-  );
+  const voters = $derived([...room.eligible].sort((a, b) => a.name.localeCompare(b.name)));
   const back = { value: '', label: '', kind: 'number' as const };
 </script>
 

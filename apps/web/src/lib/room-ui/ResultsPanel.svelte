@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { toCsv, toJson, toMarkdown, toSummary } from '@backlogfit/core';
+  import { toCsv, toJson, toMarkdown, toSummary, votersLabel } from '@backlogfit/core';
   import MenuButton, { type MenuItem } from '../components/MenuButton.svelte';
   import PanelHeader from '../components/PanelHeader.svelte';
   import { downloadText, stamp } from '../download.ts';
@@ -23,6 +23,7 @@
         rounds: revealed.length,
         median: last?.stats ? formatStat(last.stats, 'median') : '',
         agreement: last?.stats?.consensus ? AGREEMENT[last.stats.consensus] : '',
+        by: votersLabel(t.voters, room.teams),
       };
     }),
   );
@@ -85,13 +86,14 @@
   {:else}
     <table>
       <thead>
-        <tr><th scope="col">Task</th><th scope="col">Title</th><th scope="col">Final</th><th scope="col">Median</th><th scope="col">Agreement</th><th scope="col">Rounds</th></tr>
+        <tr><th scope="col">Task</th><th scope="col">Title</th>{#if room.teams.length > 0}<th scope="col">Estimated by</th>{/if}<th scope="col">Final</th><th scope="col">Median</th><th scope="col">Agreement</th><th scope="col">Rounds</th></tr>
       </thead>
       <tbody>
         {#each rows as r (r.id)}
           <tr>
             <td class="mono">{r.key}</td>
             <td>{r.title}</td>
+            {#if room.teams.length > 0}<td>{r.by}</td>{/if}
             <td class="strong">{r.final || '–'}</td>
             <td>{r.median || '–'}</td>
             <td>{r.agreement || '–'}</td>
@@ -105,7 +107,7 @@
         <li>
           <span class="task"><span class="mono">{r.key}</span> {r.title}</span>
           <span class="facts">
-            <strong>Final {r.final || '–'}</strong> · Median {r.median || '–'}{r.agreement ? ` · ${r.agreement}` : ''} · {r.rounds} {r.rounds === 1 ? 'round' : 'rounds'}
+            <strong>Final {r.final || '–'}</strong>{room.teams.length > 0 ? ` · ${r.by}` : ''} · Median {r.median || '–'}{r.agreement ? ` · ${r.agreement}` : ''} · {r.rounds} {r.rounds === 1 ? 'round' : 'rounds'}
           </span>
         </li>
       {/each}

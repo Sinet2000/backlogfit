@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Card as CardT, RoundView } from '@backlogfit/core';
+  import type { Card as CardT, RoundView, Team } from '@backlogfit/core';
   import { onMount } from 'svelte';
   import { cardFor, cardName, deckTones, NO_TONE } from '../cards.ts';
   import { consensusText, formatStat, groupVotes } from '../room/format.ts';
@@ -11,8 +11,11 @@
     round: RoundView;
     scale: readonly CardT[];
     animate?: boolean;
+    teams?: readonly Team[];
   }
-  let { round, scale, animate = true }: Props = $props();
+  let { round, scale, animate = true, teams = [] }: Props = $props();
+  const teamName = (id: string | null) =>
+    id === null ? 'No team' : (teams.find((t) => t.id === id)?.name ?? 'No team');
 
   let faceUp = $state(false);
   onMount(() => {
@@ -86,6 +89,25 @@
       <li class="empty muted">Nobody voted in this round.</li>
     {/each}
   </ul>
+
+  {#if round.teams}
+    <div class="by-team" data-testid="team-summary">
+      <h3 class="by-team-label">By team</h3>
+      {#if round.teams.hidden}
+        <p class="muted" data-testid="team-summary-hidden">Hidden to keep votes anonymous: a team with one vote would show that person’s vote.</p>
+      {:else}
+        <ul>
+          {#each round.teams.groups as g (g.team ?? '')}
+            <li data-testid="team-summary-item" data-team={g.team ?? ''} data-median={g.median ?? ''} data-count={g.count}>
+              <span class="team-name">{teamName(g.team)}</span>
+              <strong>{g.median ?? '–'}</strong>
+              <span class="muted">({g.count} {g.count === 1 ? 'vote' : 'votes'})</span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    </div>
+  {/if}
 
   {#if stats && stats.total > 0 && agreed === null}
     <div class="grid">
@@ -162,6 +184,51 @@
 
   .why {
     color: var(--color-text-muted);
+  }
+
+  .by-team {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+  }
+
+  .by-team-label {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .by-team ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .by-team li {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+  }
+
+  .by-team strong {
+    font-size: var(--text-base);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .team-name {
+    font-weight: var(--weight-medium);
   }
 
   .cards {

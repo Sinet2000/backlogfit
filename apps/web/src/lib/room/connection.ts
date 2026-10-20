@@ -34,6 +34,8 @@ export interface JoinRequest {
   name: string;
   role: 'voter' | 'spectator';
   passcode?: string;
+  /** Team hint from the invite link; the server ignores unknown ids. */
+  team?: string | null;
 }
 
 export interface QueuedVote {
@@ -77,6 +79,7 @@ export interface ConnectionOptions {
   random?: () => number;
   onChange: (snapshot: ConnectionSnapshot) => void;
   onServerError?: (code: ErrorCode, ref: string | undefined) => void;
+  onTasksAdded?: (requestId: string | undefined, taskIds: string[]) => void;
   pingIntervalMs?: number;
   maxInitialAttempts?: number;
 }
@@ -261,6 +264,7 @@ export class RoomConnection {
       name: req.name,
       role: req.role,
       ...(req.passcode ? { passcode: req.passcode } : {}),
+      ...(req.team ? { team: req.team } : {}),
       ...(link.adminSecret ? { adminSecret: link.adminSecret } : {}),
       ...(resumeToken ? { resumeToken } : {}),
     };
@@ -336,6 +340,9 @@ export class RoomConnection {
       }
       case 'closed':
         this.#closedReason = msg.reason;
+        break;
+      case 'tasks.added':
+        this.#o.onTasksAdded?.(msg.requestId, msg.taskIds);
         break;
       case 'pong':
         this.#update({ clockOffset: clockOffset(msg.serverTime, this.#sentAt, now) });

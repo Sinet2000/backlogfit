@@ -19,9 +19,14 @@ export interface WireRoom {
   adminSecret: string;
 }
 
+export interface WireRoomOptions {
+  lobby?: boolean;
+  teams?: { id: string; name: string }[];
+}
+
 /** One backend under test, started with CONTRACT_ENV and no per-client upgrade limit. */
 export interface WireHarness {
-  createRoom(opts?: { lobby?: boolean }): Promise<WireRoom>;
+  createRoom(opts?: WireRoomOptions): Promise<WireRoom>;
   open(roomId: string): Promise<WireClient>;
   elapse(ms: number): Promise<void>;
 }
@@ -50,12 +55,22 @@ export function roomContract(name: string, api: Api, harness: () => WireHarness)
     return { type: 'hello', v: 1, joinSecret: room.joinSecret, name, role: 'voter', ...extra };
   }
 
-  async function join(room: WireRoom, name: string, admin = false) {
+  async function join(
+    room: WireRoom,
+    name: string,
+    admin = false,
+    extra: Record<string, unknown> = {},
+  ) {
     const c = await harness().open(room.roomId);
-    c.send(hello(room, name, admin ? { adminSecret: room.adminSecret } : {}));
+    c.send(hello(room, name, { ...(admin ? { adminSecret: room.adminSecret } : {}), ...extra }));
     const welcome = await c.next('welcome');
     return { c, welcome };
   }
+
+  const TEAMS = [
+    { id: 'dev', name: 'Dev' },
+    { id: 'qa', name: 'QA' },
+  ];
 
   function unknownId(): string {
     return `unknownRoom${Math.random().toString(36).slice(2, 12)}`;
@@ -202,6 +217,69 @@ export function roomContract(name: string, api: Api, harness: () => WireHarness)
       expect(await carol.next('error')).toMatchObject({ code: 'room_full' });
       expect(await squatters[0]?.closed).toBe(1008);
       admin.c.close();
+    });
+    it('limits a team task to its team and acknowledges added tasks', async () => {
+      const room = await harness().createRoom({ teams: TEAMS });
+      const admin = await join(room, 'Ada', true);
+      const quinn = await join(room, 'Quinn', false, { team: 'ops' });
+      expect(quinn.welcome.room.config.teams).toEqual(TEAMS);
+      expect(quinn.welcome.room.participants.find((p) => p.name === 'Quinn')?.team).toBeNull();
+      admin.c.send({
+        type: 'admin.participant',
+        participantId: quinn.welcome.you.participantId,
+        team: 'qa',
+      });
+      await quinn.c.next('state', (m) => m.room.participants.some((p) => p.team === 'qa'));
+      admin.c.send({
+        type: 'admin.tasks.add',
+        lines: ['SCP-1 Test plan #qa', 'SCP-2 Build'],
+        requestId: 'r1',
+      });
+      const ack = await admin.c.next('tasks.added');
+      expect(ack.requestId).toBe('r1');
+      expect(ack.taskIds).toHaveLength(2);
+      const taskId = ack.taskIds[0];
+      admin.c.send({ type: 'admin.select', taskId });
+      const voting = await quinn.c.next('state', (m) => m.room.phase === 'voting');
+      expect(voting.room.tasks[0]?.voters).toEqual(['qa']);
+      admin.c.send({ type: 'vote', taskId, round: 1, value: '5' });
+      expect(await admin.c.next('error')).toEqual({
+        type: 'error',
+        code: 'not_eligible',
+        ref: 'vote',
+      });
+      quinn.c.send({ type: 'vote', taskId, round: 1, value: '3' });
+      const revealed = await admin.c.next('state', (m) => m.room.phase === 'revealed');
+      expect(revealed.room.tasks[0]?.rounds[0]?.votes?.map((x) => x.name)).toEqual(['Quinn']);
+    });
+
+    it('moves people between roles and shows a per-team summary', async () => {
+      const room = await harness().createRoom({ teams: TEAMS });
+      const admin = await join(room, 'Ada', true, { team: 'dev' });
+      const quinn = await join(room, 'Quinn', false, { team: 'qa' });
+      const pid = quinn.welcome.you.participantId;
+      admin.c.send({ type: 'admin.tasks.add', lines: ['SCP-1'] });
+      const [taskId] = (await admin.c.next('tasks.added')).taskIds;
+      admin.c.send({ type: 'admin.next' });
+      await quinn.c.next('state', (m) => m.room.phase === 'voting');
+      quinn.c.send({ type: 'vote', taskId, round: 1, value: '8' });
+      await admin.c.next('state', (m) => m.room.participants.some((p) => p.hasVoted));
+      admin.c.send({ type: 'admin.participant', participantId: pid, role: 'spectator' });
+      const moved = await quinn.c.next('state', (m) => m.room.me?.role === 'spectator');
+      expect(moved.room.tasks[0]?.rounds[0]?.voteCount).toBe(0);
+      admin.c.send({ type: 'admin.participant', participantId: pid, role: 'voter' });
+      await quinn.c.next('state', (m) => m.room.me?.role === 'voter');
+      quinn.c.send({ type: 'vote', taskId, round: 1, value: '3' });
+      await admin.c.next('state', (m) => m.room.participants.some((p) => p.hasVoted));
+      admin.c.send({ type: 'vote', taskId, round: 1, value: '5' });
+      const revealed = await quinn.c.next('state', (m) => m.room.phase === 'revealed');
+      expect(revealed.room.tasks[0]?.rounds[0]?.teams).toEqual({
+        hidden: false,
+        groups: [
+          { team: 'dev', count: 1, median: '5' },
+          { team: 'qa', count: 1, median: '3' },
+        ],
+      });
     });
   });
 }

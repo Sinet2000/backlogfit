@@ -11,10 +11,21 @@ export interface AxeSummary {
 export const axeLog: AxeSummary[] = [];
 
 /** Fail on serious/critical WCAG 2.2 AA violations; record the rest. */
-export async function checkA11y(page: Page, label: string, info?: TestInfo): Promise<void> {
-  const result = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'])
-    .analyze();
+export async function checkA11y(
+  page: Page,
+  label: string,
+  info?: TestInfo,
+  include?: string,
+): Promise<void> {
+  const builder = new AxeBuilder({ page }).withTags([
+    'wcag2a',
+    'wcag2aa',
+    'wcag21a',
+    'wcag21aa',
+    'wcag22aa',
+    'best-practice',
+  ]);
+  const result = await (include ? builder.include(include) : builder).analyze();
   const summary: AxeSummary = {
     label,
     violations: result.violations.map((v) => ({

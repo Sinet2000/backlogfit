@@ -28,6 +28,16 @@ export function consensusText(level: 'full' | 'near' | 'split'): {
   }
 }
 
+/** "QA is estimating this task." / "Dev and QA are estimating this task." */
+export function estimatingText(names: readonly string[]): string {
+  if (names.length === 0) return 'Another team is estimating this task.';
+  const who =
+    names.length === 1
+      ? names[0]
+      : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return `${who} ${names.length === 1 ? 'is' : 'are'} estimating this task.`;
+}
+
 export function formatClock(ms: number): string {
   const total = Math.max(0, Math.ceil(ms / 1000));
   const m = Math.floor(total / 60);

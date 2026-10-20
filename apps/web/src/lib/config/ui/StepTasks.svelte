@@ -3,6 +3,7 @@
   import type { SessionWizard } from '../wizard.svelte.ts';
   import PreparedTaskList from './PreparedTaskList.svelte';
   import TaskLinkSettings from './TaskLinkSettings.svelte';
+  import TeamEditor from './TeamEditor.svelte';
 
   let { wizard }: { wizard: SessionWizard } = $props();
 
@@ -12,12 +13,26 @@
       wizard.draft.taskPolicy !== 'ids',
   );
   const invalid = $derived(wizard.items.flatMap((item, i) => (item.error ? [i] : [])));
+  const firstTag = $derived(wizard.draft.teams[0]?.name.toLowerCase().replace(/\s+/g, '') ?? 'qa');
   const linkTrouble = $derived(
     wizard.items.some((i) => i.error === 'links_disabled' || i.error === 'url_not_allowed'),
   );
 </script>
 
 <div class="group">
+  <section class="teams-section" aria-labelledby="teams-h">
+    <h2 id="teams-h" class="section-label">Teams <span class="optional">(optional)</span></h2>
+    <p class="muted small">Estimating with several teams, like developers and testers? Add them here. Each team gets its own join link, and you can choose which team estimates each task.</p>
+    <TeamEditor
+      teams={wizard.draft.teams}
+      onadd={(name) => wizard.addTeam(name)}
+      onrename={(id, name) => wizard.renameTeam(id, name)}
+      onremove={(id) => wizard.removeTeam(id)}
+      hint="Up to 6 teams. Skip this if everyone estimates everything."
+    />
+    {#if wizard.showErrors && wizard.errors.teams}<p class="form-error">{wizard.errors.teams}</p>{/if}
+  </section>
+
   <p class="muted">
     Paste the tasks you want to estimate, in the order you want to go through them. This is
     optional: you can also add tasks in the room.
@@ -34,7 +49,9 @@
       spellcheck="false"
       data-testid="prepared-input"
     ></textarea>
-    <p class="field-hint" id="prepared-hint">One task per line: an ID like SCP-3655, optionally followed by a title. Paste straight from a spreadsheet or your tracker.</p>
+    <p class="field-hint" id="prepared-hint">
+      One task per line: an ID like SCP-3655, optionally followed by a title. Paste straight from a spreadsheet or your tracker.{#if wizard.draft.teams.length > 0}{' '}End a line with #{firstTag} to let only that team estimate it.{/if}
+    </p>
   </div>
 
   {#if wizard.items.length > 0}
@@ -69,6 +86,23 @@
     display: grid;
     gap: var(--space-5);
     min-width: 0;
+  }
+
+  .teams-section {
+    display: grid;
+    gap: var(--space-2);
+    padding-bottom: var(--space-5);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .optional {
+    font-weight: var(--weight-medium);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  .small {
+    font-size: var(--text-sm);
   }
 
   .list {

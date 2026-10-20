@@ -8,6 +8,7 @@
     linksSummary,
     revealSummary,
     tasksSummary,
+    teamsSummary,
     timerSummary,
   } from '../summary.ts';
   import type { SessionWizard } from '../wizard.svelte.ts';
@@ -19,6 +20,7 @@
   const tasks = $derived(wizard.items.filter((i) => i.task !== null));
   const rows = $derived([
     { label: 'Cards', value: d.scale.map((c) => c.value).join('  '), step: 0 },
+    { label: 'Teams', value: teamsSummary(d), step: 1 },
     { label: 'Task links', value: linksSummary(d), step: 1 },
     { label: 'Length', value: lengthSummary(d), step: 2 },
     { label: 'Reveal', value: revealSummary(d), step: 2 },

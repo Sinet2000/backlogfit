@@ -140,6 +140,8 @@ export interface JoinOptions {
   spectator?: boolean;
   passcode?: string;
   expect?: 'room' | 'lobby' | 'none';
+  /** In a room with teams: the team to pick ('' = no team), or 'keep' for the preselected one. */
+  team?: string;
 }
 
 export async function submitJoin(page: Page, name: string, opts: JoinOptions = {}): Promise<void> {
@@ -149,10 +151,21 @@ export async function submitJoin(page: Page, name: string, opts: JoinOptions = {
   if (opts.passcode !== undefined) await id(page, 'join-passcode').fill(opts.passcode);
   if (opts.spectator) await setToggle(id(page, 'join-as-spectator'), true);
   await id(page, 'join-submit').click();
+  if (opts.team !== undefined) await chooseTeam(page, opts.team);
   const wait = opts.expect ?? 'room';
   if (wait === 'room') await waitInRoom(page, name);
   if (wait === 'lobby') await expect(id(page, 'lobby-waiting')).toBeVisible();
 }
+
+/** Answers the "Which team are you in?" step after joining a room with teams. */
+export async function chooseTeam(page: Page, team: string): Promise<void> {
+  await expect(id(page, 'team-choice')).toBeVisible({ timeout: 15_000 });
+  if (team !== 'keep') await teamOption(page, team).click();
+  await id(page, 'team-continue').click();
+}
+
+export const teamOption = (page: Page, team: string): Locator =>
+  page.locator(`[data-testid="team-option"][data-team="${cssEscape(team)}"]`);
 
 export async function waitInRoom(page: Page, name: string): Promise<void> {
   await expect(participant(page, name)).toBeVisible({ timeout: 15_000 });

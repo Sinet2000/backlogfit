@@ -18,6 +18,8 @@ Four steps: estimation scale → tasks → session rules → review & create.
 | `prepared-clear`, `prepared-remove-invalid` | buttons | Clearing or removing lines shows an Undo toast. |
 | `prepared-edit`, `prepared-remove` | row menu items (`row-menu`) | `prepared-edit-input` is the inline editor (Enter saves, Esc cancels). |
 | `prepared-shortened` | chip | Shown when a pasted link was reduced to its ID. |
+| `team-editor` | teams section, step 2 (also in the settings dialog) | `team-input` + `team-add` (or Enter), `team-suggest` (`data-name` Dev/QA/BA/Design), `team-chip` (`data-team`, `data-name`) with `team-rename` (opens `team-rename-input`, Enter saves, Esc cancels) and `team-remove`. |
+| `prepared-voters-all`, `prepared-voters-<teamId>` | row menu items ("Estimated by") | Rewrite the line's `#team` tags. `prepared-voters` is the badge on the row. |
 | `setting-id-pattern`, `setting-link-template` | inputs | Step 2, inside "Task IDs and links". |
 | `setting-policy-ids` / `-links` / `-allowlist`, `setting-allowlist-input` | radios / input | Step 2. |
 | `setting-expiry` | `<select>` | Values `1`, `2` (default), `4`, `8` hours. |
@@ -26,7 +28,8 @@ Four steps: estimation scale → tasks → session rules → review & create.
 | `preset-import`, `preset-file` | link button / hidden file input | Step 1. Use `setInputFiles` on `preset-file`. |
 | `preset-export` | button | Review step. The passcode is never written to the file. |
 | `create-demo` | button | Only when the server cannot be reached; creates an in-tab offline demo. |
-| `join-link`, `admin-link` | readonly inputs | After create; full join and host URLs. |
+| `join-link`, `admin-link` | readonly inputs | After create; full join and host URLs. `join-link` follows the selected `invite-tab`. |
+| `invite-tab` | tab, `data-team` (`''` = everyone) | Only with teams. A team link ends in `@<teamId>`. |
 | `copy-join-link`, `copy-admin-link`, `save-admin-link` | buttons | Copy text changes to "Copied"; save downloads a `.txt`. |
 | `prepared-note`, `copy-prepared` | note / button | Shown when tasks were prepared; the list is added when the room is opened in this tab. |
 | `qr-code` | `<svg>` | Join link QR (also in the room's Invite dialog). |
@@ -41,6 +44,7 @@ Four steps: estimation scale → tasks → session rules → review & create.
 | `join-as-spectator` | checkbox | For the host it reads "I will only facilitate". |
 | `join-submit` | submit button | |
 | `lobby-waiting` | section | Shown while waiting for approval. |
+| `team-choice` | panel | After joining a room with teams (not on resume). `team-option` (`data-team`, `''` = no team) wraps a radio; the team from the link is preselected. `team-continue` enters the room. |
 
 ## Room
 
@@ -48,20 +52,27 @@ Four steps: estimation scale → tasks → session rules → review & create.
 |---|---|---|
 | `app-home`, `leave-confirm` | header logo / dialog button | The logo asks "Leave this session?" before going home. |
 | `room-status` | header text | "Task 2 of 5 · Ends at 14:30". |
-| `btn-invite`, `btn-shortcuts`, `btn-leave` | header buttons | Invite is for the host and co-hosts. Leave sends `leave` to the server. |
+| `btn-invite`, `btn-shortcuts`, `btn-leave` | header buttons | Invite is for the host and co-hosts. Leave sends `leave` to the server. The Invite dialog has `invite-tab`, `invite-link`, `copy-invite-link`. |
 | `empty-stage` | stage content | No current task. For hosts with no tasks it holds the add form. |
 | `btn-next` | button in `empty-stage` | "Start estimating" / "Continue estimating". |
 | `task-input`, `task-add`, `task-add-now` | add form | Hosts. Ctrl/Cmd+Enter adds, with Shift it also estimates the first new task. |
+| `task-add-voters` | `<select>` "Estimated by" | Only with teams. `''` = everyone; a `#team` tag on a line wins. |
 | `task-add-open` | button | Opens the add form in the Tasks panel once there are tasks. |
 | `task-item` | row per task, `data-key`, `data-final` | Visible to everyone. |
 | `task-select` | button inside `task-item` | Hosts. Estimate this task now. |
-| `row-menu` | menu button inside a sortable row | Items `move-up`, `move-down`, `task-remove` (removal waits 5 s for Undo, `toast-action`). |
+| `row-menu` | menu button inside a sortable row | Items `move-up`, `move-down`, `task-remove` (removal waits 5 s for Undo, `toast-action`). With teams also `task-voters-all`, `task-voters-<teamId>` (radio items, `data-checked`). |
+| `task-voters` | badge inside `task-item` | Names of the teams that estimate the task; absent for everyone. |
 | `current-task` | section, `data-key` | |
-| `voting-table` | list, one entry per voter with `data-voted` | Face-down cards; never shows values before the reveal. |
+| `current-voters` | text in `current-task` | "Estimated by QA". |
+| `not-estimating` | text | Voters outside the task's teams: "QA is estimating this task. You can follow along." |
+| `no-eligible` | status | Hosts, when nobody from the task's teams is connected. |
+| `voting-table` | list, one entry per voter with `data-voted` | Face-down cards; never shows values before the reveal. Only people who estimate the current task. |
 | `card` | button per deck card, `data-value`, `role="radio"`, `aria-checked` | Click again to withdraw the vote. Arrow keys move focus only. |
-| `vote-progress` | text "N of M voted" | People panel, during voting. |
-| `participant` | row, `data-name`, `data-voted`, `data-role` | |
-| `participant-menu` | menu button in `participant` | Items `btn-promote`, `btn-demote`, `btn-kick` (confirmed with `btn-kick-confirm`). Only actions the viewer may use are listed. |
+| `vote-progress` | text "N of M voted" | People panel, during voting. Counts only people who estimate the current task. |
+| `participant` | row, `data-name`, `data-voted`, `data-role`, `data-team` | |
+| `people-group` | group per team, `data-team` (`''` = no team) | Only with teams. |
+| `team-badge` | badge, `data-team` (the name) | In participant rows. |
+| `participant-menu` | menu button in `participant` | Items `btn-make-spectator` / `btn-make-voter`, `btn-team-<teamId>` / `btn-team-none` (radio items), `btn-promote`, `btn-demote`, `btn-kick` (confirmed with `btn-kick-confirm`). Only actions the viewer may use are listed. |
 | `btn-reveal` | button | Voting phase. |
 | `host-menu` | "More actions" menu | Voting: `btn-timer-start` / `btn-timer-stop`, `btn-revote`, `btn-skip`. Revealed: `btn-final` (save without moving on), `btn-skip`. |
 | `btn-revote` | button | "Vote again" after the reveal (in `host-menu` while voting as "Restart round"). |
@@ -74,6 +85,7 @@ Four steps: estimation scale → tasks → session rules → review & create.
 | `reveal-card` | one entry per vote inside a group, `data-name` (empty when anonymous), `data-value` | |
 | `stat-median`, `stat-average`, `stat-range`, `stat-mode` | text | `stat-mode` reads "No common vote" unless one value is the most common. Hidden on full agreement. |
 | `consensus` | `<p>`, `data-level="full\|near\|split\|none"` | |
+| `team-summary` | "By team" row after the reveal | `team-summary-item` per group (`data-team`, `''` = no team; `data-median`; `data-count`), or `team-summary-hidden` in anonymous rounds with a group of one. |
 | `results` | section | Hosts always; others once a task has a final estimate. |
 | `btn-export` | "Export" menu | Items `btn-export-csv`, `btn-export-md`, `btn-export-json`, `btn-copy-summary`, `btn-print`. Files are named `backlogfit-YYYY-MM-DD-HHMM.ext`. |
 | `btn-extend` | button | Host only, "+1 hour"; disabled at the hard maximum. |
@@ -81,6 +93,7 @@ Four steps: estimation scale → tasks → session rules → review & create.
 | `btn-lock` | checkbox in the settings dialog | Hosts and co-hosts. |
 | `setting-auto-reveal`, `setting-anonymous`, `setting-spectators`, `setting-lobby`, `setting-timer` | settings dialog | Host only (disabled for co-hosts). |
 | `btn-close-room`, `btn-close-confirm` | settings dialog | Host only. Ends the session for everyone after confirmation. |
+| `settings-teams` | settings dialog section | Holds a `team-editor`; read-only for co-hosts. |
 | `lobby-entry` (`data-name`), `lobby-approve`, `lobby-deny` | row / buttons | Hosts and co-hosts. |
 | `reconnecting` | banner | Shown while the connection is being restored. |
 | `room-closed` | section, `data-reason`, `data-error` | Reasons: `expired`, `idle`, `closed`, `kicked`, `not_found`, `denied`, `replaced`, `rejected`, `unreachable`, `left`, `invalid_link` (malformed link, never called "ended"). `data-error` carries the refusal code for `rejected`. |

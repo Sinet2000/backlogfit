@@ -10,7 +10,13 @@ import {
   setColor,
 } from '../src/lib/config/chips.ts';
 import { qrMatrix } from '../src/lib/qr.ts';
-import { consensusText, formatClock, formatRemaining, groupVotes } from '../src/lib/room/format.ts';
+import {
+  consensusText,
+  estimatingText,
+  formatClock,
+  formatRemaining,
+  groupVotes,
+} from '../src/lib/room/format.ts';
 import { endedText, errorText } from '../src/lib/room/messages.ts';
 import { canonicalUrl, serializeJsonLd } from '../src/lib/seo/site.ts';
 import { CARD_STEPS } from '../src/lib/styles/palette.ts';
@@ -71,9 +77,16 @@ describe('formatting', () => {
     expect(names).toEqual(['Not sure', 'Break', 'Too big']);
   });
 
+  it('says which teams are estimating, in plain words', () => {
+    expect(estimatingText(['QA'])).toBe('QA is estimating this task.');
+    expect(estimatingText(['Dev', 'QA'])).toBe('Dev and QA are estimating this task.');
+    expect(estimatingText(['BA', 'Dev', 'QA'])).toBe('BA, Dev and QA are estimating this task.');
+    expect(estimatingText([])).toBe('Another team is estimating this task.');
+  });
+
   it('groups votes by value, lowest first, specials last', () => {
     const scale = presetScale('fibonacci');
-    const v = (name: string, value: string) => ({ participantId: name, name, value });
+    const v = (name: string, value: string) => ({ participantId: name, name, team: null, value });
     const groups = groupVotes([v('a', '8'), v('b', '?'), v('c', '3'), v('d', '8')], scale);
     expect(groups.map((g) => [g.value, g.votes.length])).toEqual([
       ['3', 1],

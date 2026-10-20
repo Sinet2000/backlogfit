@@ -13,6 +13,7 @@
   import RoomProvider from '#lib/room-ui/RoomProvider.svelte';
   import SettingsDialog from '#lib/room-ui/SettingsDialog.svelte';
   import ShortcutHelp from '#lib/room-ui/ShortcutHelp.svelte';
+  import TeamChoice from '#lib/room-ui/TeamChoice.svelte';
   import Seo from '#lib/seo/Seo.svelte';
 
   const session = new RoomSession();
@@ -60,10 +61,12 @@
     {:else if room}
       {#key room}
         <RoomProvider {room}>
-          {#if live}
+          {#if live && room.needsTeam}
+            <TeamChoice />
+          {:else if live}
             <RoomLayout announcement={session.announcement} onsettings={() => (settingsOpen = true)} />
             <ShortcutHelp bind:open={helpOpen} isHost={room.canFacilitate} />
-            <InviteDialog bind:open={inviteOpen} url={session.joinUrl} />
+            <InviteDialog bind:open={inviteOpen} link={room.link} teams={room.teams} query={room.demo ? 'demo' : ''} />
             {#if room.canFacilitate}
               <SettingsDialog bind:open={settingsOpen} />
             {/if}

@@ -72,6 +72,29 @@ understand an item differently, which is the most valuable outcome of the discus
 
 ![Host view with final estimates recorded, the results table with the Export menu, and the session panel (end time, +1 hour, session settings)](assets/screenshots/results-full.png)
 
+## Teams
+
+Use teams when different groups size different work, for example developers and testers.
+
+- **Set them up** in the Tasks step of the configurator (quick picks Dev, QA, BA, Design, or your
+  own names, up to six), or later in **Session settings**.
+- **Invite each team with its own link.** The session-ready screen and the **Invite** dialog
+  have a tab per team. The link only preselects the team; people can still pick another one.
+- **Choose who estimates each task.** End a line with a tag such as `#qa`, use **Estimated by**
+  next to the add form, or use the task's menu. Only that team gets the cards and the reveal
+  waits only for them; everyone else can follow along.
+- **Compare teams.** On a task for everyone, the reveal shows each team's median and number of
+  votes ("Dev 5 (4 votes) · QA 3 (2 votes)"). In anonymous sessions it is hidden as soon as a team
+  has a single vote. The exports have team columns. The final estimate is still one value.
+- **Manage people** from the ⋯ menu in the People list: change someone's team, make them a
+  spectator or a voter, make them a co-host, or remove them from the session.
+
+![Invite dialog with one join link and QR code per team](assets/screenshots/teams-invite.png)
+
+![Reveal on a task for everyone, with the median and number of votes per team](assets/screenshots/teams-reveal.png)
+
+![A developer's view of a task only QA estimates: no cards, a calm note to follow along](assets/screenshots/teams-follow-along.png)
+
 ## Tips
 
 - **Anchoring.** Do not say your own estimate before the reveal, and ask the product owner not

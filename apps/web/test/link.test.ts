@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseFragment, roomUrls, settleAdminSecret } from '../src/lib/room/link.ts';
+import { parseFragment, roomUrls, settleAdminSecret, teamUrl } from '../src/lib/room/link.ts';
 import { memoryStore, RoomSessionStore } from '../src/lib/room/storage.ts';
 import { STORAGE_KEYS } from '../src/lib/storage-keys.ts';
 
@@ -44,6 +44,18 @@ describe('room links', () => {
         'demo',
       ).join,
     ).toBe(`http://x/r?demo#${ROOM}.${JOIN}`);
+  });
+
+  it('builds team invite links from the host link, with the team only as a hint', () => {
+    const host = { roomId: ROOM, joinSecret: JOIN, adminSecret: ADMIN, contentKey: null };
+    expect(teamUrl('https://b.example', host, 'qa')).toBe(`https://b.example/r#${ROOM}.${JOIN}@qa`);
+    expect(teamUrl('https://b.example', host, null, 'demo')).toBe(
+      `https://b.example/r?demo#${ROOM}.${JOIN}`,
+    );
+    expect(parseFragment(`#${ROOM}.${JOIN}@qa`)?.team).toBe('qa');
+    expect(roomUrls('https://b.example', { ...host, adminSecret: null, team: 'qa' }).join).toBe(
+      `https://b.example/r#${ROOM}.${JOIN}`,
+    );
   });
 });
 

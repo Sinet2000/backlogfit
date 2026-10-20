@@ -1,7 +1,15 @@
 <script lang="ts">
   import type { TaskView } from '@backlogfit/core';
+  import TeamBadge from './TeamBadge.svelte';
 
-  let { task, current, next }: { task: TaskView; current: boolean; next: boolean } = $props();
+  interface Props {
+    task: TaskView;
+    current: boolean;
+    next: boolean;
+    /** "QA" or "Dev, QA" for a task only some teams estimate. */
+    by?: string | null;
+  }
+  let { task, current, next, by = null }: Props = $props();
 </script>
 
 <span class="task">
@@ -9,6 +17,7 @@
     {#if task.key}<span class="key">{task.key}</span>{/if}
     {#if task.title || !task.key}<span class="title">{task.title ?? 'Untitled task'}</span>{/if}
   </span>
+  {#if by}<TeamBadge name={by} testid="task-voters" />{/if}
   {#if task.final !== null}
     <span class="chip final" title="Final estimate">{task.final}</span>
   {:else if current}

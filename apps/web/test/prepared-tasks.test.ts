@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   batches,
   clearPrepared,
-  handoffStep,
   moveItem,
   PREPARED_MAX,
   parsePrepared,
@@ -77,25 +76,5 @@ describe('prepared tasks', () => {
     expect(readPrepared(s, 'r')).toBeNull();
     s.setItem('bf:prepared:r', JSON.stringify(['ok', 5, null]));
     expect(readPrepared(s, 'r')).toEqual(['ok']);
-  });
-
-  it('hands over once and finishes only when the room shows the tasks', () => {
-    const lines = ['A-1', 'A-2'];
-    expect(handoffStep(lines, { sent: false, canAdd: false, taskCount: 0 })).toEqual({
-      do: 'wait',
-    });
-    expect(handoffStep(lines, { sent: false, canAdd: true, taskCount: 0 })).toEqual({
-      do: 'send',
-      batches: [lines],
-    });
-    expect(handoffStep(lines, { sent: true, canAdd: true, taskCount: 0 })).toEqual({ do: 'wait' });
-    expect(handoffStep(lines, { sent: true, canAdd: true, taskCount: 2 })).toEqual({
-      do: 'done',
-      added: 2,
-    });
-    expect(handoffStep(lines, { sent: false, canAdd: true, taskCount: 3 })).toEqual({
-      do: 'done',
-      added: 0,
-    });
   });
 });

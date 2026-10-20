@@ -11,10 +11,56 @@ import {
   id,
   nextTask,
   openSettings,
+  participant,
   selectedValues,
   submitJoin,
   vote,
 } from '../fixtures/ui.ts';
+
+const TEAMS = [
+  { id: 'dev', name: 'Dev' },
+  { id: 'qa', name: 'QA' },
+];
+
+for (const mode of MODES) {
+  test(`axe team screens: choice, team task, by-team results, menus (${mode})`, async ({
+    page,
+    people,
+  }, info) => {
+    await emulateMode(page, mode);
+    const room = await createRoomApi({ teams: TEAMS, autoReveal: false });
+    const qa = await people.open();
+    await emulateMode(qa.page, mode);
+    await qa.page.goto(`${room.joinLink}@qa`);
+    await id(qa.page, 'join-name').fill('Quinn');
+    await id(qa.page, 'join-submit').click();
+    await expect(id(qa.page, 'team-choice')).toBeVisible();
+    await checkA11y(qa.page, `team choice ${mode}`, info);
+    await id(qa.page, 'team-continue').click();
+    await joinAdmin(page, room.adminLink, 'Hanna', { team: 'dev' });
+    await addTasks(page, ['SCP-1 Test plan #qa', 'SCP-2 Build']);
+    await nextTask(page);
+    await expect(id(page, 'not-estimating')).toBeVisible();
+    await checkA11y(page, `host on a QA task ${mode}`, info);
+    await id(page, 'btn-invite').click();
+    await checkA11y(page, `invite dialog with teams ${mode}`, info);
+    await page.keyboard.press('Escape');
+    await participant(page, 'Quinn').hover();
+    await participant(page, 'Quinn').getByTestId('participant-menu').click();
+    await checkA11y(page, `participant menu ${mode}`, info, '[role="menu"]');
+    await page.keyboard.press('Escape');
+    await vote(qa.page, '3');
+    await id(page, 'btn-reveal').click();
+    await id(page, 'btn-save-next').click();
+    await vote(page, '5');
+    await vote(qa.page, '3');
+    await id(page, 'btn-reveal').click();
+    await expect(id(page, 'team-summary')).toBeVisible();
+    await checkA11y(page, `by-team results ${mode}`, info);
+    await openSettings(page);
+    await checkA11y(page, `settings with teams ${mode}`, info);
+  });
+}
 
 for (const mode of MODES) {
   for (const path of ['/', '/guide']) {

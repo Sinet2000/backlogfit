@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { Client, createRoom } from './helpers.ts';
 
 const harness: WireHarness = {
-  createRoom: (opts = {}) => createRoom(opts.lobby ?? false),
+  createRoom: (opts = {}) => createRoom(opts.lobby ?? false, opts.teams ?? []),
   async open(roomId) {
     const c = await Client.open(roomId);
     return {

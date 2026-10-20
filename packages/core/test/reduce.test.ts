@@ -273,7 +273,9 @@ describe('voting', () => {
 
     send(sim, 'c-bob', { type: 'vote', taskId, round, value: '5' });
     send(sim, 'c-bob', { type: 'vote', taskId, round, value: '8' });
-    expect(current(sim).r?.votes).toEqual([{ pid: expect.any(String), name: 'Bob', value: '8' }]);
+    expect(current(sim).r?.votes).toEqual([
+      { pid: expect.any(String), name: 'Bob', team: null, value: '8' },
+    ]);
     send(sim, 'c-bob', { type: 'unvote', taskId, round });
     expect(current(sim).r?.votes).toEqual([]);
   });
@@ -338,7 +340,7 @@ describe('voting', () => {
     send(sim, 'c-admin', { type: 'admin.reveal' });
     const view = project(sim.state, null);
     expect(view.tasks[0]?.rounds[0]?.votes).toEqual([
-      { participantId: null, name: null, value: '5' },
+      { participantId: null, name: null, team: null, value: '5' },
     ]);
   });
 });

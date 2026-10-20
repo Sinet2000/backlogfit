@@ -106,7 +106,7 @@ export interface Person {
 
 /** Participants, each in a new browser context, so sessionStorage and secrets stay isolated. */
 export class People {
-  private readonly all: Person[] = [];
+  private readonly opened: BrowserContext[] = [];
   private readonly browser: Browser;
   private readonly guard: Guard;
   private readonly contextOptions: BrowserContextOptions;
@@ -122,6 +122,7 @@ export class People {
     await this.guard.attach(context);
     const page = await context.newPage();
     const wire = captureWire(page);
+    this.opened.push(context);
     return { context, page, wire };
   }
 
@@ -133,14 +134,13 @@ export class People {
   ): Promise<Person> {
     const { context: ctxOpts, ...joinOpts } = opts;
     const p = { name, ...(await this.open(ctxOpts)) };
-    this.all.push(p);
     await p.page.goto(link);
     await submitJoin(p.page, name, joinOpts);
     return p;
   }
 
   async closeAll(): Promise<void> {
-    await Promise.all(this.all.map((p) => p.context.close().catch(() => undefined)));
+    await Promise.all(this.opened.map((c) => c.close().catch(() => undefined)));
   }
 }
 

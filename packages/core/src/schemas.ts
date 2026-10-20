@@ -15,6 +15,7 @@ import {
   URL_MAX,
   validateLinkTemplate,
 } from './tasks.ts';
+import { TEAM_ID_PATTERN, TEAM_NAME_MAX, TEAMS_MAX, teamTag } from './teams.ts';
 import { hasUnsafeChars, hasVisibleChar } from './text.ts';
 
 export const PROTOCOL_VERSION = 1;
@@ -95,6 +96,29 @@ const AllowlistSchema = v.pipe(
   v.transform((xs) => [...new Set(xs.map((x) => normalizeAllowlistEntry(x) ?? ''))]),
 );
 
+export const TeamIdSchema = v.pipe(v.string(), v.regex(TEAM_ID_PATTERN));
+export const TeamSchema = v.strictObject({ id: TeamIdSchema, name: text(1, TEAM_NAME_MAX) });
+
+/** 0–6 teams with unique ids and unique names (compared as `#tags`, ignoring case and spaces). */
+export const TeamsSchema = v.pipe(
+  v.array(TeamSchema),
+  v.maxLength(TEAMS_MAX),
+  v.check((ts) => new Set(ts.map((t) => t.id)).size === ts.length, 'duplicate team id'),
+  v.check(
+    (ts) => new Set(ts.map((t) => teamTag(t.name))).size === ts.length,
+    'duplicate team name',
+  ),
+);
+
+const VotersSchema = v.nullable(
+  v.pipe(
+    v.array(TeamIdSchema),
+    v.minLength(1),
+    v.maxLength(TEAMS_MAX),
+    v.transform((ids) => [...new Set(ids)]),
+  ),
+);
+
 export const RoomConfigSchema = v.pipe(
   v.strictObject({
     scale: ScaleSchema,
@@ -118,6 +142,7 @@ export const RoomConfigSchema = v.pipe(
     timerSeconds: v.optional(v.nullable(TimerSecondsSchema), null),
     maxParticipants: v.optional(int(2, PARTICIPANTS_HARD_MAX), 50),
     theme: v.optional(ThemeSchema, 'corporate'),
+    teams: v.optional(TeamsSchema, []),
   }),
   v.check(
     (c) =>
@@ -158,7 +183,11 @@ export const HelloSchema = msg('hello', {
   passcode: v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(PASSCODE_MAX))),
   adminSecret: v.optional(SecretSchema),
   resumeToken: v.optional(SecretSchema),
+  /** Team hint from the invite link. Not an authorization: unknown ids are ignored. */
+  team: v.optional(v.nullable(TeamIdSchema)),
 });
+
+const RequestIdSchema = v.pipe(v.string(), v.regex(/^[A-Za-z0-9_-]{1,32}$/));
 
 export const ClientMessageSchema = v.variant('type', [
   HelloSchema,
@@ -166,14 +195,19 @@ export const ClientMessageSchema = v.variant('type', [
   msg('unvote', { ...taskId, round: int(1, ROUND_MAX) }),
   msg('ping', {}),
   msg('leave', {}),
+  /** Choose your own team; like the role chosen at join, it is self-declared. */
+  msg('team', { team: v.nullable(TeamIdSchema) }),
   msg('admin.tasks.add', {
     lines: v.pipe(
       v.array(v.pipe(v.string(), v.maxLength(TASK_LINE_MAX))),
       v.minLength(1),
       v.maxLength(LINES_PER_ADD_MAX),
     ),
+    voters: v.optional(VotersSchema),
+    requestId: v.optional(RequestIdSchema),
   }),
   msg('admin.tasks.remove', taskId),
+  msg('admin.tasks.voters', { ...taskId, voters: VotersSchema }),
   msg('admin.tasks.move', { ...taskId, toIndex: int(0, 100_000) }),
   msg('admin.next', {}),
   msg('admin.select', taskId),
@@ -191,10 +225,19 @@ export const ClientMessageSchema = v.variant('type', [
     lobby: v.optional(v.boolean()),
     timerSeconds: v.optional(v.nullable(TimerSecondsSchema)),
   }),
+  msg('admin.teams', { teams: TeamsSchema }),
   msg('admin.lock', { locked: v.boolean() }),
   msg('admin.kick', participantId),
   msg('admin.promote', participantId),
   msg('admin.demote', participantId),
+  v.pipe(
+    msg('admin.participant', {
+      ...participantId,
+      role: v.optional(RoleSchema),
+      team: v.optional(v.nullable(TeamIdSchema)),
+    }),
+    v.check((m) => m.role !== undefined || m.team !== undefined, 'nothing to change'),
+  ),
   msg('admin.lobby', { ...participantId, decision: v.picklist(['approve', 'deny']) }),
   msg('admin.extend', { hours: int(1, 24) }),
   msg('admin.close', {}),
@@ -232,6 +275,8 @@ export const ERROR_CODES = [
   'invalid_task',
   'no_current_task',
   'rate_limited',
+  'not_eligible',
+  'unknown_team',
 ] as const;
 export const ErrorCodeSchema = v.picklist(ERROR_CODES);
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -272,7 +317,20 @@ export const StatsSchema = v.strictObject({
 export const VoteViewSchema = v.strictObject({
   participantId: v.nullable(v.string()),
   name: v.nullable(v.string()),
+  /** The voter's team when the vote was revealed; null when anonymous or without a team. */
+  team: v.nullable(v.string()),
   value: v.string(),
+});
+
+export const TeamBreakdownSchema = v.strictObject({
+  hidden: v.boolean(),
+  groups: v.array(
+    v.strictObject({
+      team: v.nullable(v.string()),
+      count: v.number(),
+      median: v.nullable(v.string()),
+    }),
+  ),
 });
 
 export const RoundViewSchema = v.strictObject({
@@ -283,6 +341,8 @@ export const RoundViewSchema = v.strictObject({
   /** null until the round is revealed. */
   votes: v.nullable(v.array(VoteViewSchema)),
   stats: v.nullable(StatsSchema),
+  /** Per-team counts and medians after reveal; null when there is nothing to compare. */
+  teams: v.nullable(TeamBreakdownSchema),
 });
 
 export const TaskViewSchema = v.strictObject({
@@ -291,6 +351,8 @@ export const TaskViewSchema = v.strictObject({
   title: v.nullable(v.string()),
   url: v.nullable(v.string()),
   final: v.nullable(v.string()),
+  /** Teams that estimate this task; null = everyone. */
+  voters: v.nullable(v.array(v.string())),
   rounds: v.array(RoundViewSchema),
 });
 
@@ -299,6 +361,7 @@ export const ParticipantViewSchema = v.strictObject({
   name: v.string(),
   role: RoleSchema,
   authority: AuthoritySchema,
+  team: v.nullable(v.string()),
   connected: v.boolean(),
   hasVoted: v.boolean(),
 });
@@ -307,6 +370,7 @@ export const LobbyEntryViewSchema = v.strictObject({
   id: v.string(),
   name: v.string(),
   role: RoleSchema,
+  team: v.nullable(v.string()),
 });
 
 export const RoomViewSchema = v.strictObject({
@@ -327,6 +391,7 @@ export const RoomViewSchema = v.strictObject({
     linkTemplate: v.nullable(v.string()),
     maxParticipants: v.number(),
     theme: ThemeSchema,
+    teams: v.array(v.strictObject({ id: v.string(), name: v.string() })),
   }),
   settings: v.strictObject({
     autoReveal: v.boolean(),
@@ -355,6 +420,7 @@ export type TaskView = v.InferOutput<typeof TaskViewSchema>;
 export type RoundView = v.InferOutput<typeof RoundViewSchema>;
 export type VoteView = v.InferOutput<typeof VoteViewSchema>;
 export type ParticipantView = v.InferOutput<typeof ParticipantViewSchema>;
+export type LobbyEntryView = v.InferOutput<typeof LobbyEntryViewSchema>;
 
 export const ServerMessageSchema = v.variant('type', [
   v.strictObject({
@@ -383,6 +449,12 @@ export const ServerMessageSchema = v.variant('type', [
     ref: v.optional(v.pipe(v.string(), v.maxLength(200))),
   }),
   v.strictObject({ type: v.literal('closed'), reason: CloseReasonSchema }),
+  /** Reply to admin.tasks.add, sent to the sender only: the ids of the tasks it created. */
+  v.strictObject({
+    type: v.literal('tasks.added'),
+    requestId: v.optional(v.string()),
+    taskIds: v.array(v.string()),
+  }),
   v.strictObject({ type: v.literal('pong'), serverTime: v.number() }),
 ]);
 
