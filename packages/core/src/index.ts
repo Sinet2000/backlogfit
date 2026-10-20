@@ -5,6 +5,7 @@ export * from './e2ee.ts';
 export * from './engine.ts';
 export * from './export.ts';
 export * from './links.ts';
+export * from './preset.ts';
 export * from './project.ts';
 export * from './reduce.ts';
 export * from './scales.ts';
