@@ -141,6 +141,7 @@
 
 <div class="room-page container">
   {#if preparing}
+    <h1 class="visually-hidden">Estimation session</h1>
     <p class="muted center" aria-live="polite">Preparing the session…</p>
   {:else if invalidLink}
     <EndedState reason="not_found" joinError={null} />
@@ -178,6 +179,9 @@
           <Icon name="info" size={16} /> Offline demo with simulated teammates. Nothing leaves this tab.
         </p>
       {/if}
+      <h1 class="visually-hidden">
+        Estimation session{room.currentTask?.key ? `: ${room.currentTask.key}` : ''}
+      </h1>
       <p class="visually-hidden" aria-live="polite">{announce}</p>
 
       <div class="layout">
@@ -209,7 +213,7 @@
               {/if}
             {:else}
               <div class="empty-stage">
-                <h1>{view.tasks.length === 0 ? 'Ready when you are' : 'Waiting for the next task'}</h1>
+                <h2>{view.tasks.length === 0 ? 'Ready when you are' : 'Waiting for the next task'}</h2>
                 <p class="muted">
                   {#if room.isFacilitator}
                     {view.tasks.length === 0 ? 'Add tasks on the right, then start the first one.' : 'Press "Start first task" or pick a task from the list.'}
@@ -301,6 +305,12 @@
     }
   }
 
+  @media (min-width: 1280px) {
+    .layout {
+      grid-template-columns: minmax(0, 1fr) 420px;
+    }
+  }
+
   .main,
   .side {
     display: grid;
@@ -349,7 +359,7 @@
     gap: var(--space-2);
   }
 
-  .empty-stage h1 {
+  .empty-stage h2 {
     font-size: var(--text-2xl);
   }
 
