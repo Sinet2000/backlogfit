@@ -25,6 +25,7 @@ export interface ApiRoomOptions {
   timerSeconds?: number | null;
   maxParticipants?: number;
   theme?: 'corporate' | 'colorful';
+  teams?: { id: string; name: string }[];
 }
 
 export interface RoomLinks {
@@ -78,6 +79,7 @@ export async function createRoomApi(opts: ApiRoomOptions = {}): Promise<RoomLink
     theme: opts.theme ?? 'corporate',
   };
   if (opts.allowlist) config.allowlist = opts.allowlist;
+  if (opts.teams) config.teams = opts.teams;
   if (opts.linkTemplate !== undefined) config.linkTemplate = opts.linkTemplate;
 
   const body: Record<string, unknown> = {

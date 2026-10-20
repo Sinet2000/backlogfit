@@ -78,3 +78,34 @@ test('revealed rounds may carry votes and revealedVotes lists them', () => {
   assert.deepEqual(checkFrames([frame(r)], new Set(['3'])), []);
   assert.deepEqual(revealedVotes(r as never), [{ task: 't1', round: 1, name: 'Bob', value: '8' }]);
 });
+
+test('a team summary before the reveal is reported', () => {
+  const r = room({
+    tasks: [
+      {
+        id: 't1',
+        key: 'SCP-1',
+        title: null,
+        url: null,
+        final: null,
+        voters: ['qa'],
+        rounds: [
+          {
+            n: 1,
+            revealed: false,
+            anonymous: false,
+            voteCount: 2,
+            votes: null,
+            stats: null,
+            teams: { hidden: false, groups: [{ team: 'qa', count: 2, median: '5' }] },
+          },
+        ],
+      },
+    ],
+  });
+  const v = checkFrames([frame(r)], new Set(['3']));
+  assert.deepEqual(
+    v.map((x) => x.path),
+    ['tasks[0].rounds[0].teams'],
+  );
+});
