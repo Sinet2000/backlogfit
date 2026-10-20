@@ -19,18 +19,29 @@
   const runCommand =
     'podman run -d --name backlogfit -p 127.0.0.1:8080:8080 --read-only --tmpfs /tmp:rw,size=16m,mode=1777,noexec,nosuid,nodev --cap-drop=ALL --security-opt=no-new-privileges --memory=256m --pids-limit=128 -e PUBLIC_ORIGIN=https://estimate.example.com -e TRUST_PROXY=true ghcr.io/sinet2000/backlogfit:latest';
 
-  const buildCommand =
-    'podman build --format docker -f apps/server/Containerfile -t backlogfit .';
+  const buildCommand = 'podman build --format docker -f apps/server/Containerfile -t backlogfit .';
 
   const verifyCommand =
     "cosign verify ghcr.io/sinet2000/backlogfit@sha256:<digest> --certificate-identity-regexp '^https://github.com/Sinet2000/backlogfit/.github/workflows/release.yml@refs/tags/v' --certificate-oidc-issuer https://token.actions.githubusercontent.com";
 
   const settings = [
-    { name: 'PUBLIC_ORIGIN', value: 'required in production', note: 'Exact public origin; checked on room creation and WebSocket upgrades.' },
+    {
+      name: 'PUBLIC_ORIGIN',
+      value: 'required in production',
+      note: 'Exact public origin; checked on room creation and WebSocket upgrades.',
+    },
     { name: 'ALLOWED_ORIGINS', value: 'empty', note: 'Extra exact origins, comma separated.' },
     { name: 'PORT / HOST', value: '8080 / 0.0.0.0', note: 'Listen address inside the container.' },
-    { name: 'TRUST_PROXY', value: 'false', note: 'true (one proxy), a hop count 1–9, or cloudflare; decides which address rate limits use.' },
-    { name: 'DATA_DIR', value: 'empty (memory)', note: 'Directory for SQLite storage if rooms should survive restarts.' },
+    {
+      name: 'TRUST_PROXY',
+      value: 'false',
+      note: 'true (one proxy), a hop count 1–9, or cloudflare; decides which address rate limits use.',
+    },
+    {
+      name: 'DATA_DIR',
+      value: 'empty (memory)',
+      note: 'Directory for SQLite storage if rooms should survive restarts.',
+    },
     { name: 'DEFAULT_LIFETIME_HOURS', value: '2', note: 'Default room lifetime (1–24).' },
     { name: 'MAX_LIFETIME_HOURS', value: '8', note: 'Hard maximum including extensions (1–24).' },
     { name: 'IDLE_TIMEOUT_MINUTES', value: '30', note: 'Close rooms without activity.' },
@@ -38,14 +49,46 @@
     { name: 'MAX_TASKS', value: '500', note: 'Tasks per room.' },
     { name: 'MAX_ROOMS', value: '1000', note: 'Concurrent rooms per server.' },
     { name: 'MAX_MESSAGE_BYTES', value: '16384', note: 'Largest accepted WebSocket message.' },
-    { name: 'RATE_MSGS_PER_SEC / RATE_BURST', value: '20 / 40', note: 'Per-connection message rate limit.' },
-    { name: 'ROOM_CREATE_PER_MIN', value: '10', note: 'Room creations per client address per minute.' },
-    { name: 'PASSCODE_MAX_ATTEMPTS', value: '5', note: 'Wrong passcodes per room before passcode joins are refused.' },
-    { name: 'MAX_CONNECTIONS', value: '5000', note: 'Concurrent WebSocket connections per server.' },
-    { name: 'MAX_CONNECTIONS_PER_CLIENT', value: '50', note: 'Concurrent WebSocket connections per client address.' },
-    { name: 'WS_UPGRADES_PER_MIN', value: '120', note: 'WebSocket upgrades per client address per minute.' },
-    { name: 'HELLO_TIMEOUT_SECONDS', value: '20', note: 'Close sockets that do not join within this time.' },
-    { name: 'HEARTBEAT_SECONDS', value: '30', note: 'WebSocket ping interval; dead sockets are dropped.' },
+    {
+      name: 'RATE_MSGS_PER_SEC / RATE_BURST',
+      value: '20 / 40',
+      note: 'Per-connection message rate limit.',
+    },
+    {
+      name: 'ROOM_CREATE_PER_MIN',
+      value: '10',
+      note: 'Room creations per client address per minute.',
+    },
+    {
+      name: 'PASSCODE_MAX_ATTEMPTS',
+      value: '5',
+      note: 'Wrong passcodes per room before passcode joins are refused.',
+    },
+    {
+      name: 'MAX_CONNECTIONS',
+      value: '5000',
+      note: 'Concurrent WebSocket connections per server.',
+    },
+    {
+      name: 'MAX_CONNECTIONS_PER_CLIENT',
+      value: '50',
+      note: 'Concurrent WebSocket connections per client address.',
+    },
+    {
+      name: 'WS_UPGRADES_PER_MIN',
+      value: '120',
+      note: 'WebSocket upgrades per client address per minute.',
+    },
+    {
+      name: 'HELLO_TIMEOUT_SECONDS',
+      value: '20',
+      note: 'Close sockets that do not join within this time.',
+    },
+    {
+      name: 'HEARTBEAT_SECONDS',
+      value: '30',
+      note: 'WebSocket ping interval; dead sockets are dropped.',
+    },
   ];
 </script>
 
