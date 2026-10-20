@@ -1,32 +1,46 @@
 <script lang="ts">
-  import type { Card } from '@backlogfit/core';
-  import { cardName, inkFor } from '../cards.ts';
+  import { type Card, SPECIAL_COFFEE } from '@backlogfit/core';
+  import { type CardTone, cardName, NO_TONE } from '../cards.ts';
+  import Icon from './Icon.svelte';
 
   interface Props {
-    card: Pick<Card, 'value' | 'label' | 'kind' | 'color'>;
-    /** Face up shows the value; face down shows the back (a vote is hidden). */
+    card: Pick<Card, 'value' | 'label' | 'kind'>;
+    tone?: CardTone;
     faceUp?: boolean;
     selected?: boolean;
     size?: 'sm' | 'md' | 'lg';
-    /** Extra caption under the card (e.g. a participant name). */
     caption?: string;
   }
-  let { card, faceUp = true, selected = false, size = 'md', caption }: Props = $props();
+  let {
+    card,
+    tone = NO_TONE,
+    faceUp = true,
+    selected = false,
+    size = 'md',
+    caption,
+  }: Props = $props();
   const special = $derived(card.kind === 'special');
   const sub = $derived(special ? cardName(card) : card.label !== card.value ? card.label : '');
+  const iconSize = $derived(size === 'sm' ? 20 : size === 'lg' ? 36 : 28);
 </script>
 
 <span
   class="card {size}"
   class:selected
+  class:special
+  class:custom={tone.custom !== null}
   class:down={!faceUp}
-  style:--card-color={card.color}
-  style:--card-ink={inkFor(card.color)}
+  data-step={special ? undefined : (tone.step ?? undefined)}
+  style:--card-custom={tone.custom ?? undefined}
 >
   <span class="inner">
     <span class="face front">
       <span class="band" aria-hidden="true"></span>
-      <span class="value" class:symbol={special}>{card.value}</span>
+      {#if card.value === SPECIAL_COFFEE}
+        <span class="value symbol"><Icon name="cup" size={iconSize} /></span>
+      {:else}
+        <span class="value" class:symbol={special}>{card.value}</span>
+      {/if}
       {#if sub}<span class="sub">{sub}</span>{/if}
       {#if selected}
         <span class="tick" aria-hidden="true">
@@ -48,6 +62,10 @@
   .card {
     --w: 72px;
     --h: 100px;
+    --face: var(--step-face, var(--color-surface));
+    --ink: var(--step-ink, var(--color-text));
+    --edge: var(--step-edge, var(--color-border-strong));
+    --band: var(--step-band, transparent);
     display: inline-flex;
     flex-direction: column;
     align-items: center;
@@ -63,6 +81,20 @@
   .card.lg {
     --w: 96px;
     --h: 132px;
+  }
+
+  .card.custom {
+    --face: var(--color-surface);
+    --ink: var(--color-text);
+    --edge: var(--color-border-strong);
+    --band: var(--card-custom);
+  }
+
+  .card.special {
+    --face: var(--card-special-face);
+    --ink: var(--card-special-ink);
+    --edge: var(--card-special-edge);
+    --band: transparent;
   }
 
   .inner {
@@ -85,17 +117,26 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: var(--space-1);
     border-radius: var(--radius-md);
     backface-visibility: hidden;
     overflow: hidden;
   }
 
   .front {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border-strong);
+    background: var(--face);
+    border: var(--card-edge-width) solid var(--edge);
     box-shadow: var(--shadow-sm);
-    color: var(--color-text);
+    color: var(--ink);
+    transition:
+      box-shadow var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .special .front {
+    border-style: dashed;
+    border-width: var(--card-special-edge-width);
+    box-shadow: none;
   }
 
   .band {
@@ -103,8 +144,8 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 8px;
-    background: var(--card-color);
+    height: 4px;
+    background: var(--band);
   }
 
   .value {
@@ -116,13 +157,15 @@
   }
 
   .value.symbol {
+    display: grid;
+    place-items: center;
     font-size: calc(var(--h) * 0.28);
   }
 
   .sub {
     max-width: 90%;
     font-size: var(--text-xs);
-    color: var(--color-text-muted);
+    font-weight: var(--weight-medium);
     text-align: center;
     line-height: 1.15;
   }
@@ -133,20 +176,33 @@
 
   .selected .front {
     border: 2px solid var(--color-accent);
-    background: var(--color-accent-soft);
-    box-shadow: var(--shadow-md);
+    box-shadow:
+      0 0 0 2px var(--color-surface),
+      0 0 0 4px var(--color-accent),
+      var(--shadow-md);
+  }
+
+  :global(:root:not([data-theme='colorful'])) .selected .value {
+    color: var(--color-accent);
   }
 
   .tick {
     position: absolute;
-    right: 6px;
-    bottom: 6px;
+    right: 5px;
+    bottom: 5px;
     display: grid;
     place-items: center;
     width: 20px;
     height: 20px;
     border-radius: var(--radius-full);
     background: var(--color-accent);
+  }
+
+  .sm .tick {
+    right: 3px;
+    bottom: 3px;
+    width: 16px;
+    height: 16px;
   }
 
   .tick path {
@@ -184,7 +240,7 @@
   }
 
   .caption {
-    max-width: calc(var(--w) + 24px);
+    max-width: calc(var(--w) + var(--space-6));
     font-size: var(--text-sm);
     color: var(--color-text);
     text-align: center;
@@ -193,10 +249,71 @@
     white-space: nowrap;
   }
 
+  :global(:root[data-mode='contrast']) .selected .front {
+    background: #000000;
+    color: #ffffff;
+    border-color: #000000;
+    box-shadow: none;
+    outline: 3px solid #000000;
+    outline-offset: 2px;
+  }
+
+  :global(:root[data-mode='contrast']) .selected .value {
+    color: #ffffff;
+  }
+
+  :global(:root[data-mode='contrast']) .selected .tick {
+    background: #ffffff;
+  }
+
+  :global(:root[data-mode='contrast']) .selected .tick path {
+    stroke: #000000;
+  }
+
+  @media (prefers-contrast: more) {
+    :global(:root:not([data-mode])) .selected .front {
+      background: #000000;
+      color: #ffffff;
+      border-color: #000000;
+      box-shadow: none;
+      outline: 3px solid #000000;
+      outline-offset: 2px;
+    }
+
+    :global(:root:not([data-mode])) .selected .value {
+      color: #ffffff;
+    }
+
+    :global(:root:not([data-mode])) .selected .tick {
+      background: #ffffff;
+    }
+
+    :global(:root:not([data-mode])) .selected .tick path {
+      stroke: #000000;
+    }
+  }
+
   @media (forced-colors: active) {
     .front,
     .back {
       border: 2px solid CanvasText;
+      background: Canvas;
+      color: CanvasText;
+    }
+
+    .band {
+      display: none;
+    }
+
+    .selected .front {
+      background: CanvasText;
+      color: Canvas;
+      outline: 3px solid CanvasText;
+      outline-offset: 2px;
+    }
+
+    .selected .value {
+      color: Canvas;
     }
   }
 

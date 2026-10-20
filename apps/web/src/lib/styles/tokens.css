@@ -1,8 +1,3 @@
-/*
- * Design tokens. Colors live in colors.css (generated from palette.ts, contrast-tested).
- * Theme: <html data-theme="corporate|colorful">  (absent = corporate)
- * Mode:  <html data-mode="light|dark|contrast">  (absent = follow the system)
- */
 @import "./colors.css";
 
 @font-face {
@@ -29,7 +24,6 @@
 }
 
 :root {
-  /* Spacing: 4px scale */
   --space-0: 0;
   --space-1: 4px;
   --space-2: 8px;
@@ -44,19 +38,16 @@
   --space-20: 80px;
   --space-24: 96px;
 
-  /* Radius */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 20px;
   --radius-full: 999px;
 
-  /* Shadow (color is themed) */
   --shadow-sm: 0 1px 2px var(--color-shadow);
   --shadow-md: 0 2px 6px var(--color-shadow), 0 8px 24px var(--color-shadow);
   --shadow-lg: 0 4px 12px var(--color-shadow), 0 20px 48px var(--color-shadow);
 
-  /* Typography */
   --font-sans:
     "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
@@ -75,18 +66,23 @@
   --weight-semibold: 600;
   --weight-bold: 700;
 
-  /* Layout */
   --content-width: 1120px;
   --prose-width: 68ch;
   --gutter: var(--space-4);
   --target-min: 44px;
+  --control-sm: 32px;
+  --control-md: 40px;
+  --control-lg: 48px;
+  --header-height: 56px;
+  --card-edge-width: 1px;
+  --card-special-edge-width: 1.5px;
+  --backdrop: rgba(10, 14, 20, 0.55);
 
-  /* Focus ring */
   --focus-width: 3px;
   --focus-offset: 2px;
 
-  /* Motion */
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --lift: 1;
   --duration-fast: 120ms;
   --duration-normal: 200ms;
   --duration-flip: 480ms;
@@ -103,11 +99,25 @@
     --duration-fast: 0ms;
     --duration-normal: 0ms;
     --duration-flip: 0ms;
+    --lift: 0;
+  }
+}
+
+:root[data-mode="dark"] {
+  --backdrop: rgba(0, 0, 0, 0.7);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-mode]) {
+    --backdrop: rgba(0, 0, 0, 0.7);
   }
 }
 
 :root[data-mode="contrast"] {
   --focus-width: 4px;
+  --card-edge-width: 2px;
+  --card-special-edge-width: 2px;
+  --backdrop: rgba(0, 0, 0, 0.8);
   --shadow-sm: none;
   --shadow-md: none;
   --shadow-lg: none;
@@ -116,6 +126,9 @@
 @media (prefers-contrast: more) {
   :root:not([data-mode]) {
     --focus-width: 4px;
+    --card-edge-width: 2px;
+    --card-special-edge-width: 2px;
+    --backdrop: rgba(0, 0, 0, 0.8);
     --shadow-sm: none;
     --shadow-md: none;
     --shadow-lg: none;

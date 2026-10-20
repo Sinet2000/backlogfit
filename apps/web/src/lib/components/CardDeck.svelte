@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Card as CardT } from '@backlogfit/core';
-  import { cardName } from '../cards.ts';
+  import { cardName, deckTones, NO_TONE } from '../cards.ts';
   import Card from './Card.svelte';
 
   interface Props {
@@ -14,6 +14,9 @@
 
   let buttons: HTMLButtonElement[] = $state([]);
   let focusIndex = $state(-1);
+  const tones = $derived(deckTones(cards));
+  const firstSpecial = $derived(cards.findIndex((c) => c.kind === 'special'));
+
   const tabIndexFor = (i: number) => {
     const sel = cards.findIndex((c) => c.value === selected);
     const active = focusIndex >= 0 ? focusIndex : sel >= 0 ? sel : 0;
@@ -25,10 +28,7 @@
     onpick(selected === value ? null : value);
   }
 
-  /**
-   * Arrow keys move focus between cards; Space/Enter (or click) picks. Picking is not tied to
-   * arrow movement so browsing the deck never casts (or auto-reveals) a vote by accident.
-   */
+  // Arrows only move focus: browsing the deck never casts (or auto-reveals) a vote by accident.
   function onkeydown(e: KeyboardEvent, i: number) {
     const last = cards.length - 1;
     let next = -1;
@@ -50,6 +50,7 @@
       type="button"
       role="radio"
       class="slot"
+      class:gap-before={i === firstSpecial && i > 0}
       aria-checked={selected === card.value}
       aria-label={cardName(card)}
       aria-disabled={disabled || undefined}
@@ -61,8 +62,8 @@
       onkeydown={(e) => onkeydown(e, i)}
       onfocus={() => (focusIndex = i)}
     >
-      <Card {card} selected={selected === card.value} size="md" />
-      {#if i < 9}<span class="key" aria-hidden="true">{i + 1}</span>{/if}
+      <Card {card} tone={tones.get(card.value) ?? NO_TONE} selected={selected === card.value} size="md" />
+      {#if i < 9}<kbd class="key" aria-hidden="true">{i + 1}</kbd>{/if}
     </button>
   {/each}
 </div>
@@ -73,6 +74,7 @@
     flex-wrap: wrap;
     justify-content: center;
     gap: var(--space-3);
+    padding-top: var(--space-2);
   }
 
   .slot {
@@ -89,12 +91,20 @@
     transition: transform var(--duration-fast) var(--ease-out);
   }
 
-  .slot:hover:not([aria-disabled='true']) {
-    transform: translateY(-4px);
+  .slot.gap-before {
+    margin-left: var(--space-4);
+  }
+
+  .slot:hover:not([aria-disabled='true']):not([aria-checked='true']) {
+    transform: translateY(calc(-2px * var(--lift)));
+  }
+
+  .slot:hover:not([aria-disabled='true']) :global(.front) {
+    box-shadow: var(--shadow-md);
   }
 
   .slot[aria-checked='true'] {
-    transform: translateY(-8px);
+    transform: translateY(calc(-6px * var(--lift)));
   }
 
   .slot[aria-disabled='true'] {
@@ -103,12 +113,22 @@
   }
 
   .key {
+    min-width: 2.5ch;
+    padding: 0 var(--space-1);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     font-variant-numeric: tabular-nums;
+    visibility: hidden;
   }
 
-  @media (max-width: 480px) {
+  .deck:focus-within .key {
+    visibility: visible;
+  }
+
+  @media (max-width: 640px) {
     .deck {
       gap: var(--space-2);
     }
@@ -116,6 +136,10 @@
     .slot :global(.card) {
       --w: 58px;
       --h: 82px;
+    }
+
+    .slot.gap-before {
+      margin-left: 0;
     }
 
     .key {

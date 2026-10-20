@@ -1,9 +1,3 @@
-/**
- * Color tokens for every theme × mode. Single source of truth: `scripts/gen-tokens.ts` writes
- * `tokens.css` from this file, and `test/contrast.test.ts` checks WCAG contrast of the pairs
- * the UI actually uses. Edit here, then run `pnpm --filter @backlogfit/web gen:tokens`.
- */
-
 export type ThemeId = 'corporate' | 'colorful';
 export type ModeId = 'light' | 'dark' | 'contrast';
 
@@ -153,6 +147,90 @@ export const PALETTES: Readonly<Record<ThemeId, Record<ModeId, Palette>>> = {
   },
 };
 
+/** One step of the card ramp: face and ink of the card, its border, top band and chart bar. */
+export interface CardStep {
+  face: string;
+  ink: string;
+  edge: string;
+  band: string | null;
+  bar: string;
+}
+
+export interface CardPalette {
+  steps: readonly CardStep[];
+  special: { face: string; ink: string; edge: string };
+}
+
+export const CARD_STEPS = 8;
+
+function rampSteps(ramp: readonly string[], p: Palette): CardStep[] {
+  return ramp.map((c) => ({ face: p.surface, ink: p.text, edge: p.borderStrong, band: c, bar: c }));
+}
+
+function tintSteps(rows: readonly [face: string, ink: string, edge: string][]): CardStep[] {
+  return rows.map(([face, ink, edge]) => ({ face, ink, edge, band: null, bar: edge }));
+}
+
+const contrastCards: CardPalette = {
+  steps: Array.from({ length: CARD_STEPS }, () => ({
+    face: '#ffffff',
+    ink: '#000000',
+    edge: '#000000',
+    band: null,
+    bar: '#000000',
+  })),
+  special: { face: '#ffffff', ink: '#000000', edge: '#000000' },
+};
+
+export const CARD_PALETTES: Readonly<Record<ThemeId, Record<ModeId, CardPalette>>> = {
+  corporate: {
+    light: {
+      steps: rampSteps(
+        ['#7189ab', '#5f7ca4', '#4e6e9c', '#3f6193', '#325388', '#27477a', '#1d3b6b', '#132c57'],
+        PALETTES.corporate.light,
+      ),
+      special: { face: '#ffffff', ink: '#121821', edge: '#6b7280' },
+    },
+    dark: {
+      steps: rampSteps(
+        ['#6b83a8', '#7890b5', '#879fc3', '#97aed0', '#a8bddc', '#b9cbe6', '#c9d8ef', '#d8e5f8'],
+        PALETTES.corporate.dark,
+      ),
+      special: { face: '#151a22', ink: '#e7ebf1', edge: '#8b93a1' },
+    },
+    contrast: contrastCards,
+  },
+  colorful: {
+    light: {
+      steps: tintSteps([
+        ['#ede9fe', '#3b1f7a', '#7c5ce0'],
+        ['#e0e7ff', '#2e3a8c', '#5468d4'],
+        ['#dbeafe', '#1e3a8a', '#3b76d6'],
+        ['#ccfbf1', '#115e59', '#1e8a80'],
+        ['#d1fae5', '#065f46', '#1f8a5b'],
+        ['#ecfccb', '#3f6212', '#5e8a1e'],
+        ['#fef3c7', '#78350f', '#b07812'],
+        ['#ffedd5', '#7c2d12', '#c2571e'],
+      ]),
+      special: { face: '#f1f5f9', ink: '#334155', edge: '#64748b' },
+    },
+    dark: {
+      steps: tintSteps([
+        ['#2e2457', '#ddd6fe', '#a78bfa'],
+        ['#252b5c', '#c7d2fe', '#818cf8'],
+        ['#1e3256', '#bfdbfe', '#60a5fa'],
+        ['#133d3a', '#99f6e4', '#2dd4bf'],
+        ['#14402f', '#a7f3d0', '#34d399'],
+        ['#2b3a14', '#d9f99d', '#a3e635'],
+        ['#45330f', '#fde68a', '#fbbf24'],
+        ['#4a2412', '#fed7aa', '#fb923c'],
+      ]),
+      special: { face: '#262a33', ink: '#cbd5e1', edge: '#94a3b8' },
+    },
+    contrast: contrastCards,
+  },
+};
+
 /** Pairs [foreground, background, minimum ratio] that the components rely on. */
 export const CONTRAST_PAIRS: readonly [keyof Palette, keyof Palette, number][] = [
   ['text', 'bg', 7],
@@ -203,36 +281,70 @@ export function contrastRatio(a: string, b: string): number {
 
 const kebab = (s: string) => s.replace(/[A-Z0-9]/g, (c) => `-${c.toLowerCase()}`);
 
-function block(selector: string, p: Palette, scheme: 'light' | 'dark', indent = ''): string {
-  const lines = Object.entries(p).map(([k, v]) => `${indent}  --color-${kebab(k)}: ${v};`);
+function cardVars(c: CardPalette): [string, string][] {
+  const vars: [string, string][] = c.steps.flatMap((s, i): [string, string][] => [
+    [`card-face-${i + 1}`, s.face],
+    [`card-ink-${i + 1}`, s.ink],
+    [`card-edge-${i + 1}`, s.edge],
+    [`card-band-${i + 1}`, s.band ?? 'transparent'],
+    [`card-bar-${i + 1}`, s.bar],
+  ]);
+  vars.push(
+    ['card-special-face', c.special.face],
+    ['card-special-ink', c.special.ink],
+    ['card-special-edge', c.special.edge],
+  );
+  return vars;
+}
+
+function block(
+  selector: string,
+  p: Palette,
+  cards: CardPalette,
+  scheme: 'light' | 'dark',
+  indent = '',
+): string {
+  const lines = [
+    ...Object.entries(p).map(([k, v]) => `${indent}  --color-${kebab(k)}: ${v};`),
+    ...cardVars(cards).map(([k, v]) => `${indent}  --${k}: ${v};`),
+  ];
   return `${indent}${selector} {\n${indent}  color-scheme: ${scheme};\n${lines.join('\n')}\n${indent}}`;
+}
+
+function stepRules(): string {
+  const props = ['face', 'ink', 'edge', 'band', 'bar'];
+  return Array.from({ length: CARD_STEPS }, (_, i) => {
+    const n = i + 1;
+    const lines = props.map((k) => `  --step-${k}: var(--card-${k}-${n});`);
+    return `[data-step="${n}"] {\n${lines.join('\n')}\n}`;
+  }).join('\n');
 }
 
 function themeSel(theme: ThemeId): string {
   return theme === 'corporate' ? ':root' : ':root[data-theme="colorful"]';
 }
 
-/** Build the color part of tokens.css. Order matters: later blocks win at equal specificity. */
+/** Builds colors.css. Order matters: later blocks win at equal specificity. */
 export function buildColorCss(): string {
-  const out: string[] = [
-    '/* Generated by scripts/gen-tokens.ts from src/lib/styles/palette.ts. Do not edit. */',
-  ];
-  for (const t of THEMES) out.push(block(themeSel(t), PALETTES[t].light, 'light'));
+  const out: string[] = [];
+  const of = (t: ThemeId, m: ModeId) => [PALETTES[t][m], CARD_PALETTES[t][m]] as const;
+  for (const t of THEMES) out.push(block(themeSel(t), ...of(t, 'light'), 'light'));
   out.push('@media (prefers-color-scheme: dark) {');
   for (const t of THEMES) {
-    out.push(block(`${themeSel(t)}:not([data-mode])`, PALETTES[t].dark, 'dark', '  '));
+    out.push(block(`${themeSel(t)}:not([data-mode])`, ...of(t, 'dark'), 'dark', '  '));
   }
   out.push('}');
   for (const t of THEMES) {
-    out.push(block(`${themeSel(t)}[data-mode="dark"]`, PALETTES[t].dark, 'dark'));
+    out.push(block(`${themeSel(t)}[data-mode="dark"]`, ...of(t, 'dark'), 'dark'));
   }
   out.push('@media (prefers-contrast: more) {');
   for (const t of THEMES) {
-    out.push(block(`${themeSel(t)}:not([data-mode])`, PALETTES[t].contrast, 'light', '  '));
+    out.push(block(`${themeSel(t)}:not([data-mode])`, ...of(t, 'contrast'), 'light', '  '));
   }
   out.push('}');
   for (const t of THEMES) {
-    out.push(block(`${themeSel(t)}[data-mode="contrast"]`, PALETTES[t].contrast, 'light'));
+    out.push(block(`${themeSel(t)}[data-mode="contrast"]`, ...of(t, 'contrast'), 'light'));
   }
+  out.push(stepRules());
   return `${out.join('\n')}\n`;
 }
