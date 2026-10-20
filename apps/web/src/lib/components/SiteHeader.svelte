@@ -1,13 +1,15 @@
 <script lang="ts">
 import Logo from './Logo.svelte';
+import ThemeSwitcher from './ThemeSwitcher.svelte';
 </script>
 
 <header class="site-header no-print">
   <div class="container bar">
     <a class="brand" href="/" aria-label="Backlogfit home"><Logo /> <span>Backlogfit</span></a>
     <nav aria-label="Main">
-      <a href="/guide">Guide</a>
+      <a class="hide-sm" href="/guide">Guide</a>
       <a class="cta" href="/new">Start a session</a>
+      <ThemeSwitcher />
     </nav>
   </div>
 </header>
@@ -57,6 +59,12 @@ import Logo from './Logo.svelte';
   nav a:hover {
     background: var(--color-surface-2);
     color: var(--color-text);
+  }
+
+  @media (max-width: 400px) {
+    .hide-sm {
+      display: none;
+    }
   }
 
   nav a.cta {
