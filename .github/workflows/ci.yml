@@ -93,6 +93,9 @@ jobs:
         run: pnpm --filter @backlogfit/e2e exec playwright install --with-deps
 
       - name: Run end-to-end tests
+        env:
+          # The web app was built in the previous step; the Playwright config starts the server.
+          E2E_SKIP_BUILD: '1'
         run: pnpm e2e
 
       - name: Upload Playwright report
