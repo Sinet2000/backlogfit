@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { makeTeamId } from '@backlogfit/core';
   import Button from '../components/Button.svelte';
   import Dialog from '../components/Dialog.svelte';
   import SessionRuleFields from '../config/ui/SessionRuleFields.svelte';
+  import TeamEditor from '../config/ui/TeamEditor.svelte';
   import { useRoom, viewOf } from './context.ts';
 
   let { open = $bindable() }: { open: boolean } = $props();
@@ -11,6 +13,20 @@
   const s = $derived(view.settings);
   const isHost = $derived(room.can('settings'));
   let confirmClose = $state(false);
+  const canTeams = $derived(room.can('teams'));
+
+  function addTeam(name: string) {
+    const ids = room.teams.map((t) => t.id);
+    room.setTeams([...room.teams, { id: makeTeamId(name, ids), name }]);
+  }
+
+  function renameTeam(id: string, name: string) {
+    room.setTeams(room.teams.map((t) => (t.id === id ? { ...t, name } : t)));
+  }
+
+  function removeTeam(id: string) {
+    room.setTeams(room.teams.filter((t) => t.id !== id));
+  }
 
   function endSession() {
     confirmClose = false;
@@ -59,6 +75,19 @@
       {#if !isHost}
         <p class="field-hint">Only the host can change these.</p>
       {/if}
+    </section>
+
+    <section aria-labelledby="set-teams" data-testid="settings-teams">
+      <h3 id="set-teams">Teams</h3>
+      <p class="field-hint">Each team gets its own join link. Removing a team moves its people to “No team” and its tasks back to everyone.</p>
+      <TeamEditor
+        teams={room.teams}
+        disabled={!canTeams}
+        onadd={addTeam}
+        onrename={renameTeam}
+        onremove={removeTeam}
+        hint={room.teams.length === 0 ? 'No teams yet. Everyone estimates every task.' : 'Up to 6 teams.'}
+      />
     </section>
 
     {#if room.can('close')}

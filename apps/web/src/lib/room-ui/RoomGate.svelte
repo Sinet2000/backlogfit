@@ -16,7 +16,7 @@
     busy={snap.status === 'connecting'}
     error={snap.joinError}
     demo={room.demo}
-    onjoin={(req) => room.join(req)}
+    onjoin={(req) => room.join({ ...req, team: room.link.team ?? null }, { askTeam: true })}
   />
 {:else if snap.status === 'lobby'}
   <section class="wait panel" data-testid="lobby-waiting" aria-live="polite">

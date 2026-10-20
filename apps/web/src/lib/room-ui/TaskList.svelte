@@ -1,8 +1,9 @@
 <script lang="ts">
-  import type { TaskView } from '@backlogfit/core';
+  import { type TaskView, votersLabel } from '@backlogfit/core';
   import { onDestroy } from 'svelte';
   import Button from '../components/Button.svelte';
   import IconButton from '../components/IconButton.svelte';
+  import type { MenuItem } from '../components/MenuButton.svelte';
   import PanelHeader from '../components/PanelHeader.svelte';
   import SortableList from '../components/SortableList.svelte';
   import { toasts } from '../toast.svelte.ts';
@@ -20,6 +21,19 @@
   const tasks = $derived(view.tasks.filter((t) => !(t.id in removing)));
   const estimated = $derived(tasks.filter((t) => t.final !== null).length);
   const label = (t: TaskView) => [t.key, t.title].filter(Boolean).join(' ') || 'Untitled task';
+  const by = (t: TaskView) => (t.voters === null ? null : votersLabel(t.voters, room.teams));
+
+  function votersMenu(t: TaskView): MenuItem[] {
+    if (room.teams.length === 0) return [];
+    const current = t.voters?.length === 1 ? t.voters[0] : t.voters === null ? null : undefined;
+    return [{ id: null, name: 'Everyone' }, ...room.teams].map((team) => ({
+      label: team.name,
+      group: 'Estimated by',
+      checked: current === team.id,
+      onselect: () => room.setVoters(t.id, team.id === null ? null : [team.id]),
+      testid: `task-voters-${team.id ?? 'all'}`,
+    }));
+  }
 
   function move(from: number, to: number) {
     const task = tasks[from];
@@ -83,6 +97,7 @@
       {label}
       onmove={move}
       onremove={remove}
+      extraItems={(t) => votersMenu(t)}
       listLabel="Tasks, in order"
       itemTestId="task-item"
       removeTestId="task-remove"
@@ -90,7 +105,7 @@
       rowClass={(t) => (t.id === view.currentTaskId ? 'current' : t.final !== null ? 'done' : '')}
     >
       {#snippet row(t)}
-        <TaskRow task={t} current={t.id === view.currentTaskId} next={t.id === room.upNextId} />
+        <TaskRow task={t} current={t.id === view.currentTaskId} next={t.id === room.upNextId} by={by(t)} />
       {/snippet}
       {#snippet actions(t)}
         {#if t.id !== view.currentTaskId}
@@ -103,7 +118,7 @@
       {#each tasks as t, i (t.id)}
         <li class:current={t.id === view.currentTaskId} class:done={t.final !== null} data-testid="task-item" data-key={t.key ?? ''} data-final={t.final ?? ''}>
           <span class="num" aria-hidden="true">{i + 1}</span>
-          <TaskRow task={t} current={t.id === view.currentTaskId} next={t.id === room.upNextId} />
+          <TaskRow task={t} current={t.id === view.currentTaskId} next={t.id === room.upNextId} by={by(t)} />
         </li>
       {/each}
     </ol>

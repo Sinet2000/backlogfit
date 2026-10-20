@@ -7,8 +7,9 @@
     task: TaskView;
     round: number | null;
     phase: 'idle' | 'voting' | 'revealed';
+    by?: string | null;
   }
-  let { task, round, phase }: Props = $props();
+  let { task, round, phase, by = null }: Props = $props();
 
   const safeUrl = $derived.by(() => {
     if (!task.url || !/^https?:\/\//i.test(task.url)) return null;
@@ -36,6 +37,7 @@
       {phase === 'voting' ? 'Voting' : phase === 'revealed' ? 'Votes revealed' : 'Waiting'}
     </span>
     {#if round !== null}<span class="muted">Round {round}</span>{/if}
+    {#if by}<span class="by" data-testid="current-voters"><Icon name="users" size={14} /> Estimated by {by}</span>{/if}
     {#if task.final !== null}<span class="final"><Icon name="flag" size={14} /> Final: {task.final}</span>{/if}
   </div>
   <h2 id="task-h">
@@ -92,6 +94,13 @@
   .status.revealed {
     background: var(--color-success-soft);
     color: var(--color-success);
+  }
+
+  .by {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--color-text-muted);
   }
 
   .final {

@@ -2,14 +2,18 @@
   import type { ParticipantView } from '@backlogfit/core';
   import Icon from '../components/Icon.svelte';
   import MenuButton, { type MenuItem } from '../components/MenuButton.svelte';
+  import TeamBadge from './TeamBadge.svelte';
 
   interface Props {
     p: ParticipantView;
     me: boolean;
     phase: 'idle' | 'voting' | 'revealed';
     actions: MenuItem[];
+    team?: string | null;
+    /** False when this person is not among the voters of the current task. */
+    estimating?: boolean;
   }
-  let { p, me, phase, actions }: Props = $props();
+  let { p, me, phase, actions, team = null, estimating = true }: Props = $props();
 
   const badge = $derived(
     p.authority === 'admin' ? 'Host' : p.authority === 'coadmin' ? 'Co-host' : null,
@@ -21,6 +25,7 @@
   data-name={p.name}
   data-voted={p.hasVoted ? 'true' : 'false'}
   data-role={p.role}
+  data-team={p.team ?? ''}
   class:offline={!p.connected}
 >
   <span class="avatar" aria-hidden="true">{p.name.slice(0, 1).toUpperCase()}</span>
@@ -28,6 +33,7 @@
     <span class="name">{p.name}</span>
     <span class="tags">
       {#if me}<span class="tag you">You</span>{/if}
+      {#if team}<TeamBadge name={team} />{/if}
       {#if badge}<span class="tag host"><Icon name="crown" size={12} />{badge}</span>{/if}
       {#if p.role === 'spectator'}<span class="tag"><Icon name="eye" size={12} />Watching</span>{/if}
       {#if !p.connected}<span class="tag">Offline</span>{/if}
@@ -35,7 +41,9 @@
   </span>
   <span class="status">
     {#if p.role === 'voter' && phase !== 'idle'}
-      {#if p.hasVoted}
+      {#if !estimating && !p.hasVoted}
+        <span class="waiting">Not estimating</span>
+      {:else if p.hasVoted}
         <span class="voted"><Icon name="check" size={16} /> Voted</span>
       {:else if phase === 'voting'}
         <span class="waiting">Not voted yet</span>

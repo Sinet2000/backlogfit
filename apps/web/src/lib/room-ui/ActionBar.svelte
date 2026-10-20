@@ -17,7 +17,7 @@
     if (view.phase === 'revealed') choice = task?.final ?? round?.stats?.suggested ?? null;
   });
 
-  const voters = $derived(view.participants.filter((p) => p.role === 'voter'));
+  const voters = $derived(room.eligible);
   const voted = $derived(voters.filter((p) => p.hasVoted).length);
   const value = $derived(custom.trim() !== '' ? custom.trim().slice(0, 16) : choice);
   const hasNext = $derived(room.upNextId !== null);

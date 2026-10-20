@@ -14,7 +14,7 @@
     <ul>
       {#each view.lobby as p (p.id)}
         <li data-testid="lobby-entry" data-name={p.name}>
-          <span class="name">{p.name}{#if p.role === 'spectator'} <span class="muted">· watching</span>{/if}</span>
+          <span class="name">{p.name}{#if room.teamName(p.team)} <span class="muted">· {room.teamName(p.team)}</span>{/if}{#if p.role === 'spectator'} <span class="muted">· watching</span>{/if}</span>
           <Button size="sm" variant="ghost" onclick={() => room.admit(p.id, 'deny')} data-testid="lobby-deny" aria-label="Decline {p.name}">
             Decline
           </Button>
