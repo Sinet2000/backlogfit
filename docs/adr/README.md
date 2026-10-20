@@ -16,9 +16,6 @@ accepted ADRs are not edited except to mark them superseded.
 | [0009](0009-self-hosted-fonts-assets.md) | Self-hosted fonts and assets, zero third-party requests | Accepted |
 | [0010](0010-oidc-sso-self-hosted.md) | OIDC/SSO sign-in for self-hosted deployments | Accepted (Phase 2 design) |
 
-The build plan (PLAN.md §4) numbered the later ADRs differently; ADR-0005 (auth split) was
-inserted, so PLAN's 0005–0008 are 0006–0009 here, and OIDC is 0010.
-
 Template:
 
 ```md
