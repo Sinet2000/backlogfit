@@ -58,9 +58,56 @@ jobs:
         run: pnpm build
 
   e2e:
-    name: End-to-end (Playwright)
+    name: End-to-end (Playwright, incl. visual)
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    # Visual snapshots were generated in this exact image; pinned by index digest.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:7852dc5a7d72f5fe458a597d690f6c42fbc8e9e26ddfa95f8e6ef552558d9bbf
+      options: --ipc=host
+    env:
+      CI: '1'
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Browsers ship in the image; the Playwright config builds the web app and starts the
+      # servers. Runs chromium, the firefox/webkit smoke subset and the visual project.
+      - name: Run end-to-end tests
+        run: pnpm e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: |
+            tests/e2e/playwright-report/
+            tests/e2e/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  load:
+    name: WebSocket load test (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -80,32 +127,33 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: .nvmrc
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm build
-
-      - name: Install Playwright browsers
-        run: pnpm --filter @backlogfit/e2e exec playwright install --with-deps
-
-      - name: Run end-to-end tests
+      - name: Start server and run load test
         env:
-          # The web app was built in the previous step; the Playwright config starts the server.
-          E2E_SKIP_BUILD: '1'
-        run: pnpm e2e
+          NODE_ENV: test
+          PUBLIC_ORIGIN: http://localhost:8080
+          ROOM_CREATE_PER_MIN: '10000'
+          WS_UPGRADES_PER_MIN: '100000'
+          MAX_CONNECTIONS_PER_CLIENT: '100000'
+        run: |
+          pnpm --filter @backlogfit/server start &
+          for _ in $(seq 1 60); do
+            curl -fs http://localhost:8080/api/health && break
+            sleep 1
+          done
+          pnpm --filter @backlogfit/load load -- --rooms 20 --clients 20 --ramp 5000 --json load.json
 
-      - name: Upload Playwright report
-        if: failure()
+      - name: Upload load report
+        if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: playwright-report
-          path: |
-            tests/e2e/playwright-report/
-            tests/e2e/test-results/
+          name: load-report
+          path: load.json
           retention-days: 14
           if-no-files-found: ignore
 
