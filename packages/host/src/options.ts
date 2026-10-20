@@ -2,7 +2,6 @@ import { type Limits as RoomLimits, toCoreLimits } from '@backlogfit/core';
 import type { Limits } from '@backlogfit/security';
 
 export interface HostOptions {
-  /** Reducer limits for new rooms and decoys. */
   roomLimits: RoomLimits;
   maxMessageBytes: number;
   rateMsgsPerSec: number;

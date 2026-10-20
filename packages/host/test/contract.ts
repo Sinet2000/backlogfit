@@ -19,14 +19,10 @@ export interface WireRoom {
   adminSecret: string;
 }
 
-/**
- * One backend under test. Every harness runs with MAX_MESSAGE_BYTES=1024, MAX_PARTICIPANTS=2
- * and HELLO_TIMEOUT_SECONDS=1, and must not limit upgrades per client in these scenarios.
- */
+/** One backend under test, started with CONTRACT_ENV and no per-client upgrade limit. */
 export interface WireHarness {
   createRoom(opts?: { lobby?: boolean }): Promise<WireRoom>;
   open(roomId: string): Promise<WireClient>;
-  /** Let wall time pass: real backends sleep, the fake one advances its clock. */
   elapse(ms: number): Promise<void>;
 }
 
@@ -46,7 +42,7 @@ interface Api {
   expect: typeof Expect;
 }
 
-/** The behaviour every backend must share, run against each adapter. */
+/** Registers the scenarios every backend must pass, against the given harness. */
 export function roomContract(name: string, api: Api, harness: () => WireHarness): void {
   const { describe, it, expect } = api;
 

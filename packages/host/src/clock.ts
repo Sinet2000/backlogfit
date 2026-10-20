@@ -1,6 +1,5 @@
 import type { HostClock } from './ports.ts';
 
-/** Room time equals wall time. */
 export function systemClock(wall: () => number = Date.now): HostClock {
   return { now: wall, roomNow: wall, wallAt: (at) => at };
 }

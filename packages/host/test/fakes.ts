@@ -234,7 +234,6 @@ export async function rig(
   return r;
 }
 
-/** Many rooms plus one decoy host per unknown id, the way both adapters route sockets. */
 export function fakeHarness(): WireHarness {
   const clock = new FakeClock();
   const hosts = new Map<string, { host: RoomHost; wakeup: FakeWakeup }>();

@@ -387,9 +387,7 @@ export class RoomHost {
     c.closed = true;
     try {
       c.socket.close(code, reason);
-    } catch {
-      /* the socket is already gone */
-    }
+    } catch {}
     this.#forget(conn);
     if (this.#ended || this.#stopped) return;
     this.#enqueue(() => this.#dispatch({ type: 'disconnect', conn }));
