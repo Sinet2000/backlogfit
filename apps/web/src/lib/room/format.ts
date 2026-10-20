@@ -37,8 +37,8 @@ export function formatClock(ms: number): string {
 
 /** "1 h 20 min" style remaining time for session expiry. */
 export function formatRemaining(ms: number): string {
-  const min = Math.max(0, Math.round(ms / 60_000));
-  if (min < 1) return 'less than a minute';
+  if (ms < 60_000) return 'less than a minute';
+  const min = Math.round(ms / 60_000);
   if (min < 60) return `${min} min`;
   const h = Math.floor(min / 60);
   const rest = min % 60;
