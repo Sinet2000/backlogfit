@@ -109,6 +109,12 @@ describe('team helpers', () => {
     const spaced = [{ id: 'fe', name: 'Front end' }];
     expect(splitTeamTags('Task #frontend', spaced)).toEqual({ line: 'Task', voters: ['fe'] });
     expect(splitTeamTags('Task #fe', spaced)).toEqual({ line: 'Task', voters: ['fe'] });
+    const renamed = [
+      { id: 'dev', name: 'Backend' },
+      { id: 'dev-2', name: 'Dev' },
+    ];
+    expect(splitTeamTags('Task #dev', renamed).voters).toEqual(['dev-2']);
+    expect(splitTeamTags('Task #backend', renamed).voters).toEqual(['dev']);
   });
 
   it('rewrites tags for a voter list', () => {

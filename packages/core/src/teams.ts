@@ -51,7 +51,7 @@ export function makeTeamId(name: string, taken: Iterable<string>): string {
 
 function teamForTag(tag: string, teams: readonly Team[]): Team | undefined {
   const t = tag.toLowerCase();
-  return teams.find((x) => teamTag(x.name) === t || x.id.toLowerCase() === t);
+  return teams.find((x) => teamTag(x.name) === t) ?? teams.find((x) => x.id.toLowerCase() === t);
 }
 
 /**
