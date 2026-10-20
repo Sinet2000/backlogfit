@@ -291,7 +291,7 @@
   .layout {
     display: grid;
     gap: var(--space-6);
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
   }
 
@@ -305,6 +305,7 @@
   .side {
     display: grid;
     gap: var(--space-6);
+    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
   }
 
@@ -315,7 +316,13 @@
   .stage {
     display: grid;
     gap: var(--space-6);
+    grid-template-columns: minmax(0, 1fr);
     padding: var(--space-6);
+  }
+
+  .stage-head > :global(.current) {
+    flex: 1 1 16rem;
+    min-width: 0;
   }
 
   .stage-head {
