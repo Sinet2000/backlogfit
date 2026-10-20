@@ -6,6 +6,7 @@
   import RevealPanel from '#lib/components/RevealPanel.svelte';
   import Timer from '#lib/components/Timer.svelte';
   import Toasts from '#lib/components/Toasts.svelte';
+  import { batches, takePrepared } from '#lib/room/agenda.ts';
   import { createDemoRoom, takeDemoTasks } from '#lib/room/demo.ts';
   import { parseFragment, type RoomLink, roomUrls, settleAdminSecret } from '#lib/room/link.ts';
   import { RoomStore } from '#lib/room/room.svelte.ts';
@@ -137,6 +138,14 @@
     }
   });
 
+  // Tasks prepared in the configurator: added once by the host, only into an empty room.
+  $effect(() => {
+    if (!room || status !== 'joined' || !room.isAdmin || !view) return;
+    const lines = takePrepared(sessionStore(), room.link.roomId);
+    if (!lines || view.tasks.length > 0) return;
+    for (const batch of batches(lines)) room.send({ type: 'admin.tasks.add', lines: batch });
+  });
+
   const announce = $derived.by(() => {
     if (!view) return '';
     if (view.phase === 'revealed') return 'Votes revealed.';
@@ -227,7 +236,7 @@
                 <h2>{view.tasks.length === 0 ? 'Ready when you are' : 'Waiting for the next task'}</h2>
                 <p class="muted">
                   {#if room.isFacilitator}
-                    {view.tasks.length === 0 ? 'Add tasks on the right, then start the first one.' : 'Press "Start first task" or pick a task from the list.'}
+                    {view.tasks.length === 0 ? 'Add tasks on the right, then start the first one.' : 'Press "Start first task", or press ▶ next to any task in the list.'}
                   {:else}
                     The host will start the next task soon.
                   {/if}
