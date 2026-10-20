@@ -200,7 +200,12 @@ describe('lobby', () => {
     const bob = sim.state.participants.find((p) => p.conn === 'c1')?.id ?? '';
     expect(project(sim.state, admin).lobby).toHaveLength(1);
     expect(project(sim.state, bob).lobby).toHaveLength(0);
-    expect(errorsOf(send(sim, 'c1', { type: 'ping' }))).toEqual(['lobby_waiting']);
+    expect(outbox(send(sim, 'c1', { type: 'ping' }), 'c1')).toEqual([
+      { type: 'pong', serverTime: expect.any(Number) },
+    ]);
+    expect(errorsOf(send(sim, 'c1', { type: 'unvote', taskId: 't', round: 1 }))).toEqual([
+      'lobby_waiting',
+    ]);
 
     const a = send(sim, 'c-admin', {
       type: 'admin.lobby',
@@ -519,5 +524,28 @@ describe('purity', () => {
     expect(
       reduce(s, { type: 'disconnect', conn: 'zz' }, { now: T0, randomId: () => 'x' }).state,
     ).toBe(s);
+  });
+});
+
+describe('leave', () => {
+  it('removes the participant, drops an unrevealed vote and closes with left', () => {
+    const { sim, bob, cy } = setup();
+    const task = startVoting(sim);
+    send(sim, 'c-bob', { type: 'vote', taskId: task.taskId, round: 1, value: '5' });
+    expect(project(sim.state, cy).tasks[0]?.rounds[0]?.voteCount).toBe(1);
+    const r = send(sim, 'c-bob', { type: 'leave' });
+    expect(r.effects).toContainEqual({ type: 'close', to: 'c-bob', reason: 'left' });
+    expect(sim.state.participants.some((p) => p.id === bob)).toBe(false);
+    expect(project(sim.state, cy).tasks[0]?.rounds[0]?.voteCount).toBe(0);
+  });
+
+  it('lets a lobby participant leave and rejects a leave before hello', () => {
+    const sim = newRoom({ lobby: true });
+    join(sim, 'c-admin', 'Ada', { admin: true });
+    step(sim, { type: 'message', conn: 'c1', msg: hello('Bob'), auth: auth() });
+    expect(sim.state.participants.some((p) => p.status === 'lobby')).toBe(true);
+    send(sim, 'c1', { type: 'leave' });
+    expect(sim.state.participants.some((p) => p.status === 'lobby')).toBe(false);
+    expect(errorsOf(send(sim, 'c9', { type: 'leave' }))).toEqual(['not_joined']);
   });
 });

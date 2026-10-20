@@ -287,11 +287,17 @@ function message(tx: Tx, conn: string, msg: ClientMessage, auth: HelloAuth | und
     return;
   }
   const p = byConn(tx.d, conn) ?? fail('not_joined');
-  if (p.status === 'lobby') fail('lobby_waiting');
   if (msg.type === 'ping') {
     send(tx, conn, { type: 'pong', serverTime: tx.ctx.now });
     return;
   }
+  if (msg.type === 'leave') {
+    removeParticipant(tx.d, p);
+    tx.fx.push({ type: 'close', to: conn, reason: 'left' });
+    changed(tx);
+    return;
+  }
+  if (p.status === 'lobby') fail('lobby_waiting');
   if (msg.type === 'vote' || msg.type === 'unvote') vote(tx, p, msg);
   else admin(tx, p, conn, msg);
   tx.d.lastActivityAt = tx.ctx.now;

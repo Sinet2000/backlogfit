@@ -40,6 +40,7 @@ const CLOSE_CODES: Record<CloseReason, number> = {
   kicked: 4004,
   denied: 4005,
   replaced: 4006,
+  left: 4007,
   rejected: 4008,
   not_found: 4404,
 };

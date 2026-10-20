@@ -176,6 +176,7 @@ export const ClientMessageSchema = v.variant('type', [
   msg('vote', { ...taskId, round: int(1, ROUND_MAX), value: CardValueSchema }),
   msg('unvote', { ...taskId, round: int(1, ROUND_MAX) }),
   msg('ping', {}),
+  msg('leave', {}),
   msg('admin.tasks.add', {
     lines: v.pipe(
       v.array(v.pipe(v.string(), v.maxLength(TASK_LINE_MAX))),
@@ -261,6 +262,7 @@ export const CLOSE_REASONS = [
   'denied',
   'replaced',
   'rejected',
+  'left',
 ] as const;
 export const CloseReasonSchema = v.picklist(CLOSE_REASONS);
 export type CloseReason = (typeof CLOSE_REASONS)[number];
