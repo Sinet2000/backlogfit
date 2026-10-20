@@ -21,6 +21,25 @@ export interface CspViolation {
   directive: string;
   blockedURI: string;
   sample: string;
+  sourceFile: string;
+}
+
+/**
+ * Violations caused by bugs already filed in coordination/A5.md. The per-spec guard tolerates
+ * them so every spec still reports its own result; specs/security.spec.ts checks without this
+ * filter, and E2E_STRICT_CSP=1 disables it everywhere. Remove entries once fixed.
+ */
+export const KNOWN_CSP_ISSUES: { bug: string; match: (v: CspViolation) => boolean }[] = [
+  {
+    bug: 'A5#1 SvelteKit route announcer inline style',
+    match: (v) =>
+      v.directive === 'style-src-attr' && /\/_app\/immutable\/.*\.js$/.test(v.sourceFile),
+  },
+];
+
+export function unexpectedCsp(vs: readonly CspViolation[]): CspViolation[] {
+  if (process.env.E2E_STRICT_CSP === '1') return [...vs];
+  return vs.filter((v) => !KNOWN_CSP_ISSUES.some((k) => k.match(v)));
 }
 
 export class Guard {
@@ -55,6 +74,7 @@ export class Guard {
           directive: e.effectiveDirective,
           blockedURI: e.blockedURI,
           sample: e.sample,
+          sourceFile: e.sourceFile,
         });
       });
     });
@@ -62,7 +82,7 @@ export class Guard {
 
   assertClean(): void {
     expect(this.external, 'requests to third-party origins').toEqual([]);
-    expect(this.csp, 'CSP violations').toEqual([]);
+    expect(unexpectedCsp(this.csp), 'CSP violations').toEqual([]);
   }
 }
 
