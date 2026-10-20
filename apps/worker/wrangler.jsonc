@@ -51,5 +51,44 @@
     "PASSCODE_MAX_ATTEMPTS": "5",
     "HELLO_TIMEOUT_SECONDS": "20",
     "WS_UPGRADES_PER_MIN": "120"
+  },
+
+  // Deploy with `wrangler deploy --env production`. Bindings and vars are not inherited.
+  "env": {
+    "production": {
+      "routes": [{ "pattern": "backlogfit.com", "custom_domain": true }],
+      "durable_objects": {
+        "bindings": [{ "name": "ROOMS", "class_name": "RoomDO" }]
+      },
+      "ratelimits": [
+        {
+          "name": "CREATE_LIMITER",
+          "namespace_id": "1001",
+          "simple": { "limit": 10, "period": 60 }
+        },
+        {
+          "name": "UPGRADE_LIMITER",
+          "namespace_id": "1002",
+          "simple": { "limit": 120, "period": 60 }
+        }
+      ],
+      "vars": {
+        "PUBLIC_ORIGIN": "https://backlogfit.com",
+        "ALLOWED_ORIGINS": "",
+        "NODE_ENV": "production",
+        "DEFAULT_LIFETIME_HOURS": "2",
+        "MAX_LIFETIME_HOURS": "8",
+        "IDLE_TIMEOUT_MINUTES": "30",
+        "MAX_PARTICIPANTS": "50",
+        "MAX_TASKS": "500",
+        "MAX_MESSAGE_BYTES": "16384",
+        "RATE_MSGS_PER_SEC": "20",
+        "RATE_BURST": "40",
+        "ROOM_CREATE_PER_MIN": "10",
+        "PASSCODE_MAX_ATTEMPTS": "5",
+        "HELLO_TIMEOUT_SECONDS": "20",
+        "WS_UPGRADES_PER_MIN": "120"
+      }
+    }
   }
 }
