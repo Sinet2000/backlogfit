@@ -27,8 +27,11 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RoomDO"] }],
 
   // Keep `limit` equal to ROOM_CREATE_PER_MIN (the binding cannot read vars).
+  // UPGRADE_LIMITER: WebSocket upgrades per client (each one wakes a Durable Object); keep it
+  // equal to WS_UPGRADES_PER_MIN.
   "ratelimits": [
-    { "name": "CREATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } }
+    { "name": "CREATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
+    { "name": "UPGRADE_LIMITER", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } }
   ],
 
   // Same names as the Node server (PLAN §7). Override per environment.
@@ -46,6 +49,7 @@
     "RATE_BURST": "40",
     "ROOM_CREATE_PER_MIN": "10",
     "PASSCODE_MAX_ATTEMPTS": "5",
-    "HELLO_TIMEOUT_SECONDS": "20"
+    "HELLO_TIMEOUT_SECONDS": "20",
+    "WS_UPGRADES_PER_MIN": "120"
   }
 }

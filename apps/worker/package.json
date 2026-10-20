@@ -9,7 +9,7 @@
     "headers": "node scripts/write-headers.ts",
     "dev": "node scripts/write-headers.ts --dev && wrangler dev --port 8787",
     "typecheck": "node scripts/typecheck.ts && tsc --noEmit -p scripts",
-    "test": "node scripts/write-headers.ts --dev && vitest run"
+    "test": "node scripts/write-headers.ts --dev test/fixtures/web && vitest run"
   },
   "dependencies": {
     "@backlogfit/core": "workspace:*",

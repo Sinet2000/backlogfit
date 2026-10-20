@@ -1,9 +1,9 @@
 /**
  * `tsc --noEmit` for the worker, tolerating exactly two known mismatches between
- * @cloudflare/workers-types and packages/core (requested fix in coordination/A2.md):
+ * @cloudflare/workers-types and packages/core or packages/security (requested fix in coordination/A2.md):
  *   - `globalThis.crypto` (workers-types declares `crypto` as a const, not on globalThis)
  *   - `new TextDecoder('utf-8', { fatal: true })` (workers-types requires `ignoreBOM`)
- * Any other diagnostic, or these in any file outside packages/core, fails the check.
+ * Any other diagnostic, or these outside packages/core and packages/security, fails the check.
  */
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -19,7 +19,7 @@ if (res.error) throw res.error;
 const lines = `${res.stdout}${res.stderr}`.split('\n');
 
 const tolerated = (line: string) =>
-  /packages\/core\/src\/[\w-]+\.ts\(\d+,\d+\): error TS2339: Property 'crypto' does not exist on type 'typeof globalThis'\./.test(
+  /packages\/(?:core|security)\/src\/[\w-]+\.ts\(\d+,\d+\): error TS2339: Property 'crypto' does not exist on type 'typeof globalThis'\./.test(
     line,
   ) ||
   /packages\/core\/src\/[\w-]+\.ts\(\d+,\d+\): error TS2345: Argument of type '\{ fatal: true; \}' is not assignable to parameter of type 'TextDecoderConstructorOptions'\./.test(
