@@ -32,7 +32,14 @@ importers:
         version: 5.0.5(@vitest/coverage-v8@5.0.5)(vite@8.3.4)
 
   packages/security:
+    dependencies:
+      '@backlogfit/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
+      fast-check:
+        specifier: 4.10.2
+        version: 4.10.2
       vitest:
         specifier: 5.0.5
         version: 5.0.5(@vitest/coverage-v8@5.0.5)(vite@8.3.4)
