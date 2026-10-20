@@ -55,8 +55,9 @@ podman run -d --name backlogfit \
 
 `apps/server/compose.example.yml` already sets `read_only`, `cap_drop: [ALL]`,
 `no-new-privileges`, a tmpfs `/tmp`, `mem_limit`, `pids_limit` and binds to `127.0.0.1`. Add a
-CPU limit (`cpus: "1.0"`) and, for memory-only operation, `DATA_DIR: ""` and drop the volume
-(see also section 5 for an egress-free network layout).
+CPU limit (`cpus: "1.0"`). It runs memory-only by default; uncomment `DATA_DIR` and the
+volume only if rooms must survive restarts (see also section 5 for an egress-free network
+layout).
 
 ### Kubernetes (equivalent settings)
 
@@ -191,7 +192,7 @@ labels:
 
 ### Behind Cloudflare (tunnel or proxied DNS)
 
-Set `TRUST_PROXY=cloudflare` once the server reads `parseTrustProxy` (SEC-003); the client
+Set `TRUST_PROXY=cloudflare`; the client
 address then comes from `CF-Connecting-IP`. Make sure the origin is reachable **only** through
 Cloudflare (tunnel, or firewall to Cloudflare's ranges), otherwise the header can be forged.
 
@@ -200,29 +201,33 @@ Cloudflare (tunnel, or firewall to Cloudflare's ranges), otherwise the header ca
 All have safe defaults; invalid values make the server refuse to start. The Worker uses the
 same names as `vars`.
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `PUBLIC_ORIGIN` | `http://localhost:$PORT` (required in production) | Exact public origin, e.g. `https://estimate.example.com`. Used for the Origin check on `POST /api/rooms` and WebSocket upgrades, and for CSP `connect-src`. |
-| `ALLOWED_ORIGINS` | empty | Extra exact origins, comma separated. Keep empty in production. |
-| `NODE_ENV` | `production` in the image | `production` enables HSTS, `upgrade-insecure-requests` and Trusted Types (when `PUBLIC_ORIGIN` is https). |
-| `PORT` / `HOST` | `8080` / `0.0.0.0` | Listen address inside the container. |
-| `TRUST_PROXY` | `false` | `true` only behind a proxy that overwrites `X-Forwarded-For` (section 2). |
-| `DATA_DIR` | `/data` in the image | Directory for `backlogfit.sqlite`. **Empty = memory only (recommended)**: rooms do not survive restarts, nothing touches disk. |
-| `WEB_DIR` | `/app/apps/web/build` | Static build served by the server. |
-| `DEFAULT_LIFETIME_HOURS` | `2` | Default room lifetime (1-24). |
-| `MAX_LIFETIME_HOURS` | `8` | Hard maximum lifetime including extensions (1-24). |
-| `IDLE_TIMEOUT_MINUTES` | `30` | Room ends after this long without voter/facilitator activity. |
-| `MAX_PARTICIPANTS` | `50` | Upper bound per room (rooms may choose fewer). |
-| `MAX_TASKS` | `500` | Tasks per room. |
-| `MAX_MESSAGE_BYTES` | `16384` | Largest accepted WebSocket frame. |
-| `MAX_ROOMS` | `1000` | Concurrent rooms per server. |
-| `RATE_MSGS_PER_SEC` / `RATE_BURST` | `20` / `40` | Per-connection message bucket (the room bucket is 5×). |
-| `ROOM_CREATE_PER_MIN` | `10` | Room creations per client address per minute. |
-| `PASSCODE_MAX_ATTEMPTS` | `5` | Wrong passcodes per room before passcode joins are refused until a facilitator unlocks. |
-| `HELLO_TIMEOUT_SECONDS` | `20` | A socket that does not join within this time is closed. |
-| `HEARTBEAT_SECONDS` | `30` | WebSocket ping interval; dead sockets are dropped. |
+| Variable | Default | Range / values | Meaning |
+|---|---|---|---|
+| `PUBLIC_ORIGIN` | `http://localhost:$PORT` | absolute http(s) origin; **required** when `NODE_ENV=production` | Exact public origin, e.g. `https://estimate.example.com`. Origin check on `POST /api/rooms` and WebSocket upgrades, CSP `connect-src`. |
+| `ALLOWED_ORIGINS` | empty | comma-separated origins | Extra exact origins. Keep empty in production. |
+| `NODE_ENV` | `production` in the image | `production`, `development`, `test` | `production`: Trusted Types enforced and source maps hidden (always); HSTS and `upgrade-insecure-requests` only when `PUBLIC_ORIGIN` is https. |
+| `PORT` / `HOST` | `8080` / `0.0.0.0` | 0-65535 / address | Listen address inside the container. |
+| `TRUST_PROXY` | `false` | `false`, `true` (= 1 hop), `1`-`9` (hop count), `cloudflare` | How the rate-limit key is derived (`parseTrustProxy`). With n hops the client is the n-th `X-Forwarded-For` entry from the right; `cloudflare` reads `CF-Connecting-IP`. Anything else refuses to start. |
+| `DATA_DIR` | empty in the image (memory only) | directory path | Opt-in persistence: `/data` (or any path) stores `backlogfit.sqlite` so rooms survive restarts. Empty = nothing touches disk (recommended). |
+| `WEB_DIR` | `/app/apps/web/build` | directory path | Static build served by the server. |
+| `DEFAULT_LIFETIME_HOURS` | `2` | 1-24, ≤ `MAX_LIFETIME_HOURS` | Default room lifetime. |
+| `MAX_LIFETIME_HOURS` | `8` | 1-24 | Hard maximum lifetime including extensions. |
+| `IDLE_TIMEOUT_MINUTES` | `30` | 1-1440 | Room ends after this long without voter/facilitator activity. |
+| `MAX_PARTICIPANTS` | `50` | 2-500 | Upper bound per room (rooms may choose fewer). |
+| `MAX_TASKS` | `500` | 1-5000 | Tasks per room. |
+| `MAX_MESSAGE_BYTES` | `16384` | 1024-262144 | Largest accepted WebSocket frame. |
+| `MAX_ROOMS` | `1000` | 1-1000000 | Concurrent rooms per server. |
+| `RATE_MSGS_PER_SEC` / `RATE_BURST` | `20` / `40` | 1-1000 / 1-10000 | Per-connection message bucket (the room bucket is 5×). |
+| `ROOM_CREATE_PER_MIN` | `10` | 1-10000 | Room creations per client address per minute. |
+| `PASSCODE_MAX_ATTEMPTS` | `5` | 1-100 | Wrong passcodes per room before passcode joins are refused until a facilitator unlocks. |
+| `MAX_CONNECTIONS` | `5000` | 1-1000000 | Global cap on concurrent WebSocket connections (handshakes included); excess upgrades get 503. |
+| `MAX_CONNECTIONS_PER_CLIENT` | `50` | 1-100000 | Concurrent WebSocket connections per client address; excess get 429. |
+| `WS_UPGRADES_PER_MIN` | `120` | 1-100000 | WebSocket upgrades per client address per minute (token bucket, burst = same value). |
+| `HELLO_TIMEOUT_SECONDS` | `20` | 1-3600 | A socket that does not join within this time is closed (1008). |
+| `HEARTBEAT_SECONDS` | `30` | 1-3600 | WebSocket ping interval; a socket that misses one pong is dropped. |
+| `TEST_TIME_SCALE` | `1` | ignored unless `NODE_ENV=test` | Test-only clock acceleration; has no effect in production. |
 
-Limits accept plain decimal integers only (`readLimits` in `packages/security`).
+The limits from `DEFAULT_LIFETIME_HOURS` to `PASSCODE_MAX_ATTEMPTS` accept plain decimal integers only (`readLimits` in `packages/security/src/limits.ts`); the others are read in `apps/server/src/config.ts`. Out-of-range values stop the server at startup. The Worker reads the same names from `vars` (it also reads `WS_UPGRADES_PER_MIN`; the Rate Limiting bindings in `wrangler.jsonc` must be kept equal to `ROOM_CREATE_PER_MIN` and `WS_UPGRADES_PER_MIN`).
 
 ## 4. Persistence and backups
 
