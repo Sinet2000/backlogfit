@@ -172,6 +172,29 @@ a:hover {
   border-radius: var(--radius-md);
 }
 
+/* Same box in every engine: Safari ignores padding and height on native selects. The arrow is
+   two gradients (no image URL, so CSP img-src stays 'self'). */
+.select {
+  appearance: none;
+  height: var(--target-min);
+  padding-right: calc(var(--space-3) * 2 + 10px);
+  line-height: 1.2;
+  color: var(--color-text);
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    right calc(var(--space-3) + 5px) center,
+    right var(--space-3) center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+.input[type="number"] {
+  height: var(--target-min);
+}
+
 .textarea {
   min-height: 120px;
   resize: vertical;
