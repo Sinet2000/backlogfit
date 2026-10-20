@@ -64,6 +64,8 @@ More screenshots are in [docs/assets/screenshots](docs/assets/screenshots/). The
   anonymous results, keyboard shortcuts (1–9, Space to reveal, N for next, ? for help).
 - **People:** co-hosts, spectators, waiting room with approval, optional passcode, lock, remove a
   participant, maximum number of people.
+- **Teams:** up to six teams with their own join links, tasks only one team estimates (`#qa`),
+  and a per-team median on shared tasks.
 - **Results:** CSV, JSON, Markdown, a copyable summary for your ticket, and a print layout. All
   generated in the browser.
 - **Presets:** save the session settings as a JSON file and load them next time. Nothing is stored

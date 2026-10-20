@@ -16,6 +16,7 @@ accepted ADRs are not edited except to mark them superseded.
 | [0009](0009-self-hosted-fonts-assets.md) | Self-hosted fonts and assets, zero third-party requests | Accepted |
 | [0010](0010-oidc-sso-self-hosted.md) | OIDC/SSO sign-in for self-hosted deployments | Accepted (Phase 2 design) |
 | [0011](0011-shared-room-host.md) | One transport-agnostic room host for both backends | Accepted |
+| [0012](0012-teams-and-per-task-voters.md) | Teams, team invite links and per-task voters | Accepted |
 
 Template:
 

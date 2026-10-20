@@ -109,6 +109,24 @@
       <li><strong>Lock the session</strong> once everyone has joined, if you want to be sure nobody else comes in.</li>
     </ul>
 
+    <h2 id="teams">Estimating with several teams</h2>
+    <p>
+      If developers, testers or analysts size different parts of the backlog, add them as teams (up to six) in
+      the Tasks step, or later in Session settings. Each team gets its own join link, so people find their team
+      already picked when they join. They can still choose another one; a team link is a convenience, not a
+      password.
+    </p>
+    <ul>
+      <li><strong>Choose who estimates a task.</strong> End a pasted line with a tag such as <code>#qa</code>, use
+        “Estimated by” next to the add form, or open a task’s menu. Only that team gets the cards; everyone
+        else sees “QA is estimating this task. You can follow along.”</li>
+      <li><strong>Compare teams.</strong> On a task for everyone, the results also show each team’s median and
+        number of votes, never names. In anonymous sessions this is hidden when a team has only one vote, so
+        nobody’s card can be worked out.</li>
+      <li><strong>Move people.</strong> In the People list, open a person’s menu to change their team, make them a
+        spectator or a voter, make them a co-host, or remove them.</li>
+    </ul>
+
     <h2 id="privacy">Privacy in one paragraph</h2>
     <p>
       Backlogfit uses no cookies, no tracking and no third-party services. The secret part of the links is
