@@ -8,6 +8,7 @@
   import CopyField from '#lib/components/CopyField.svelte';
   import Icon from '#lib/components/Icon.svelte';
   import QR from '#lib/components/QR.svelte';
+  import SortableList from '#lib/components/SortableList.svelte';
   import Stepper from '#lib/components/Stepper.svelte';
   import Toasts from '#lib/components/Toasts.svelte';
   import { setColor } from '#lib/config/chips.ts';
@@ -26,19 +27,23 @@
     withPreset,
   } from '#lib/config/draft.ts';
   import { downloadText } from '#lib/download.ts';
+  import {
+    AGENDA_MAX,
+    type AgendaItem,
+    agendaErrorText,
+    moveItem,
+    parseAgenda,
+    savePrepared,
+    splitLines,
+  } from '#lib/room/agenda.ts';
   import { CREATE_ERROR_TEXT, CreateRoomError, createRoomOnServer } from '#lib/room/create.ts';
   import { createDemoRoom } from '#lib/room/demo.ts';
   import { type RoomLink, roomUrls } from '#lib/room/link.ts';
-  import { localStore } from '#lib/room/storage.ts';
+  import { localStore, sessionStore } from '#lib/room/storage.ts';
   import Seo from '#lib/seo/Seo.svelte';
   import { toasts } from '#lib/toast.svelte.ts';
 
-  const STEPS = [
-    'Estimation scale',
-    'Task identifiers',
-    'Session rules',
-    'Review & create',
-  ] as const;
+  const STEPS = ['Estimation scale', 'Tasks', 'Session rules', 'Review & create'] as const;
   const CHOICES: { id: ScaleChoice; name: string; hint: string }[] = [
     {
       id: 'fibonacci',
@@ -72,8 +77,28 @@
   let fileInput: HTMLInputElement | undefined = $state();
   let heading: HTMLHeadingElement | undefined = $state();
   let forceDemo = $state(false);
+  // Prepared task lines. Kept out of the draft so they never land in presets or localStorage.
+  let agenda = $state<string[]>([]);
+  let agendaText = $state('');
 
   const errors = $derived(draftErrors(draft));
+  const parseOpts = $derived.by(() => {
+    const c = toRoomConfig(draft);
+    return c
+      ? {
+          policy: c.taskPolicy,
+          allowlist: c.allowlist,
+          idPattern: c.idPattern,
+          linkTemplate: c.linkTemplate,
+        }
+      : { policy: draft.taskPolicy, allowlist: draft.allowlist };
+  });
+  const agendaItems = $derived(parseAgenda(agenda, parseOpts));
+  const validLines = $derived(agendaItems.filter((i) => i.task !== null).map((i) => i.line));
+  const invalidCount = $derived(agendaItems.length - validLines.length);
+  const idSettingsChanged = $derived(
+    draft.idPattern.trim() !== '' || draft.linkTemplate.trim() !== '' || draft.taskPolicy !== 'ids',
+  );
   const stepErrors = $derived.by(() => {
     if (step === 0) return errors.scale ? [errors.scale] : [];
     if (step === 1)
@@ -118,6 +143,16 @@
     if (entries.length) draft.allowlist = [...draft.allowlist, ...entries].slice(0, 50);
     allowInput = '';
   }
+
+  function addAgenda() {
+    const lines = splitLines(agendaText);
+    if (lines.length === 0) return;
+    agenda = [...new Set([...agenda, ...lines])].slice(0, AGENDA_MAX);
+    agendaText = '';
+  }
+
+  const itemLabel = (i: AgendaItem) =>
+    i.task ? [i.task.key, i.task.title].filter(Boolean).join(' ') || i.line : i.line;
 
   function exportPreset() {
     const json = presetFileJson(draft, 'Backlogfit preset');
@@ -166,6 +201,7 @@
           })
         : (await createRoomOnServer(input)).link;
       saveLastDraft(localStore(), draft);
+      savePrepared(sessionStore(), link.roomId, validLines);
       created = { link, demo };
       focusHeading();
     } catch (err) {
@@ -181,6 +217,7 @@
     created = null;
     step = 0;
     draft = defaultDraft();
+    agenda = [];
   }
 
   const policyText = {
@@ -271,6 +308,61 @@
           {/if}
         {:else if step === 1}
           <div class="group">
+            <p class="intro muted">Prepare the tasks you want to estimate, in the order you want to go through them. This is optional: you can also add tasks in the room at any time.</p>
+            <div class="field">
+              <label class="field-label" for="agenda-input">Tasks to estimate <span class="muted">(optional)</span></label>
+              <textarea
+                id="agenda-input"
+                class="textarea"
+                rows="4"
+                bind:value={agendaText}
+                placeholder={'SCP-3655 Fix login timeout\nSCP-3656 Export to PDF'}
+                aria-describedby="agenda-hint"
+                onkeydown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); addAgenda(); } }}
+                data-testid="agenda-input"
+              ></textarea>
+              <p class="field-hint" id="agenda-hint">One task per line: an ID like SCP-3655, optionally followed by a title. Paste straight from a spreadsheet or your tracker.</p>
+              <div>
+                <Button icon="plus" onclick={addAgenda} disabled={agendaText.trim() === ''} data-testid="agenda-add">Add to list</Button>
+              </div>
+            </div>
+
+            {#if agendaItems.length > 0}
+              <div class="agenda">
+                <div class="agenda-head">
+                  <h2 class="sub">Your list <span class="muted">({agendaItems.length})</span></h2>
+                  <Button size="sm" variant="ghost" onclick={() => (agenda = [])} data-testid="agenda-clear">Clear list</Button>
+                </div>
+                <p class="field-hint">Drag or use the arrows to reorder. In the room, Next follows this order, and you can still pick any task or add new ones.</p>
+                <SortableList
+                  items={agendaItems}
+                  key={(i) => i.line}
+                  label={itemLabel}
+                  onmove={(from, to) => (agenda = moveItem(agenda, from, to))}
+                  onremove={(idx) => (agenda = agenda.filter((_, j) => j !== idx))}
+                  listLabel="Prepared tasks, in order"
+                  itemTestId="agenda-item"
+                  rowClass={(i) => (i.error ? 'invalid' : '')}
+                >
+                  {#snippet row(item)}
+                    {#if item.task}
+                      {#if item.task.key}<span class="a-key">{item.task.key}</span>{/if}
+                      <span class="a-title">{item.task.title ?? (item.task.key ? '' : item.line)}</span>
+                    {:else}
+                      <span class="a-title">{item.line}</span>
+                      <span class="a-error"><Icon name="alert" size={14} /> {agendaErrorText(item.error ?? 'empty')}</span>
+                    {/if}
+                  {/snippet}
+                </SortableList>
+                {#if invalidCount > 0}
+                  <p class="error">{invalidCount === 1 ? '1 line' : `${invalidCount} lines`} will be skipped. Fix or remove {invalidCount === 1 ? 'it' : 'them'}, or change the link settings below.</p>
+                {/if}
+              </div>
+            {/if}
+
+            <details class="advanced" open={idSettingsChanged}>
+              <summary>Task IDs and links</summary>
+              <div class="group">
             <div class="field">
               <label class="field-label" for="id-pattern">Task ID format <span class="muted">(optional)</span></label>
               <input id="id-pattern" class="input mono" bind:value={draft.idPattern} placeholder={DEFAULT_ID_PATTERN} aria-describedby="id-pattern-hint" data-testid="setting-id-pattern" />
@@ -320,9 +412,13 @@
                 {#if showErrors && errors.allowlist}<p class="error">{errors.allowlist}</p>{/if}
               </div>
             {/if}
+              </div>
+            </details>
           </div>
         {:else if step === 2}
           <div class="group">
+            <section class="section" aria-labelledby="sec-time">
+            <h2 class="sub" id="sec-time">Time</h2>
             <div class="row2">
               <div class="field">
                 <label class="field-label" for="expiry">Session length</label>
@@ -341,7 +437,10 @@
                 <p class="field-hint">The host starts it when needed.</p>
               </div>
             </div>
+            </section>
 
+            <section class="section" aria-labelledby="sec-vote">
+            <h2 class="sub" id="sec-vote">Voting</h2>
             <label class="check">
               <input type="checkbox" bind:checked={draft.autoReveal} data-testid="setting-auto-reveal" />
               <span class="check-text"><span>Reveal automatically</span><span class="field-hint">Show the cards as soon as everyone has voted.</span></span>
@@ -350,6 +449,10 @@
               <input type="checkbox" bind:checked={draft.anonymousAfterReveal} data-testid="setting-anonymous" />
               <span class="check-text"><span>Anonymous results</span><span class="field-hint">Show the votes without names, so nobody feels put on the spot.</span></span>
             </label>
+            </section>
+
+            <section class="section" aria-labelledby="sec-join">
+            <h2 class="sub" id="sec-join">Who can join</h2>
             <label class="check">
               <input type="checkbox" bind:checked={draft.allowSpectators} data-testid="setting-spectators" />
               <span class="check-text"><span>Allow spectators</span><span class="field-hint">Stakeholders can watch without voting.</span></span>
@@ -358,22 +461,21 @@
               <input type="checkbox" bind:checked={draft.lobby} data-testid="setting-lobby" />
               <span class="check-text"><span>Approve people before they join</span><span class="field-hint">You let each person in from a waiting list.</span></span>
             </label>
-
-            <div class="row2">
-              <div class="field">
-                <label class="field-label" for="passcode">Passcode <span class="muted">(optional)</span></label>
-                <input id="passcode" class="input" type="text" bind:value={draft.passcode} maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="pass-hint" data-testid="setting-passcode" />
-                <p class="field-hint" id="pass-hint">Tell it to people out loud. It is never saved in presets.</p>
-              </div>
-              <div class="field">
-                <label class="field-label" for="maxp">Maximum people</label>
-                <input id="maxp" class="input" type="number" min="2" max="500" bind:value={draft.maxParticipants} data-testid="setting-max-participants" />
-                {#if showErrors && errors.maxParticipants}<p class="error">{errors.maxParticipants}</p>{/if}
-              </div>
+            <div class="field">
+              <label class="field-label" for="passcode">Passcode <span class="muted">(optional)</span></label>
+              <input id="passcode" class="input narrow" type="text" bind:value={draft.passcode} maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="pass-hint" data-testid="setting-passcode" />
+              <p class="field-hint" id="pass-hint">An extra word people type to join. Tell it out loud; it is never saved in presets.</p>
             </div>
+            <div class="field">
+              <label class="field-label" for="maxp">Maximum people</label>
+              <input id="maxp" class="input number" type="number" min="2" max="500" inputmode="numeric" bind:value={draft.maxParticipants} aria-describedby="maxp-hint" data-testid="setting-max-participants" />
+              <p class="field-hint" id="maxp-hint">Including you. Between 2 and 500.</p>
+              {#if showErrors && errors.maxParticipants}<p class="error">{errors.maxParticipants}</p>{/if}
+            </div>
+            </section>
 
-            <fieldset class="field">
-              <legend class="field-label">Look for everyone</legend>
+            <fieldset class="field section">
+              <legend class="sub">Look for everyone</legend>
               <div class="inline">
                 {#each ['corporate', 'colorful'] as const as t (t)}
                   <label class="check">
@@ -389,6 +491,7 @@
             <h2 class="sub">Summary</h2>
             <dl class="summary">
               <div><dt>Cards</dt><dd>{draft.scale.map((c) => c.value).join('  ')}</dd></div>
+              <div><dt>Tasks</dt><dd data-testid="summary-tasks">{validLines.length === 0 ? 'None prepared. You can add tasks in the room.' : `${validLines.length} prepared, added when you open the room from this tab`}{invalidCount > 0 ? ` (${invalidCount} skipped)` : ''}</dd></div>
               <div><dt>Task links</dt><dd>{draft.taskPolicy === 'ids' ? 'IDs only' : draft.taskPolicy === 'links' ? 'Links allowed' : `Only ${draft.allowlist.join(', ')}`}{draft.linkTemplate ? `, IDs link to ${draft.linkTemplate}` : ''}</dd></div>
               <div><dt>Length</dt><dd>{draft.lifetimeHours} {draft.lifetimeHours === 1 ? 'hour' : 'hours'}, then everything is deleted</dd></div>
               <div><dt>Reveal</dt><dd>{draft.autoReveal ? 'Automatically when everyone has voted' : 'When you press Reveal'}{draft.anonymousAfterReveal ? ', without names' : ', with names'}</dd></div>
@@ -512,6 +615,113 @@
 
   .intro {
     margin-bottom: var(--space-1);
+  }
+
+  .section {
+    display: grid;
+    gap: var(--space-3);
+    border: 0;
+    margin: 0;
+    padding: 0 0 var(--space-5);
+    min-width: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .section:last-of-type {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .section legend {
+    padding: 0;
+    margin-bottom: var(--space-2);
+  }
+
+  .section > .sub {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .narrow {
+    max-width: 20rem;
+  }
+
+  .number {
+    max-width: 8rem;
+  }
+
+  .agenda {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .agenda-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .agenda :global(.row.invalid) {
+    border-color: var(--color-danger);
+    background: var(--color-danger-soft);
+  }
+
+  .a-key {
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .a-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .a-error {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    color: var(--color-danger);
+    font-size: var(--text-sm);
+  }
+
+  .advanced {
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--space-4);
+  }
+
+  .advanced summary {
+    cursor: pointer;
+    min-height: var(--target-min);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-weight: var(--weight-semibold);
+    color: var(--color-accent);
+  }
+
+  .advanced summary::before {
+    content: '';
+    width: 0.5em;
+    height: 0.5em;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform var(--motion-fast, 120ms) ease;
+  }
+
+  .advanced[open] summary::before {
+    transform: rotate(45deg);
+  }
+
+  .advanced[open] summary {
+    margin-bottom: var(--space-4);
   }
 
   .choices {
