@@ -13,3 +13,8 @@ playwright-report/
 .DS_Store
 *.sqlite
 *.db
+
+# Local working notes, not part of the app
+PLAN.md
+coordination/
+*.tmp.ts
