@@ -55,12 +55,9 @@ test('lock: new joins are refused while locked, allowed after unlock', async ({ 
   const late = await people.open();
   await late.page.goto(room.joinLink);
   await submitJoin(late.page, 'Late', { expect: 'none' });
-  await expect(
-    id(late.page, 'room-closed')
-      .or(id(late.page, 'toast'))
-      .or(late.page.getByRole('alert'))
-      .first(),
-  ).toBeVisible();
+  const closed = id(late.page, 'room-closed');
+  await expect(closed).toHaveAttribute('data-reason', 'rejected');
+  await expect(closed).toHaveAttribute('data-error', 'room_locked');
   await expect(participant(page, 'Late')).toHaveCount(0);
   // People already inside stay.
   await expect(participant(alice.page, 'Alice')).toBeVisible();
