@@ -12,7 +12,9 @@ import {
 import { hasUnsafeChars, hasVisibleChar } from './text.ts';
 
 export const PRESET_FORMAT = 'backlogfit-preset';
-export const PRESET_VERSION = 1;
+/** Version 2 added teams. Version 1 files are still read (they have no teams). */
+export const PRESET_VERSION = 2;
+export const PRESET_VERSIONS = [1, 2] as const;
 export const PRESET_MAX_BYTES = 64 * 1024;
 export const PRESET_NAME_MAX = 60;
 
@@ -33,7 +35,7 @@ const NameSchema = v.pipe(
 
 export const PresetSchema = v.strictObject({
   format: v.literal(PRESET_FORMAT),
-  v: v.literal(PRESET_VERSION),
+  v: v.picklist(PRESET_VERSIONS),
   name: v.optional(v.nullable(NameSchema), null),
   lifetimeHours: v.optional(v.nullable(v.picklist(LIFETIME_CHOICES_HOURS)), null),
   config: RoomConfigSchema,
@@ -48,8 +50,8 @@ export interface PresetMeta {
 
 /**
  * Accepts a JSON string (size-capped) or an already parsed value. A bare RoomConfig without the
- * envelope is accepted too (treated as an unnamed v1 preset). A preset envelope with another
- * version yields `unsupported_version`.
+ * envelope is accepted too (treated as an unnamed preset). An envelope with a version this build
+ * does not know yields `unsupported_version`.
  */
 export function parsePreset(input: string | unknown): ParseResult<Preset> {
   let data: unknown = input;
@@ -69,11 +71,18 @@ export function parsePreset(input: string | unknown): ParseResult<Preset> {
   const obj = data as Record<string, unknown>;
   if (obj.format === undefined && obj.v === undefined && 'scale' in obj) {
     data = { format: PRESET_FORMAT, v: PRESET_VERSION, config: obj };
-  } else if (obj.format === PRESET_FORMAT && obj.v !== PRESET_VERSION) {
+  } else if (
+    obj.format === PRESET_FORMAT &&
+    !(PRESET_VERSIONS as readonly unknown[]).includes(obj.v)
+  ) {
     return { ok: false, code: 'unsupported_version' };
   }
   const r = v.safeParse(PresetSchema, data);
-  return r.success ? { ok: true, msg: r.output } : { ok: false, code: 'invalid_message' };
+  if (!r.success) return { ok: false, code: 'invalid_message' };
+  if (r.output.v === 1 && r.output.config.teams.length > 0) {
+    return { ok: false, code: 'invalid_message' };
+  }
+  return { ok: true, msg: r.output };
 }
 
 /**
