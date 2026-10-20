@@ -8,7 +8,8 @@
   "scripts": {
     "load": "node src/load.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --test src/*.test.ts"
+    "test": "node --test src/*.test.ts",
+    "flood": "node src/flood.ts"
   },
   "dependencies": {
     "@backlogfit/core": "workspace:*",
