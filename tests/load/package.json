@@ -1,0 +1,21 @@
+{
+  "name": "@backlogfit/load",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WebSocket load test for Backlogfit: N rooms x M clients running full voting rounds.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "load": "node src/load.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test src/*.test.ts"
+  },
+  "dependencies": {
+    "@backlogfit/core": "workspace:*",
+    "ws": "8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.1",
+    "@types/ws": "8.18.2"
+  }
+}
