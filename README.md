@@ -27,8 +27,8 @@ with one container.
 
 ## Features
 
-- **Card decks**: Fibonacci, modified Fibonacci, powers of two, T-shirt sizing, or your own
-  custom scale, plus special cards (`?`, coffee, `∞`). Colorblind-safe palette.
+- **Card decks**: Fibonacci, modified Fibonacci, powers of two, linear 1–10, T-shirt sizing, or
+  your own custom scale, plus special cards (`?`, coffee, `∞`). Colorblind-safe palette.
 - **Facilitation**: task list from pasted IDs or links, next/select task, reveal, re-vote with
   history, final estimate, countdown timer, auto-reveal when everyone has voted.
 - **Team controls**: lobby with approve/deny, optional passcode, lock room, kick, co-facilitators,
