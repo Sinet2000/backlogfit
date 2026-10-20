@@ -2,9 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import type { RoomState } from '@backlogfit/core';
-
-/** RoomState.v this build reads. Rooms live ≤ 24 h, so other versions are dropped, not migrated. */
-export const STATE_VERSION = 1;
+import { readStoredState } from '@backlogfit/host';
 
 export const DB_FILE = 'backlogfit.sqlite';
 
@@ -56,21 +54,9 @@ export class RoomStore {
   loadAll(): RoomState[] {
     const out: RoomState[] = [];
     for (const row of this.#all.all() as { id: string; state: string }[]) {
-      try {
-        const state = JSON.parse(row.state) as RoomState;
-        if (
-          state.v === STATE_VERSION &&
-          state.roomId === row.id &&
-          typeof state.expiresAt === 'number' &&
-          Array.isArray(state.participants)
-        ) {
-          out.push(state);
-          continue;
-        }
-      } catch {
-        // fall through: unreadable row
-      }
-      this.delete(row.id);
+      const state = readStoredState(row.state, row.id);
+      if (state) out.push(state);
+      else this.delete(row.id);
     }
     return out;
   }

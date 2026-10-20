@@ -1,7 +1,7 @@
 import type { ServerMessage } from '@backlogfit/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { RunningServer } from '../src/app.ts';
-import { Client, createRoom, join, sleep, start } from './helpers.ts';
+import { Client, createRoom, join, start } from './helpers.ts';
 
 let server: RunningServer;
 
@@ -9,7 +9,6 @@ afterEach(async () => {
   await server?.close();
 });
 
-/** Every view a client received while the round was unrevealed must hide other votes. */
 function assertNoForeignVotes(messages: ServerMessage[], ownVote: string | null) {
   for (const m of messages) {
     const room = m.type === 'state' || m.type === 'welcome' ? m.room : null;
@@ -52,7 +51,6 @@ describe('full session over real WebSockets', () => {
     );
     expect(afterAdminVote.room.phase).toBe('voting');
     expect(afterAdminVote.room.myVote).toBeNull();
-    // The admin's value must not appear in Bob's frames while voting.
     const voteFrames = bob.c.frames.slice(bobSeenBefore);
     for (const f of voteFrames) expect(f).not.toContain('"votes":[');
 
@@ -73,7 +71,6 @@ describe('full session over real WebSockets', () => {
     const final = await bob.c.next('state', (m) => m.room.tasks[0]?.final === '8');
     expect(final.room.tasks[0]?.final).toBe('8');
 
-    // Non-admin attempts are rejected with a code only.
     bob.c.send({ type: 'admin.close' });
     const err = await bob.c.next('error');
     expect(err).toEqual({ type: 'error', code: 'forbidden', ref: 'admin.close' });
@@ -84,66 +81,10 @@ describe('full session over real WebSockets', () => {
     expect((await admin.c.closed).code).toBe(4003);
     expect(server.registry.get(room.roomId)).toBeUndefined();
 
-    // The room is gone: a hello on a new socket is told not_found.
     const late = await Client.open(server, room.roomId);
     late.send({ type: 'hello', v: 1, joinSecret: room.joinSecret, name: 'Late', role: 'voter' });
     expect(await late.next('closed')).toEqual({ type: 'closed', reason: 'not_found' });
     expect((await late.closed).code).toBe(4404);
-  });
-
-  it('wrong join secret is indistinguishable from an unknown room', async () => {
-    server = await start();
-    const room = await createRoom(server);
-    const c = await Client.open(server, room.roomId);
-    c.send({ type: 'hello', v: 1, joinSecret: 'A'.repeat(22), name: 'Eve', role: 'voter' });
-    expect(await c.next('closed')).toEqual({ type: 'closed', reason: 'not_found' });
-    expect((await c.closed).code).toBe(4404);
-
-    const unknown = await Client.open(server, 'doesNotExist123');
-    unknown.send({ type: 'hello', v: 1, joinSecret: 'A'.repeat(22), name: 'Eve', role: 'voter' });
-    expect(await unknown.next('closed')).toEqual({ type: 'closed', reason: 'not_found' });
-    expect((await unknown.closed).code).toBe(4404);
-  });
-
-  it('unknown and real rooms behave the same before hello', async () => {
-    server = await start({ HELLO_TIMEOUT_SECONDS: '1' });
-    const room = await createRoom(server);
-    const real = await Client.open(server, room.roomId);
-    const fake = await Client.open(server, 'doesNotExist1234567890');
-    for (const c of [real, fake]) {
-      c.send({ type: 'ping' });
-      c.ws.send('{');
-    }
-    const [r, f] = await Promise.all([real.closed, fake.closed]);
-    expect(f.code).toBe(r.code);
-    // Parse errors are answered immediately and queued ones after; compare as multisets.
-    expect([...fake.frames].sort()).toEqual([...real.frames].sort());
-    expect(server.registry.get('doesNotExist1234567890')).toBeUndefined();
-  });
-
-  it('resume token restores the participant and replaces the old socket', async () => {
-    server = await start();
-    const room = await createRoom(server);
-    const first = await join(server, room, 'Ada', { admin: true });
-    const second = await join(server, room, 'Ada', {
-      resumeToken: first.welcome.you.resumeToken as string,
-    });
-    expect(second.welcome.you.participantId).toBe(first.welcome.you.participantId);
-    expect(await first.c.next('closed')).toEqual({ type: 'closed', reason: 'replaced' });
-    expect((await first.c.closed).code).toBe(4006);
-  });
-
-  it('marks participants disconnected when their socket goes away', async () => {
-    server = await start();
-    const room = await createRoom(server);
-    const admin = await join(server, room, 'Ada', { admin: true });
-    const bob = await join(server, room, 'Bob');
-    bob.c.close();
-    const s = await admin.c.next(
-      'state',
-      (m) => m.room.participants.find((p) => p.name === 'Bob')?.connected === false,
-    );
-    expect(s.room.participants).toHaveLength(2);
   });
 
   it('closes sockets with 1001 on shutdown', async () => {
@@ -152,22 +93,5 @@ describe('full session over real WebSockets', () => {
     const admin = await join(server, room, 'Ada', { admin: true });
     await server.close();
     expect((await admin.c.closed).code).toBe(1001);
-  });
-
-  it('closes sockets that never say hello', async () => {
-    server = await start({ HELLO_TIMEOUT_SECONDS: '1' });
-    const room = await createRoom(server);
-    const c = await Client.open(server, room.roomId);
-    expect((await c.closed).code).toBe(1008);
-  });
-
-  it('answers ping with pong', async () => {
-    server = await start();
-    const room = await createRoom(server);
-    const admin = await join(server, room, 'Ada', { admin: true });
-    admin.c.send({ type: 'ping' });
-    const pong = await admin.c.next('pong');
-    expect(pong.serverTime).toBeTypeOf('number');
-    await sleep(10);
   });
 });

@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@backlogfit/core": "workspace:*",
+    "@backlogfit/host": "workspace:*",
     "@backlogfit/security": "workspace:*",
     "@hono/node-server": "2.1.5",
     "hono": "4.13.13",

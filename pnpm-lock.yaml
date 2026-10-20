@@ -23,6 +23,9 @@ importers:
       '@backlogfit/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@backlogfit/host':
+        specifier: workspace:*
+        version: link:../../packages/host
       '@backlogfit/security':
         specifier: workspace:*
         version: link:../../packages/security
@@ -91,6 +94,9 @@ importers:
       '@backlogfit/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@backlogfit/host':
+        specifier: workspace:*
+        version: link:../../packages/host
       '@backlogfit/security':
         specifier: workspace:*
         version: link:../../packages/security
