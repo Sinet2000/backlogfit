@@ -90,7 +90,8 @@ export function createStaticHandler(webDir: string, opts: { sourceMaps?: boolean
 
   return async function serve(urlPath: string): Promise<StaticFile | null> {
     const segments = safeSegments(urlPath);
-    const hidden = !opts.sourceMaps && urlPath.toLowerCase().endsWith('.map');
+    const last = segments?.at(-1) ?? '';
+    const hidden = !opts.sourceMaps && last.toLowerCase().endsWith('.map');
     if (segments !== null && !hidden) {
       const base = join(root, ...segments);
       if (base === root || inside(base)) {

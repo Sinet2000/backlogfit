@@ -114,10 +114,10 @@ describe('static web build', () => {
       expect(csp).toContain("require-trusted-types-for 'script'");
       expect(csp).not.toContain('upgrade-insecure-requests');
       expect(page.headers.get('strict-transport-security')).toBeNull();
-      const map = await fetch(
-        `http://127.0.0.1:${prod.port}/_app/immutable/entry/app.abc123.js.map`,
-      );
-      expect(map.status).toBe(404);
+      for (const path of ['app.abc123.js.map', 'app.abc123.js.map/', 'app.abc123.js.MAP']) {
+        const map = await fetch(`http://127.0.0.1:${prod.port}/_app/immutable/entry/${path}`);
+        expect(map.status, path).toBe(404);
+      }
     } finally {
       await prod.close();
     }
