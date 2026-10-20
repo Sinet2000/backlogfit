@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Backlogfit OG image</title>
+    <style>
+      :root {
+        --ink: #0f172a;
+        --muted: #475569;
+        --bg: #f8fafc;
+        --accent: #31688e;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      html,
+      body {
+        width: 1200px;
+        height: 630px;
+      }
+      body {
+        background: var(--bg);
+        background-image: radial-gradient(circle at 92% 8%, #dbeafe 0, transparent 40%),
+          radial-gradient(circle at 0% 100%, #dcfce7 0, transparent 45%);
+        color: var(--ink);
+        font-family: Inter, "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        display: grid;
+        grid-template-columns: 1fr 430px;
+        align-items: center;
+        padding: 72px 80px;
+        overflow: hidden;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-weight: 700;
+        font-size: 34px;
+        letter-spacing: -0.02em;
+      }
+      .logo {
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #3e4989, #1f9e89 60%, #b5de2b);
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-size: 28px;
+      }
+      h1 {
+        margin-top: 44px;
+        font-size: 64px;
+        line-height: 1.05;
+        letter-spacing: -0.03em;
+        font-weight: 800;
+        max-width: 640px;
+      }
+      p {
+        margin-top: 24px;
+        font-size: 28px;
+        line-height: 1.35;
+        color: var(--muted);
+        max-width: 620px;
+      }
+      .tags {
+        margin-top: 36px;
+        display: flex;
+        gap: 12px;
+      }
+      .tag {
+        font-size: 20px;
+        font-weight: 600;
+        color: var(--accent);
+        border: 2px solid #c7d7e5;
+        border-radius: 999px;
+        padding: 8px 18px;
+        background: #fff;
+      }
+      .deck {
+        position: relative;
+        height: 420px;
+      }
+      .card {
+        position: absolute;
+        width: 175px;
+        height: 250px;
+        border-radius: 22px;
+        display: grid;
+        place-items: center;
+        font-size: 92px;
+        font-weight: 800;
+        box-shadow: 0 18px 40px rgb(15 23 42 / 18%);
+        border: 4px solid #fff;
+      }
+      .c1 {
+        left: 0;
+        top: 90px;
+        transform: rotate(-12deg);
+        background: #3e4989;
+        color: #fff;
+      }
+      .c2 {
+        left: 125px;
+        top: 50px;
+        transform: rotate(-2deg);
+        background: #1f9e89;
+        color: #fff;
+      }
+      .c3 {
+        left: 255px;
+        top: 80px;
+        transform: rotate(10deg);
+        background: #b5de2b;
+        color: #000;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="brand"><span class="logo">✓</span>Backlogfit</div>
+      <h1>{{title}}</h1>
+      <p>{{subtitle}}</p>
+      <div class="tags"><span class="tag">Open source</span><span class="tag">No sign-up</span><span class="tag">Privacy-first</span></div>
+    </main>
+    <div class="deck" aria-hidden="true">
+      <div class="card c1">3</div>
+      <div class="card c2">5</div>
+      <div class="card c3">8</div>
+    </div>
+  </body>
+</html>
