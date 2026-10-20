@@ -22,6 +22,8 @@ export interface CspViolation {
   blockedURI: string;
   sample: string;
   sourceFile: string;
+  /** Start of the offending element's markup, when the browser tells us. */
+  element?: string;
 }
 
 /**
@@ -46,6 +48,13 @@ export class Guard {
   readonly external: string[] = [];
   readonly csp: CspViolation[] = [];
   private readonly allowed: Set<string>;
+  /** Set once the spec body is done: teardown (closing contexts, the runner's own failure
+   * screenshots, which inject a caret-hiding <style> in WebKit) must not count. */
+  private frozen = false;
+
+  freeze(): void {
+    this.frozen = true;
+  }
 
   constructor(baseURL: string) {
     this.allowed = allowedOrigins(baseURL);
@@ -61,10 +70,10 @@ export class Guard {
       } catch {
         return;
       }
-      if (!this.allowed.has(origin)) this.external.push(url);
+      if (!this.frozen && !this.allowed.has(origin)) this.external.push(url);
     });
     await context.exposeBinding('__bfReportCsp', ({ page }, v: Omit<CspViolation, 'page'>) => {
-      this.csp.push({ page: page.url(), ...v });
+      if (!this.frozen) this.csp.push({ page: page.url(), ...v });
     });
     await context.addInitScript(() => {
       document.addEventListener('securitypolicyviolation', (e) => {
@@ -75,6 +84,10 @@ export class Guard {
           blockedURI: e.blockedURI,
           sample: e.sample,
           sourceFile: e.sourceFile,
+          element:
+            e.target instanceof Element
+              ? e.target.outerHTML.slice(0, 160)
+              : String(e.target?.constructor?.name ?? ''),
         });
       });
     });
@@ -139,6 +152,7 @@ export const test = base.extend<{ guard: Guard; people: People; wire: Wire }>({
       const g = new Guard(baseURL ?? 'http://localhost:8080');
       await g.attach(context);
       await use(g);
+      g.freeze();
       g.assertClean();
     },
     { auto: true },
@@ -146,6 +160,7 @@ export const test = base.extend<{ guard: Guard; people: People; wire: Wire }>({
   people: async ({ browser, guard, contextOptions }, use) => {
     const p = new People(browser, guard, contextOptions);
     await use(p);
+    guard.freeze();
     await p.closeAll();
   },
   /** Frames of the default `page` (attach before the first goto). */
