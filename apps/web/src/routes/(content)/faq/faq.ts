@@ -81,7 +81,7 @@ export const FAQ: FaqGroup[] = [
       },
       {
         q: 'Does the self-hosted version need a database?',
-        a: 'No. It uses the SQLite engine built into Node.js, stored in the container's /data volume (DATA_DIR), or only in memory if DATA_DIR is empty. Nothing else is required.',
+        a: 'No. It uses the SQLite engine built into Node.js, stored in the /data volume of the container (DATA_DIR), or only in memory if DATA_DIR is empty. Nothing else is required.',
       },
       {
         q: 'Does it work in an air-gapped network?',
