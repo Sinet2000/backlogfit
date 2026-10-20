@@ -17,8 +17,6 @@
   const uid = $props.id();
   const titleId = `dlg-${uid}`;
 
-  // Native modal <dialog>: the rest of the page becomes inert (focus is trapped), Esc closes it,
-  // and focus goes back to the element that opened it.
   $effect(() => {
     if (!dialog) return;
     if (open && !dialog.open) {
@@ -78,7 +76,7 @@
   }
 
   .dialog::backdrop {
-    background: rgba(10, 14, 20, 0.55);
+    background: var(--backdrop);
   }
 
   .inner {

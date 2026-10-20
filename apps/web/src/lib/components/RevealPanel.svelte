@@ -1,15 +1,15 @@
 <script lang="ts">
   import type { Card as CardT, RoundView } from '@backlogfit/core';
   import { onMount } from 'svelte';
-  import { cardFor, cardName } from '../cards.ts';
-  import { consensusText, formatStat } from '../room/format.ts';
+  import { cardFor, cardName, deckTones, NO_TONE } from '../cards.ts';
+  import { consensusText, formatStat, groupVotes } from '../room/format.ts';
   import Card from './Card.svelte';
+  import DistributionBars from './DistributionBars.svelte';
   import Icon from './Icon.svelte';
 
   interface Props {
     round: RoundView;
     scale: readonly CardT[];
-    /** Flip the cards in on first show (disabled by prefers-reduced-motion via tokens). */
     animate?: boolean;
   }
   let { round, scale, animate = true }: Props = $props();
@@ -25,24 +25,30 @@
   });
 
   const stats = $derived(round.stats);
-  const votes = $derived(round.votes ?? []);
+  const tones = $derived(deckTones(scale));
+  const groups = $derived(groupVotes(round.votes ?? [], scale));
+  const consensus = $derived(stats?.consensus ? consensusText(stats.consensus) : null);
+  const agreed = $derived(stats?.consensus === 'full' && stats.min !== null ? stats.min : null);
+  const range = $derived(
+    !stats || stats.min === null
+      ? '–'
+      : stats.min === stats.max
+        ? stats.min
+        : `${stats.min} – ${stats.max}`,
+  );
   const fallback = (value: string): CardT =>
     cardFor(scale, value) ?? { value, label: value, kind: 'special', color: '#8b8f97' };
-  const maxCount = $derived(
-    Math.max(
-      1,
-      ...(stats?.distribution.map((d) => d.count) ?? [1]),
-      ...(stats?.special.map((d) => d.count) ?? [1]),
-    ),
-  );
-  const consensus = $derived(stats?.consensus ? consensusText(stats.consensus) : null);
-  const specials = $derived(stats?.special.filter((s) => s.count > 0) ?? []);
 </script>
 
 <section class="reveal" data-testid="reveal-results" aria-labelledby="reveal-h">
   <h2 id="reveal-h" class="visually-hidden">Results of round {round.n}</h2>
 
-  {#if consensus && stats?.consensus}
+  {#if agreed !== null}
+    <p class="consensus full" data-testid="consensus" data-level="full">
+      <Icon name="equal" size={22} />
+      <span><strong>Everyone voted {agreed}.</strong></span>
+    </p>
+  {:else if consensus && stats?.consensus}
     <p class="consensus {stats.consensus}" data-testid="consensus" data-level={stats.consensus}>
       <Icon name={consensus.icon} size={22} />
       <span><strong>{consensus.title}</strong> <span class="why">{consensus.detail}</span></span>
@@ -54,68 +60,59 @@
     </p>
   {/if}
 
-  <ul class="cards" aria-label="Votes">
-    {#each votes as v, i (v.participantId ?? `anon-${i}`)}
-      <li
-        data-testid="reveal-card"
-        data-name={round.anonymous ? '' : (v.name ?? '')}
-        data-value={v.value}
-        aria-label="{round.anonymous ? 'Anonymous' : v.name}: {cardName(fallback(v.value))}"
-      >
-        <Card card={fallback(v.value)} {faceUp} caption={round.anonymous ? '' : (v.name ?? '')} />
+  <ul class="cards" aria-label="Votes, lowest first">
+    {#each groups as g (g.value)}
+      {@const card = fallback(g.value)}
+      <li class="group" class:stack={g.votes.length > 1} data-testid="reveal-group" data-value={g.value}>
+        <span class="card-wrap">
+          <Card {card} tone={tones.get(g.value) ?? NO_TONE} {faceUp} />
+          {#if g.votes.length > 1}<span class="count" aria-hidden="true">×{g.votes.length}</span>{/if}
+        </span>
+        <span class="visually-hidden">{cardName(card)}: {g.votes.length} {g.votes.length === 1 ? 'vote' : 'votes'}</span>
+        <ul class="names">
+          {#each g.votes as v, i (v.participantId ?? `anon-${i}`)}
+            <li
+              data-testid="reveal-card"
+              data-name={round.anonymous ? '' : (v.name ?? '')}
+              data-value={v.value}
+              class:anon={round.anonymous}
+            >
+              {round.anonymous ? '' : (v.name ?? '')}
+            </li>
+          {/each}
+        </ul>
       </li>
     {:else}
       <li class="empty muted">Nobody voted in this round.</li>
     {/each}
   </ul>
 
-  {#if stats && stats.total > 0}
+  {#if stats && stats.total > 0 && agreed === null}
     <div class="grid">
-      <dl class="stats">
-        <div>
-          <dt>Median</dt>
-          <dd data-testid="stat-median">{formatStat(stats, 'median')}</dd>
-        </div>
-        <div>
-          <dt>Most common</dt>
-          <dd data-testid="stat-mode">{stats.mode.length ? stats.mode.join(', ') : '–'}</dd>
-        </div>
-        <div>
-          <dt>Average</dt>
-          <dd data-testid="stat-average">{formatStat(stats, 'average')}</dd>
-        </div>
-        <div>
-          <dt>Range</dt>
-          <dd data-testid="stat-range">
-            {stats.min === null ? '–' : stats.min === stats.max ? stats.min : `${stats.min} – ${stats.max}`}
-          </dd>
-        </div>
-      </dl>
-
-      <div class="dist">
-        <h3 class="dist-h">Distribution</h3>
-        <ul class="bars">
-          {#each stats.distribution.filter((d) => d.count > 0) as d (d.value)}
-            {@const c = fallback(d.value)}
-            <li>
-              <span class="bar-label">{d.value}</span>
-              <span class="track" aria-hidden="true">
-                <span class="fill" style:--pct="{(d.count / maxCount) * 100}%" style:--card-color={c.color}></span>
-              </span>
-              <span class="bar-count">{d.count} {d.count === 1 ? 'vote' : 'votes'}</span>
-            </li>
-          {/each}
-          {#each specials as s (s.value)}
-            <li class="special">
-              <span class="bar-label">{s.value}</span>
-              <span class="track" aria-hidden="true">
-                <span class="fill" style:--pct="{(s.count / maxCount) * 100}%"></span>
-              </span>
-              <span class="bar-count">{s.count} × {cardName(fallback(s.value))}</span>
-            </li>
-          {/each}
-        </ul>
+      <div class="numbers">
+        <dl class="stats">
+          <div>
+            <dt>Median</dt>
+            <dd data-testid="stat-median">{formatStat(stats, 'median')}</dd>
+          </div>
+          <div>
+            <dt>Average</dt>
+            <dd data-testid="stat-average">{formatStat(stats, 'average')}</dd>
+          </div>
+          <div>
+            <dt>Range</dt>
+            <dd data-testid="stat-range">{range}</dd>
+          </div>
+        </dl>
+        <p class="mode">
+          {#if stats.mode.length === 1}
+            Most common: <strong data-testid="stat-mode">{stats.mode[0]}</strong>
+          {:else}
+            <span data-testid="stat-mode">No common vote</span>
+          {/if}
+        </p>
       </div>
+      <DistributionBars {stats} {scale} />
     </div>
   {/if}
 </section>
@@ -137,7 +134,6 @@
 
   .consensus.full {
     background: var(--color-success-soft);
-    color: var(--color-text);
     border-color: var(--color-success);
   }
 
@@ -172,39 +168,110 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: var(--space-4);
+    gap: var(--space-6);
     list-style: none;
     margin: 0;
     padding: 0;
   }
 
-  .cards li:nth-child(2) :global(.inner) {
+  .group {
+    display: grid;
+    justify-items: center;
+    gap: var(--space-2);
+    max-width: 10rem;
+  }
+
+  .card-wrap {
+    position: relative;
+    display: inline-block;
+  }
+
+  .stack .card-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translate(5px, -5px);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-2);
+  }
+
+  .card-wrap :global(.card) {
+    position: relative;
+  }
+
+  .count {
+    position: absolute;
+    top: -12px;
+    right: -14px;
+    min-width: 28px;
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-full);
+    background: var(--color-text);
+    color: var(--color-surface);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-bold);
+    line-height: 22px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .names {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 2px;
+    text-align: center;
+    font-size: var(--text-sm);
+  }
+
+  .names li {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 10rem;
+  }
+
+  .names li.anon {
+    display: none;
+  }
+
+  .cards li.group:nth-child(2) :global(.inner) {
     transition-delay: 40ms;
   }
 
-  .cards li:nth-child(3) :global(.inner) {
+  .cards li.group:nth-child(3) :global(.inner) {
     transition-delay: 80ms;
   }
 
-  .cards li:nth-child(n + 4) :global(.inner) {
+  .cards li.group:nth-child(n + 4) :global(.inner) {
     transition-delay: 120ms;
   }
 
   .grid {
     display: grid;
     gap: var(--space-6);
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--color-border);
   }
 
-  @media (min-width: 720px) {
+  @media (min-width: 960px) {
     .grid {
-      grid-template-columns: minmax(220px, 1fr) 2fr;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     }
+  }
+
+  .numbers {
+    display: grid;
+    gap: var(--space-3);
+    align-content: start;
   }
 
   .stats {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-3);
     margin: 0;
   }
@@ -225,55 +292,20 @@
     font-size: var(--text-xl);
     font-weight: var(--weight-semibold);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 
-  .dist-h {
+  .mode {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
-    font-weight: var(--weight-medium);
-    margin-bottom: var(--space-2);
   }
 
-  .bars {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: var(--space-2);
+  .mode strong {
+    color: var(--color-text);
   }
 
-  .bars li {
-    display: grid;
-    grid-template-columns: 3ch 1fr auto;
-    align-items: center;
-    gap: var(--space-3);
-  }
-
-  .bar-label {
-    font-weight: var(--weight-semibold);
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .track {
-    height: 14px;
-    border-radius: var(--radius-full);
-    background: var(--color-surface-2);
-    overflow: hidden;
-  }
-
-  .fill {
-    display: block;
-    height: 100%;
-    width: var(--pct);
-    min-width: 6px;
-    border-radius: var(--radius-full);
-    background: var(--card-color, var(--color-border-strong));
-  }
-
-  .bar-count {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
+  :global(:root[data-mode='contrast']) .stats div {
+    border: 1px solid var(--color-border);
   }
 
   @media print {

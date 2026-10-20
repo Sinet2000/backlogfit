@@ -3,16 +3,23 @@
   import type { Snippet } from 'svelte';
   import SiteFooter from '#lib/components/SiteFooter.svelte';
   import SiteHeader from '#lib/components/SiteHeader.svelte';
+  import { page } from '$app/state';
 
   let { children }: { children: Snippet } = $props();
+
+  const focused = $derived(/^\/(new|r)\/?$/.test(page.url.pathname));
 </script>
 
-<a class="skip-link" href="#main">Skip to content</a>
-<SiteHeader />
-<main id="main" tabindex="-1">
+{#if focused}
   {@render children()}
-</main>
-<SiteFooter />
+{:else}
+  <a class="skip-link" href="#main">Skip to content</a>
+  <SiteHeader />
+  <main id="main" tabindex="-1">
+    {@render children()}
+  </main>
+  <SiteFooter />
+{/if}
 
 <style>
   main {

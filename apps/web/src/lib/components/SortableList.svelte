@@ -1,21 +1,20 @@
 <script lang="ts" generics="T">
   import type { Snippet } from 'svelte';
-  import IconButton from './IconButton.svelte';
+  import MenuButton, { type MenuItem } from './MenuButton.svelte';
 
   interface Props {
     items: readonly T[];
     key: (item: T) => string;
-    /** Accessible name of an item, used in the move/remove button labels. */
     label: (item: T) => string;
     onmove: (from: number, to: number) => void;
     onremove?: (index: number) => void;
     row: Snippet<[T, number]>;
     actions?: Snippet<[T, number]>;
+    extraItems?: (item: T, index: number) => MenuItem[];
     rowClass?: (item: T) => string;
     listLabel: string;
     itemTestId?: string;
     removeTestId?: string;
-    /** Extra data-* attributes per row (test hooks). */
     itemAttrs?: (item: T) => Record<`data-${string}`, string>;
   }
   let {
@@ -26,6 +25,7 @@
     onremove,
     row,
     actions,
+    extraItems,
     rowClass,
     listLabel,
     itemTestId = 'sortable-item',
@@ -33,13 +33,42 @@
     itemAttrs,
   }: Props = $props();
 
-  // Pointer drag-and-drop; the move buttons cover keyboard, touch and screen readers.
   let dragFrom = $state<number | null>(null);
   let dragOver = $state<number | null>(null);
 
   function reset() {
     dragFrom = null;
     dragOver = null;
+  }
+
+  function menuFor(item: T, i: number): MenuItem[] {
+    const out: MenuItem[] = [
+      ...(extraItems?.(item, i) ?? []),
+      {
+        label: 'Move up',
+        icon: 'up',
+        disabled: i === 0,
+        onselect: () => onmove(i, i - 1),
+        testid: 'move-up',
+      },
+      {
+        label: 'Move down',
+        icon: 'down',
+        disabled: i === items.length - 1,
+        onselect: () => onmove(i, i + 1),
+        testid: 'move-down',
+      },
+    ];
+    if (onremove) {
+      out.push({
+        label: 'Remove',
+        icon: 'trash',
+        danger: true,
+        onselect: () => onremove(i),
+        testid: removeTestId,
+      });
+    }
+    return out;
   }
 </script>
 
@@ -74,16 +103,12 @@
       data-testid={itemTestId}
       {...itemAttrs?.(item)}
     >
-      <span class="grip" aria-hidden="true" title="Drag to reorder">⋮⋮</span>
+      <span class="grip" aria-hidden="true" title="Drag to change the order">⋮⋮</span>
       <span class="num" aria-hidden="true">{i + 1}</span>
       <span class="content">{@render row(item, i)}</span>
       <span class="tools">
         {@render actions?.(item, i)}
-        <IconButton icon="up" size="sm" label="Move {label(item)} up" disabled={i === 0} onclick={() => onmove(i, i - 1)} data-testid="move-up" />
-        <IconButton icon="down" size="sm" label="Move {label(item)} down" disabled={i === items.length - 1} onclick={() => onmove(i, i + 1)} data-testid="move-down" />
-        {#if onremove}
-          <IconButton icon="trash" size="sm" variant="danger" label="Remove {label(item)}" onclick={() => onremove(i)} data-testid={removeTestId} />
-        {/if}
+        <MenuButton label="Actions for {label(item)}" items={menuFor(item, i)} size="sm" testid="row-menu" />
       </span>
     </li>
   {/each}
@@ -96,19 +121,23 @@
     padding: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-1);
+    gap: 2px;
   }
 
   .row {
+    position: relative;
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2);
-    min-height: 44px;
-    padding: var(--space-1) var(--space-2);
+    min-height: var(--target-min);
+    padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1);
     border: 1px solid transparent;
     border-radius: var(--radius-md);
-    background: var(--color-surface);
+  }
+
+  .row:hover,
+  .row:focus-within {
+    background: var(--color-surface-2);
   }
 
   .row:global(.current) {
@@ -117,10 +146,6 @@
 
   .row:global(.done) .content {
     color: var(--color-text-muted);
-  }
-
-  .row:hover .grip {
-    color: var(--color-text);
   }
 
   .row.over {
@@ -133,10 +158,16 @@
   }
 
   .grip {
+    width: 12px;
     cursor: grab;
     color: var(--color-text-muted);
     letter-spacing: -2px;
     user-select: none;
+    visibility: hidden;
+  }
+
+  .row:hover .grip {
+    visibility: visible;
   }
 
   .num {
@@ -144,10 +175,11 @@
     color: var(--color-text-muted);
     font-size: var(--text-sm);
     font-variant-numeric: tabular-nums;
+    text-align: right;
   }
 
   .content {
-    flex: 1 1 8rem;
+    flex: 1 1 auto;
     min-width: 0;
     display: flex;
     align-items: center;
@@ -157,7 +189,31 @@
   .tools {
     display: inline-flex;
     align-items: center;
-    margin-left: auto;
+    gap: var(--space-1);
+    flex: none;
+  }
+
+  @media (hover: hover) {
+    .tools {
+      position: absolute;
+      top: 50%;
+      right: var(--space-1);
+      padding-left: var(--space-2);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface-2);
+      transform: translateY(-50%);
+      opacity: 0;
+    }
+
+    .row:global(.current) .tools {
+      background: var(--color-accent-soft);
+    }
+
+    .row:hover .tools,
+    .row:focus-within .tools,
+    .tools:has(:global([aria-expanded='true'])) {
+      opacity: 1;
+    }
   }
 
   @media (pointer: coarse) {

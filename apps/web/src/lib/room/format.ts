@@ -1,7 +1,7 @@
-import type { Stats } from '@backlogfit/core';
+import type { Card, Stats, VoteView } from '@backlogfit/core';
 import type { IconName } from '../components/Icon.svelte';
 
-/** Median/average as a scale value for ordinal (t-shirt) decks, rounded number otherwise. */
+/** Median or average: a card value for ordinal (t-shirt) decks, a rounded number otherwise. */
 export function formatStat(stats: Stats, key: 'median' | 'average'): string {
   const n = stats[key];
   if (n === null) return '–';
@@ -21,8 +21,8 @@ export function consensusText(level: 'full' | 'near' | 'split'): {
       return { title: 'Close.', detail: 'All votes are within one step.', icon: 'approx' };
     case 'split':
       return {
-        title: 'Split.',
-        detail: 'Ask the highest and lowest voters to explain, then vote again.',
+        title: 'Votes differ.',
+        detail: 'Ask the highest and lowest voter why, then vote again.',
         icon: 'split',
       };
   }
@@ -35,7 +35,25 @@ export function formatClock(ms: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-/** "1 h 20 min" style remaining time for session expiry. */
+export interface VoteGroup {
+  value: string;
+  votes: VoteView[];
+}
+
+/** Votes grouped by value, lowest first; special cards and unknown values go last. */
+export function groupVotes(votes: readonly VoteView[], scale: readonly Card[]): VoteGroup[] {
+  const order = new Map(scale.map((c, i) => [c.value, c.kind === 'special' ? 1e6 + i : i]));
+  const groups = new Map<string, VoteView[]>();
+  for (const v of votes) groups.set(v.value, [...(groups.get(v.value) ?? []), v]);
+  return [...groups]
+    .map(([value, vs]) => ({ value, votes: vs }))
+    .sort((a, b) => (order.get(a.value) ?? 1e9) - (order.get(b.value) ?? 1e9));
+}
+
+export function formatEndTime(at: number): string {
+  return new Date(at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
 export function formatRemaining(ms: number): string {
   if (ms < 60_000) return 'less than a minute';
   const min = Math.round(ms / 60_000);

@@ -2,8 +2,8 @@
   import Dialog from '../components/Dialog.svelte';
   import { SHORTCUT_HELP } from '../room/shortcuts.ts';
 
-  let { open = $bindable(), isFacilitator }: { open: boolean; isFacilitator: boolean } = $props();
-  const rows = $derived(SHORTCUT_HELP.filter((r) => r.who === 'all' || isFacilitator));
+  let { open = $bindable(), isHost }: { open: boolean; isHost: boolean } = $props();
+  const rows = $derived(SHORTCUT_HELP.filter((r) => r.who === 'all' || isHost));
 </script>
 
 <Dialog bind:open title="Keyboard shortcuts" size="sm">

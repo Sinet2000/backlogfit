@@ -1,11 +1,6 @@
-/**
- * Configurator model: the editable draft behind /new, conversion to a RoomConfig (validated by
- * core), saved preset files (JSON, local only) and the "last used" draft in localStorage.
- */
 import {
   buildCustomScale,
   type Card,
-  DEFAULT_ID_PATTERN,
   DEFAULT_LIFETIME_HOURS,
   type ErrorCode,
   ID_PATTERN_MAX_LENGTH,
@@ -23,45 +18,32 @@ import {
   type RoomConfig,
   type RoomConfigInput,
   type ScaleError,
-  SPECIAL_COFFEE,
-  SPECIAL_INFINITY,
-  SPECIAL_UNSURE,
   serializePreset,
   validateLinkTemplate,
   validateScale,
 } from '@backlogfit/core';
 import type { KeyValueStore } from '../room/storage.ts';
+import { STORAGE_KEYS } from '../storage-keys.ts';
 
 export type ScaleChoice = PresetId | 'custom';
 export type { LifetimeHours };
 export const LIFETIMES: readonly LifetimeHours[] = LIFETIME_CHOICES_HOURS;
-export const SPECIALS = [SPECIAL_UNSURE, SPECIAL_COFFEE, SPECIAL_INFINITY] as const;
-
-export const SPECIAL_NAMES: Record<string, string> = {
-  [SPECIAL_UNSURE]: 'Unclear',
-  [SPECIAL_COFFEE]: 'Coffee break',
-  [SPECIAL_INFINITY]: 'Too big, split it',
-};
 
 export interface Draft {
   scaleChoice: ScaleChoice;
-  /** The deck in order. For presets this is the preset (colors may be edited). */
   scale: Card[];
   taskPolicy: 'ids' | 'links' | 'allowlist';
   allowlist: string[];
-  /** Empty = the default pattern (e.g. SCP-3655). */
   idPattern: string;
-  /** Empty = no links built from IDs. */
   linkTemplate: string;
   autoReveal: boolean;
   anonymousAfterReveal: boolean;
   allowSpectators: boolean;
   lobby: boolean;
-  /** null = no round timer. */
   timerSeconds: number | null;
   maxParticipants: number;
   lifetimeHours: LifetimeHours;
-  /** Never saved to files or storage. */
+  /** Never written to preset files or storage. */
   passcode: string;
   theme: 'corporate' | 'colorful';
 }
@@ -93,7 +75,7 @@ export function withPreset(draft: Draft, choice: ScaleChoice): Draft {
   return { ...draft, scaleChoice: choice, scale: presetScale(choice) };
 }
 
-/** Parse chip-editor text like "1, 2, 3, 5, 8, ?" into cards (colors auto-assigned). */
+/** Parses text like "1, 2, 3, 5, 8, ?" into cards with automatic colors. */
 export function scaleFromText(
   text: string,
 ): { ok: true; scale: Card[] } | { ok: false; error: ScaleError } {
@@ -104,7 +86,7 @@ export function scaleFromText(
   return buildCustomScale(values.map((value) => ({ value })));
 }
 
-/** Re-run auto colors over an edited deck (keeps order, values and labels). */
+/** Re-runs automatic colors over an edited deck, keeping order, values and labels. */
 export function recolor(scale: readonly Card[]): Card[] {
   const rebuilt = buildCustomScale(
     scale.map((c) => ({ value: c.value, label: c.label, special: c.kind === 'special' })),
@@ -124,7 +106,6 @@ export const SCALE_ERROR_TEXT: Record<ScaleError, string> = {
   duplicate_numeric: 'Two cards have the same number.',
 };
 
-/** Plain-language rules for ID patterns (matches core's isValidIdPattern). */
 export const ID_PATTERN_HELP =
   'Use letters, digits, \\d (a digit), \\w (a letter or digit), . (any character) and classes like [A-Z], each with at most one count such as + or {1,9}. Groups, | and anchors are not allowed.';
 
@@ -185,27 +166,19 @@ export function toConfigInput(d: Draft): RoomConfigInput {
   };
 }
 
-/** Validated RoomConfig, or null when core rejects the draft. */
+/** The draft as a RoomConfig validated by core, or null when core rejects it. */
 export function toRoomConfig(d: Draft): RoomConfig | null {
   const parsed = parseRoomConfig(toConfigInput(d));
   return parsed.ok ? parsed.msg : null;
 }
 
-/** Example link for the configurator's live preview. */
 export function exampleLink(d: Draft, key = 'SCP-3655'): string | null {
   const tpl = d.linkTemplate.trim();
   if (tpl === '' || !tpl.includes('{id}')) return null;
   return linkFor(tpl, key);
 }
 
-export function exampleIdPattern(d: Draft): string {
-  return d.idPattern.trim() === '' ? DEFAULT_ID_PATTERN : d.idPattern.trim();
-}
-
-// ---------------------------------------------------------------------------------------------
-// Preset files (format, validation and serialization from core)
-
-/** Which preset (if any) a deck is identical to, ignoring colors. */
+/** The preset a deck is identical to (ignoring colors), or 'custom'. */
 export function matchPreset(scale: readonly Card[]): ScaleChoice {
   const sig = (cards: readonly Card[]) => cards.map((c) => `${c.kind}:${c.value}`).join('|');
   const target = sig(scale);
@@ -215,7 +188,7 @@ export function matchPreset(scale: readonly Card[]): ScaleChoice {
   return 'custom';
 }
 
-/** JSON for a downloadable preset. The passcode is never included. Null if the draft is invalid. */
+/** Preset file JSON, or null if the draft is invalid. The passcode is never included. */
 export function presetFileJson(d: Draft, name = 'Backlogfit preset'): string | null {
   try {
     return serializePreset(toConfigInput(d), {
@@ -235,7 +208,7 @@ const IMPORT_ERRORS: Partial<Record<ErrorCode, string>> = {
   unsupported_version: 'This preset was made by a newer version of Backlogfit.',
 };
 
-/** Validate an imported preset (or a bare RoomConfig) with core's parsePreset. */
+/** Validates an imported preset file (or a bare RoomConfig). */
 export function parsePresetFile(text: string): PresetImport {
   const parsed = parsePreset(text);
   if (!parsed.ok) {
@@ -265,15 +238,13 @@ export function parsePresetFile(text: string): PresetImport {
   return { ok: true, draft, name: parsed.msg.name ?? 'Imported preset' };
 }
 
-const LAST_KEY = 'bf:last-config';
-
 export function saveLastDraft(store: KeyValueStore, d: Draft): void {
   const json = presetFileJson(d, 'Last used');
-  if (json) store.setItem(LAST_KEY, json);
+  if (json) store.setItem(STORAGE_KEYS.lastConfig, json);
 }
 
 export function loadLastDraft(store: KeyValueStore): Draft | null {
-  const raw = store.getItem(LAST_KEY);
+  const raw = store.getItem(STORAGE_KEYS.lastConfig);
   if (!raw) return null;
   const r = parsePresetFile(raw);
   return r.ok ? r.draft : null;

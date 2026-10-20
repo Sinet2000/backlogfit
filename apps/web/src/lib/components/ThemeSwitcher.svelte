@@ -10,6 +10,8 @@
   } from '../theme.ts';
   import Icon from './Icon.svelte';
 
+  let { compact = false }: { compact?: boolean } = $props();
+
   let open = $state(false);
   let theme = $state<Theme>('corporate');
   let mode = $state<Mode>('system');
@@ -42,13 +44,15 @@
   <button
     type="button"
     class="trigger"
+    class:compact
     aria-expanded={open}
+    title="Theme"
     aria-controls="theme-panel"
     data-testid="theme-switcher"
     onclick={() => (open = !open)}
   >
     <Icon name="palette" />
-    <span class="visually-hidden">Appearance</span>
+    <span class="label">Theme</span>
   </button>
   <div id="theme-panel" class="panel-pop" hidden={!open}>
     <fieldset>
@@ -92,15 +96,53 @@
   }
 
   .trigger {
-    display: inline-grid;
-    place-items: center;
-    width: var(--target-min);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: var(--target-min);
     height: var(--target-min);
+    padding: 0 var(--space-3);
     border: 1px solid transparent;
     border-radius: var(--radius-md);
     background: transparent;
     color: var(--color-text);
     cursor: pointer;
+  }
+
+  .trigger.compact {
+    justify-content: center;
+    min-width: var(--control-md);
+    height: var(--control-md);
+    padding: 0;
+  }
+
+  .compact .label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .label {
+    font-weight: var(--weight-medium);
+  }
+
+  @media (max-width: 640px) {
+    .trigger {
+      justify-content: center;
+      padding: 0;
+    }
+
+    .label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
   }
 
   .trigger:hover,

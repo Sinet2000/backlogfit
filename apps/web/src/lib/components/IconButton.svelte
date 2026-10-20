@@ -4,7 +4,6 @@
 
   type Props = HTMLButtonAttributes & {
     icon: IconName;
-    /** Required accessible name (also shown as tooltip). */
     label: string;
     size?: 'sm' | 'md';
     variant?: 'ghost' | 'secondary' | 'danger';
@@ -27,8 +26,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: var(--target-min);
-    height: var(--target-min);
+    width: var(--control-md);
+    height: var(--control-md);
     padding: 0;
     border: 1px solid transparent;
     border-radius: var(--radius-md);
@@ -39,9 +38,17 @@
   }
 
   .icon-btn.sm {
-    width: 32px;
-    height: 32px;
+    width: var(--control-sm);
+    height: var(--control-sm);
     border-radius: var(--radius-sm);
+  }
+
+  @media (pointer: coarse) {
+    .icon-btn,
+    .icon-btn.sm {
+      width: var(--target-min);
+      height: var(--target-min);
+    }
   }
 
   .icon-btn:hover:not(:disabled) {

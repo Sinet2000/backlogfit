@@ -1,6 +1,6 @@
 import { ERROR_CODES, presetScale } from '@backlogfit/core';
 import { describe, expect, it } from 'vitest';
-import { cardName } from '../src/lib/cards.ts';
+import { cardName, deckTones, hasCustomColors, rampStep } from '../src/lib/cards.ts';
 import {
   addValues,
   autoColor,
@@ -10,9 +10,10 @@ import {
   setColor,
 } from '../src/lib/config/chips.ts';
 import { qrMatrix } from '../src/lib/qr.ts';
-import { consensusText, formatClock, formatRemaining } from '../src/lib/room/format.ts';
+import { consensusText, formatClock, formatRemaining, groupVotes } from '../src/lib/room/format.ts';
 import { endedText, errorText } from '../src/lib/room/messages.ts';
 import { canonicalUrl, serializeJsonLd } from '../src/lib/seo/site.ts';
+import { CARD_STEPS } from '../src/lib/styles/palette.ts';
 
 describe('QR', () => {
   it('encodes a room link as a square path without inline styles or data URLs', () => {
@@ -67,7 +68,36 @@ describe('formatting', () => {
     const names = presetScale('fibonacci')
       .filter((c) => c.kind === 'special')
       .map(cardName);
-    expect(names).toEqual(['Unclear', 'Coffee break', 'Too big, split it']);
+    expect(names).toEqual(['Not sure', 'Break', 'Too big']);
+  });
+
+  it('groups votes by value, lowest first, specials last', () => {
+    const scale = presetScale('fibonacci');
+    const v = (name: string, value: string) => ({ participantId: name, name, value });
+    const groups = groupVotes([v('a', '8'), v('b', '?'), v('c', '3'), v('d', '8')], scale);
+    expect(groups.map((g) => [g.value, g.votes.length])).toEqual([
+      ['3', 1],
+      ['8', 2],
+      ['?', 1],
+    ]);
+  });
+});
+
+describe('card tones', () => {
+  it('maps estimable cards onto the ramp by rank and leaves specials neutral', () => {
+    const tones = deckTones(presetScale('fibonacci'));
+    expect(tones.get('0')).toEqual({ step: 1, custom: null });
+    expect(tones.get('21')).toEqual({ step: CARD_STEPS, custom: null });
+    expect(tones.get('?')).toEqual({ step: null, custom: null });
+    expect(rampStep(0, 1)).toBe(4);
+  });
+
+  it('keeps colours the host picked', () => {
+    const scale = presetScale('tshirt').map((c, i) => (i === 2 ? { ...c, color: '#123456' } : c));
+    expect(deckTones(scale).get('M')?.custom).toBe('#123456');
+    expect(deckTones(scale).get('S')?.custom).toBeNull();
+    expect(hasCustomColors(scale)).toBe(true);
+    expect(hasCustomColors(presetScale('tshirt'))).toBe(false);
   });
 });
 
@@ -82,6 +112,12 @@ describe('messages', () => {
       expect(endedText(r, null).body).toContain('deleted automatically');
     }
     expect(endedText('rejected', 'room_locked').body).toContain('locked');
+  });
+
+  it('does not call a malformed link an ended session', () => {
+    const t = endedText('invalid_link', null);
+    expect(t.title).not.toMatch(/ended/i);
+    expect(t.body).toContain('#');
   });
 });
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Card, TaskView } from '@backlogfit/core';
+  import type { TaskView } from '@backlogfit/core';
   import Icon from '../components/Icon.svelte';
   import { formatStat } from '../room/format.ts';
 
@@ -7,7 +7,6 @@
     task: TaskView;
     round: number | null;
     phase: 'idle' | 'voting' | 'revealed';
-    scale: readonly Card[];
   }
   let { task, round, phase }: Props = $props();
 
@@ -28,12 +27,13 @@
     for (const v of votes ?? []) counts.set(v.value, (counts.get(v.value) ?? 0) + 1);
     return [...counts].map(([v, n]) => `${n}× ${v}`).join(', ') || 'no votes';
   };
+  const AGREEMENT = { full: 'agreed', near: 'close', split: 'votes differed' } as const;
 </script>
 
 <section class="current" data-testid="current-task" data-key={task.key ?? ''} aria-labelledby="task-h">
   <div class="meta">
     <span class="status {phase}">
-      {phase === 'voting' ? 'Voting' : phase === 'revealed' ? 'Revealed' : 'Waiting'}
+      {phase === 'voting' ? 'Voting' : phase === 'revealed' ? 'Votes revealed' : 'Waiting'}
     </span>
     {#if round !== null}<span class="muted">Round {round}</span>{/if}
     {#if task.final !== null}<span class="final"><Icon name="flag" size={14} /> Final: {task.final}</span>{/if}
@@ -54,7 +54,7 @@
         {#each earlier as r (r.n)}
           <li>
             Round {r.n}: {summary(r.votes)}{#if r.stats && r.stats.median !== null}
-              · median {formatStat(r.stats, 'median')}{/if}{#if r.stats?.consensus} · {r.stats.consensus}{/if}
+              · median {formatStat(r.stats, 'median')}{/if}{#if r.stats?.consensus} · {AGREEMENT[r.stats.consensus]}{/if}
           </li>
         {/each}
       </ol>
@@ -77,7 +77,8 @@
   }
 
   .status {
-    padding: 2px var(--space-2);
+    padding: 0 var(--space-2);
+    line-height: 24px;
     border-radius: var(--radius-full);
     background: var(--color-surface-2);
     font-weight: var(--weight-semibold);

@@ -1,101 +1,74 @@
 <script lang="ts">
-  import type { RoomView } from '@backlogfit/core';
   import { onMount } from 'svelte';
   import Button from '../components/Button.svelte';
-  import Dialog from '../components/Dialog.svelte';
-  import { formatRemaining } from '../room/format.ts';
-  import type { RoomStore } from '../room/room.svelte.ts';
+  import Icon from '../components/Icon.svelte';
+  import PanelHeader from '../components/PanelHeader.svelte';
+  import { formatEndTime, formatRemaining } from '../room/format.ts';
+  import { useRoom, viewOf } from './context.ts';
 
-  let {
-    room,
-    view,
-    onsettings,
-    oninvite,
-  }: { room: RoomStore; view: RoomView; onsettings: () => void; oninvite: () => void } = $props();
+  let { onsettings }: { onsettings: () => void } = $props();
 
+  const room = useRoom();
+  const view = $derived(viewOf(room));
   let now = $state(0);
-  let confirmClose = $state(false);
+
   onMount(() => {
     now = room.serverNow();
     const id = setInterval(() => (now = room.serverNow()), 15_000);
     return () => clearInterval(id);
   });
 
-  const canExtend = $derived(room.isAdmin && view.expiresAt < view.maxExpiresAt);
+  const canExtend = $derived(room.can('extend') && view.expiresAt < view.maxExpiresAt);
 </script>
 
-<section class="session" aria-labelledby="session-h">
-  <h2 id="session-h">Session</h2>
-  <p class="muted small">
-    Ends in {formatRemaining(view.expiresAt - (now || view.createdAt))}.
-    {#if view.settings.locked}<strong class="locked">Locked: nobody new can join.</strong>{/if}
-  </p>
-  <div class="buttons">
-    <Button size="sm" icon="users" onclick={oninvite} data-testid="btn-invite">Invite</Button>
-    <Button
-      size="sm"
-      icon={view.settings.locked ? 'unlock' : 'lock'}
-      onclick={() => room.send({ type: 'admin.lock', locked: !view.settings.locked })}
-      aria-pressed={view.settings.locked}
-      data-testid="btn-lock"
-    >
-      {view.settings.locked ? 'Unlock' : 'Lock'}
-    </Button>
-    {#if room.isAdmin}
-      <Button size="sm" icon="clock" onclick={() => room.send({ type: 'admin.extend', hours: 1 })} disabled={!canExtend} data-testid="btn-extend">
-        Add 1 hour
-      </Button>
-      <Button size="sm" icon="settings" onclick={onsettings} data-testid="btn-settings">Settings</Button>
-      <Button size="sm" variant="danger" icon="door" onclick={() => (confirmClose = true)} data-testid="btn-close-room">
-        End session
-      </Button>
+<section aria-labelledby="session-h">
+  <PanelHeader id="session-h" title="Session" />
+  <p class="ends">
+    <Icon name="clock" size={16} />
+    <span>
+      Ends at <strong>{formatEndTime(view.expiresAt)}</strong>
+      <span class="muted">(in {formatRemaining(view.expiresAt - (now || view.createdAt))})</span>
+    </span>
+    {#if room.can('extend')}
+      <Button size="sm" variant="link" onclick={() => room.extend(1)} disabled={!canExtend} data-testid="btn-extend">+1 hour</Button>
     {/if}
-  </div>
-  {#if view.settings.passcodeLocked}
-    <p class="warn small" role="status">Too many wrong passcodes. Unlock the session to let people try again.</p>
+  </p>
+  {#if view.settings.locked}
+    <p class="locked"><Icon name="lock" size={16} /> Locked: nobody new can join.</p>
   {/if}
+  {#if view.settings.passcodeLocked}
+    <p class="warn" role="status">Too many wrong passcodes. Unlock the session in the settings to let people try again.</p>
+  {/if}
+  <Button icon="settings" onclick={onsettings} data-testid="btn-settings">Session settings…</Button>
 </section>
 
-<Dialog bind:open={confirmClose} title="End the session for everyone?" size="sm">
-  <p>Everyone is disconnected and all session data is deleted right away. Download the results first if you need them.</p>
-  {#snippet actions()}
-    <Button variant="ghost" onclick={() => (confirmClose = false)}>Cancel</Button>
-    <Button
-      variant="danger"
-      onclick={() => {
-        confirmClose = false;
-        room.send({ type: 'admin.close' });
-      }}
-      data-testid="btn-close-confirm"
-    >
-      End session
-    </Button>
-  {/snippet}
-</Dialog>
-
 <style>
-  h2 {
-    font-size: var(--text-md);
-    margin-bottom: var(--space-1);
+  section {
+    display: grid;
+    gap: var(--space-3);
+    justify-items: start;
   }
 
-  .small {
+  section > :global(.panel-header) {
+    margin-bottom: 0;
+  }
+
+  .ends,
+  .locked {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
     font-size: var(--text-sm);
   }
 
   .locked {
     color: var(--color-warning);
+    font-weight: var(--weight-semibold);
   }
 
   .warn {
-    margin-top: var(--space-2);
+    font-size: var(--text-sm);
     color: var(--color-warning);
-  }
-
-  .buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    margin-top: var(--space-3);
   }
 </style>

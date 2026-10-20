@@ -1,24 +1,25 @@
 <script lang="ts">
-  import type { RoomView } from '@backlogfit/core';
   import Button from '../components/Button.svelte';
-  import type { RoomStore } from '../room/room.svelte.ts';
+  import PanelHeader from '../components/PanelHeader.svelte';
+  import { useRoom, viewOf } from './context.ts';
 
-  let { room, view }: { room: RoomStore; view: RoomView } = $props();
+  const room = useRoom();
+  const view = $derived(viewOf(room));
 </script>
 
 {#if view.lobby.length > 0}
   <section class="lobby" aria-labelledby="lobby-h">
-    <h2 id="lobby-h">Waiting to join <span class="count">{view.lobby.length}</span></h2>
+    <PanelHeader id="lobby-h" title="Waiting to join" count={view.lobby.length} />
     <p class="visually-hidden" aria-live="polite">{view.lobby.length} waiting to join</p>
     <ul>
       {#each view.lobby as p (p.id)}
         <li data-testid="lobby-entry" data-name={p.name}>
-          <span class="name">{p.name}{#if p.role === 'spectator'} <span class="muted">(watching)</span>{/if}</span>
-          <Button size="sm" variant="primary" onclick={() => room.send({ type: 'admin.lobby', participantId: p.id, decision: 'approve' })} data-testid="lobby-approve" aria-label="Let {p.name} in">
-            Let in
-          </Button>
-          <Button size="sm" variant="ghost" onclick={() => room.send({ type: 'admin.lobby', participantId: p.id, decision: 'deny' })} data-testid="lobby-deny" aria-label="Decline {p.name}">
+          <span class="name">{p.name}{#if p.role === 'spectator'} <span class="muted">· watching</span>{/if}</span>
+          <Button size="sm" variant="ghost" onclick={() => room.admit(p.id, 'deny')} data-testid="lobby-deny" aria-label="Decline {p.name}">
             Decline
+          </Button>
+          <Button size="sm" variant="primary" onclick={() => room.admit(p.id, 'approve')} data-testid="lobby-approve" aria-label="Let {p.name} in">
+            Let in
           </Button>
         </li>
       {/each}
@@ -28,19 +29,10 @@
 
 <style>
   .lobby {
-    padding: var(--space-4);
+    padding: var(--space-4) var(--space-5);
     border: 1px solid var(--color-warning);
     border-radius: var(--radius-lg);
     background: var(--color-warning-soft);
-  }
-
-  h2 {
-    font-size: var(--text-md);
-    margin-bottom: var(--space-2);
-  }
-
-  .count {
-    font-weight: var(--weight-normal);
   }
 
   ul {
@@ -61,5 +53,6 @@
     flex: 1;
     min-width: 0;
     overflow-wrap: anywhere;
+    font-weight: var(--weight-medium);
   }
 </style>

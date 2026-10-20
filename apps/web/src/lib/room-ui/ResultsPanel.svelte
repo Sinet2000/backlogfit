@@ -1,11 +1,15 @@
 <script lang="ts">
-  import { type RoomView, toCsv, toJson, toMarkdown, toSummary } from '@backlogfit/core';
-  import Button from '../components/Button.svelte';
+  import { toCsv, toJson, toMarkdown, toSummary } from '@backlogfit/core';
+  import MenuButton, { type MenuItem } from '../components/MenuButton.svelte';
+  import PanelHeader from '../components/PanelHeader.svelte';
   import { downloadText, stamp } from '../download.ts';
   import { formatStat } from '../room/format.ts';
   import { toasts } from '../toast.svelte.ts';
+  import { useRoom, viewOf } from './context.ts';
 
-  let { view }: { view: RoomView } = $props();
+  const room = useRoom();
+  const view = $derived(viewOf(room));
+  const AGREEMENT = { full: 'Agreed', near: 'Close', split: 'Votes differed' } as const;
 
   const rows = $derived(
     view.tasks.map((t) => {
@@ -18,7 +22,7 @@
         final: t.final ?? '',
         rounds: revealed.length,
         median: last?.stats ? formatStat(last.stats, 'median') : '',
-        consensus: last?.stats?.consensus ?? '',
+        agreement: last?.stats?.consensus ? AGREEMENT[last.stats.consensus] : '',
       };
     }),
   );
@@ -33,67 +37,84 @@
       toasts.show('Could not copy. Use one of the downloads instead.', 'error');
     }
   }
+
+  const exports: MenuItem[] = [
+    {
+      label: 'Download CSV (Excel)',
+      icon: 'download',
+      testid: 'btn-export-csv',
+      onselect: () => downloadText(`${name()}.csv`, toCsv(view), 'text/csv'),
+    },
+    {
+      label: 'Download Markdown',
+      icon: 'download',
+      testid: 'btn-export-md',
+      onselect: () => downloadText(`${name()}.md`, toMarkdown(view), 'text/markdown'),
+    },
+    {
+      label: 'Download JSON',
+      icon: 'download',
+      testid: 'btn-export-json',
+      onselect: () =>
+        downloadText(
+          `${name()}.json`,
+          toJson(view, { generatedAt: new Date().toISOString() }),
+          'application/json',
+        ),
+    },
+    {
+      label: 'Copy summary',
+      icon: 'copy',
+      testid: 'btn-copy-summary',
+      onselect: () => void copySummary(),
+    },
+    { label: 'Print', icon: 'print', testid: 'btn-print', onselect: () => window.print() },
+  ];
 </script>
 
-<section class="results print-keep" aria-labelledby="results-h">
-  <div class="head">
-    <h2 id="results-h">Results</h2>
-    <p class="muted small no-print">Downloads are made in your browser. Nothing is sent anywhere.</p>
-  </div>
+<section class="results print-keep" aria-labelledby="results-h" data-testid="results">
+  <PanelHeader id="results-h" title="Results" count="{rows.filter((r) => r.final).length}/{rows.length}" countLabel="{rows.filter((r) => r.final).length} of {rows.length} estimated">
+    {#snippet actions()}
+      <span class="no-print">
+        <MenuButton label="Export results" text="Export" items={exports} size="sm" testid="btn-export" />
+      </span>
+    {/snippet}
+  </PanelHeader>
   {#if rows.length === 0}
     <p class="muted">Results appear here once tasks are estimated.</p>
   {:else}
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th scope="col">Task</th><th scope="col">Title</th><th scope="col">Final</th><th scope="col">Median</th><th scope="col">Agreement</th><th scope="col">Rounds</th></tr>
-        </thead>
-        <tbody>
-          {#each rows as r (r.id)}
-            <tr>
-              <td class="mono">{r.key}</td>
-              <td>{r.title}</td>
-              <td class="strong">{r.final || '–'}</td>
-              <td>{r.median || '–'}</td>
-              <td>{r.consensus || '–'}</td>
-              <td>{r.rounds}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+    <table>
+      <thead>
+        <tr><th scope="col">Task</th><th scope="col">Title</th><th scope="col">Final</th><th scope="col">Median</th><th scope="col">Agreement</th><th scope="col">Rounds</th></tr>
+      </thead>
+      <tbody>
+        {#each rows as r (r.id)}
+          <tr>
+            <td class="mono">{r.key}</td>
+            <td>{r.title}</td>
+            <td class="strong">{r.final || '–'}</td>
+            <td>{r.median || '–'}</td>
+            <td>{r.agreement || '–'}</td>
+            <td>{r.rounds}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+    <ul class="stacked" aria-label="Results">
+      {#each rows as r (r.id)}
+        <li>
+          <span class="task"><span class="mono">{r.key}</span> {r.title}</span>
+          <span class="facts">
+            <strong>Final {r.final || '–'}</strong> · Median {r.median || '–'}{r.agreement ? ` · ${r.agreement}` : ''} · {r.rounds} {r.rounds === 1 ? 'round' : 'rounds'}
+          </span>
+        </li>
+      {/each}
+    </ul>
   {/if}
-  <div class="exports no-print">
-    <Button size="sm" icon="download" onclick={() => downloadText(`${name()}.csv`, toCsv(view), 'text/csv')} data-testid="btn-export-csv">CSV</Button>
-    <Button size="sm" icon="download" onclick={() => downloadText(`${name()}.json`, toJson(view, { generatedAt: new Date().toISOString() }), 'application/json')} data-testid="btn-export-json">JSON</Button>
-    <Button size="sm" icon="download" onclick={() => downloadText(`${name()}.md`, toMarkdown(view), 'text/markdown')} data-testid="btn-export-md">Markdown</Button>
-    <Button size="sm" icon="copy" onclick={copySummary} data-testid="btn-copy-summary">Copy summary</Button>
-    <Button size="sm" variant="ghost" onclick={() => window.print()} data-testid="btn-print">Print</Button>
-  </div>
+  <p class="note muted no-print">Exports are made in your browser. Nothing is sent anywhere.</p>
 </section>
 
 <style>
-  .head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-2);
-    margin-bottom: var(--space-3);
-  }
-
-  h2 {
-    font-size: var(--text-md);
-  }
-
-  .small {
-    font-size: var(--text-xs);
-  }
-
-  .table-wrap {
-    overflow-x: auto;
-  }
-
   table {
     width: 100%;
     border-collapse: collapse;
@@ -122,16 +143,61 @@
     font-weight: var(--weight-bold);
   }
 
-  .exports {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    margin-top: var(--space-4);
+  .stacked {
+    display: none;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .stacked li {
+    display: grid;
+    gap: 2px;
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .task {
+    font-weight: var(--weight-medium);
+    overflow-wrap: anywhere;
+  }
+
+  .task .mono {
+    font-size: var(--text-sm);
+  }
+
+  .facts {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .facts strong {
+    color: var(--color-text);
+  }
+
+  .note {
+    margin-top: var(--space-3);
+    font-size: var(--text-xs);
+  }
+
+  @media (max-width: 640px) {
+    table {
+      display: none;
+    }
+
+    .stacked {
+      display: block;
+    }
   }
 
   @media print {
     table {
+      display: table;
       font-size: 10pt;
+    }
+
+    .stacked {
+      display: none;
     }
 
     th,

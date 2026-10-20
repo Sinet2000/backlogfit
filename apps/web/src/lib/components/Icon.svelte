@@ -1,5 +1,4 @@
 <script lang="ts" module>
-  // 24×24 stroke icons (inline SVG, no icon library). Paths are simple, original shapes.
   export const ICONS = {
     check: 'M5 12.5l4.5 4.5L19 7.5',
     copy: 'M9 9h10v10H9zM5 15V5h10',
@@ -51,6 +50,14 @@
     eyeoff:
       'M3 3l18 18M10.6 5.1A10 10 0 0112 5c6.5 0 10 7 10 7a17 17 0 01-3.2 4M6.6 6.6C3.6 8.5 2 12 2 12s3.5 7 10 7a9.6 9.6 0 005.4-1.6M9.9 9.9a3 3 0 004.2 4.2',
     timer: 'M12 21a8 8 0 100-16 8 8 0 000 16zM12 9v4l2 2M9 2h6',
+    more: 'M5.5 12h.5M11.75 12h.5M18 12h.5',
+    cup: 'M4 9h12v4.5A5.5 5.5 0 0110.5 19h-1A5.5 5.5 0 014 13.5zM16 10.5h1.25a2.75 2.75 0 010 5.5H15.6M8 3.5v2.5M12 3.5v2.5',
+    unlink:
+      'M9 15l-1.5 1.5a3.5 3.5 0 01-5-5L4 10M15 9l1.5-1.5a3.5 3.5 0 015 5L20 14M8 4l1 2.5M4 8l2.5 1M16 20l-1-2.5M20 16l-2.5-1',
+    chevron: 'M9 6l6 6-6 6',
+    print: 'M7 9V4h10v5M7 17H5v-6h14v6h-2M7 14h10v6H7z',
+    edit: 'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',
+    undo: 'M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3',
   } as const;
   export type IconName = keyof typeof ICONS;
 </script>
@@ -59,7 +66,6 @@
   interface Props {
     name: IconName;
     size?: number;
-    /** Accessible name; omit for decorative icons next to visible text. */
     label?: string;
     class?: string;
   }

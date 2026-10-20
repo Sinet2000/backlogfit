@@ -7,8 +7,8 @@ const el = (tagName: string, attrs: Record<string, string> = {}, editable = fals
   getAttribute: (n: string) => attrs[n] ?? null,
 });
 
-const voter = { canVote: true, isFacilitator: false };
-const admin = { canVote: true, isFacilitator: true };
+const voter = { canVote: true, canFacilitate: false };
+const admin = { canVote: true, canFacilitate: true };
 const body = el('BODY');
 
 describe('shortcutFor', () => {
@@ -17,11 +17,11 @@ describe('shortcutFor', () => {
     expect(shortcutFor({ key: '9', target: body }, voter)).toEqual({ type: 'pick', index: 8 });
     expect(shortcutFor({ key: '0', target: body }, voter)).toBeNull();
     expect(
-      shortcutFor({ key: '3', target: body }, { canVote: false, isFacilitator: true }),
+      shortcutFor({ key: '3', target: body }, { canVote: false, canFacilitate: true }),
     ).toBeNull();
   });
 
-  it('reserves Space and N for facilitators', () => {
+  it('reserves Space and N for hosts', () => {
     expect(shortcutFor({ key: ' ', target: body }, voter)).toBeNull();
     expect(shortcutFor({ key: 'n', target: body }, voter)).toBeNull();
     expect(shortcutFor({ key: ' ', target: body }, admin)).toEqual({ type: 'reveal' });

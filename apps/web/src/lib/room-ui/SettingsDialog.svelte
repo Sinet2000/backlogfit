@@ -1,58 +1,114 @@
 <script lang="ts">
-  import type { RoomView } from '@backlogfit/core';
+  import Button from '../components/Button.svelte';
   import Dialog from '../components/Dialog.svelte';
-  import type { RoomStore } from '../room/room.svelte.ts';
+  import SessionRuleFields from '../config/ui/SessionRuleFields.svelte';
+  import { useRoom, viewOf } from './context.ts';
 
-  let {
-    room,
-    view,
-    open = $bindable(),
-  }: { room: RoomStore; view: RoomView; open: boolean } = $props();
+  let { open = $bindable() }: { open: boolean } = $props();
 
+  const room = useRoom();
+  const view = $derived(viewOf(room));
   const s = $derived(view.settings);
-  const set = (patch: Record<string, boolean | number | null>) =>
-    room.send({ type: 'admin.settings', ...patch });
-  const TIMERS = [null, 30, 60, 120, 180, 300];
-  const timerLabel = (t: number | null) =>
-    t === null ? 'No default timer' : t < 60 ? `${t} seconds` : `${t / 60} min`;
+  const isHost = $derived(room.can('settings'));
+  let confirmClose = $state(false);
+
+  function endSession() {
+    confirmClose = false;
+    open = false;
+    room.close();
+  }
 </script>
 
 <Dialog bind:open title="Session settings">
-  <div class="list">
-    <label class="check">
-      <input type="checkbox" checked={s.autoReveal} onchange={(e) => set({ autoReveal: e.currentTarget.checked })} data-testid="setting-auto-reveal" />
-      <span class="check-text"><span>Reveal automatically</span><span class="field-hint">Show the cards as soon as everyone has voted.</span></span>
-    </label>
-    <label class="check">
-      <input type="checkbox" checked={s.anonymousAfterReveal} onchange={(e) => set({ anonymousAfterReveal: e.currentTarget.checked })} data-testid="setting-anonymous" />
-      <span class="check-text"><span>Anonymous results</span><span class="field-hint">Show the votes without names. Applies from the next round.</span></span>
-    </label>
-    <label class="check">
-      <input type="checkbox" checked={s.allowSpectators} onchange={(e) => set({ allowSpectators: e.currentTarget.checked })} data-testid="setting-spectators" />
-      <span class="check-text"><span>Allow spectators</span><span class="field-hint">People can watch without voting.</span></span>
-    </label>
-    <label class="check">
-      <input type="checkbox" checked={s.lobby} onchange={(e) => set({ lobby: e.currentTarget.checked })} data-testid="setting-lobby" />
-      <span class="check-text"><span>Approve people before they join</span><span class="field-hint">Turning this off lets everyone who is waiting in.</span></span>
-    </label>
-    <div class="field">
-      <label class="field-label" for="set-timer">Default round timer</label>
-      <select id="set-timer" class="select" value={s.timerSeconds === null ? '' : String(s.timerSeconds)} onchange={(e) => set({ timerSeconds: e.currentTarget.value === '' ? null : Number(e.currentTarget.value) })} data-testid="setting-timer">
-        {#each TIMERS as t (t)}
-          <option value={t === null ? '' : String(t)}>{timerLabel(t)}</option>
-        {/each}
-      </select>
-    </div>
+  <div class="body">
+    <section aria-labelledby="set-access">
+      <h3 id="set-access">Access</h3>
+      <label class="check">
+        <input
+          type="checkbox"
+          checked={s.locked}
+          onchange={(e) => room.setLocked(e.currentTarget.checked)}
+          data-testid="btn-lock"
+        />
+        <span class="check-text">
+          <span>Lock the session</span>
+          <span class="field-hint">Nobody new can join, even with the link. People already here stay. Unlocking also lets people try a passcode again.</span>
+        </span>
+      </label>
+      {#if s.passcodeLocked}
+        <p class="warn" role="status">Too many wrong passcodes. Unlock the session to let people try again.</p>
+      {/if}
+      <SessionRuleFields
+        value={s}
+        fields={['allowSpectators', 'lobby']}
+        mode="live"
+        disabled={!isHost}
+        onchange={(patch) => room.updateSettings(patch)}
+      />
+    </section>
+
+    <section aria-labelledby="set-voting">
+      <h3 id="set-voting">Voting</h3>
+      <SessionRuleFields
+        value={s}
+        fields={['autoReveal', 'anonymousAfterReveal', 'timerSeconds']}
+        mode="live"
+        disabled={!isHost}
+        onchange={(patch) => room.updateSettings(patch)}
+      />
+      {#if !isHost}
+        <p class="field-hint">Only the host can change these.</p>
+      {/if}
+    </section>
+
+    {#if room.can('close')}
+      <section class="danger-zone">
+        <Button variant="ghost" destructive icon="door" onclick={() => (confirmClose = true)} data-testid="btn-close-room">
+          End session for everyone…
+        </Button>
+      </section>
+    {/if}
   </div>
 </Dialog>
 
+<Dialog bind:open={confirmClose} title="End the session for everyone?" size="sm">
+  <p>Everyone is disconnected and all session data is deleted right away. Download the results first if you need them.</p>
+  {#snippet actions()}
+    <Button variant="ghost" onclick={() => (confirmClose = false)}>Cancel</Button>
+    <Button variant="danger" onclick={endSession} data-testid="btn-close-confirm">End session</Button>
+  {/snippet}
+</Dialog>
+
 <style>
-  .list {
+  .body {
     display: grid;
-    gap: var(--space-2);
+    gap: var(--space-5);
   }
 
-  .field {
-    margin-top: var(--space-3);
+  section {
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  section + section {
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--color-border);
+  }
+
+  h3 {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .warn {
+    font-size: var(--text-sm);
+    color: var(--color-warning);
+  }
+
+  .danger-zone {
+    justify-items: start;
   }
 </style>

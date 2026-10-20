@@ -1,6 +1,8 @@
-/** Plain-language text for server error codes and end states. Codes only: no user input echoed. */
+// Texts are chosen by code only; nothing the server or another participant sent is echoed.
 import type { ErrorCode } from '@backlogfit/core';
 import type { EndReason } from './connection.ts';
+
+export type EndedReason = EndReason | 'invalid_link';
 
 const ERRORS: Partial<Record<ErrorCode, string>> = {
   forbidden: 'Only the host can do that.',
@@ -36,7 +38,7 @@ export function errorText(code: ErrorCode, ref?: string): string {
 export const DELETED_NOTE = 'Sessions are deleted automatically to protect your data.';
 
 export function endedText(
-  reason: EndReason,
+  reason: EndedReason,
   joinError: ErrorCode | null,
 ): { title: string; body: string; canRetry: boolean } {
   switch (reason) {
@@ -61,7 +63,13 @@ export function endedText(
     case 'not_found':
       return {
         title: 'This session has ended.',
-        body: `The link may be incomplete, or the session is over. ${DELETED_NOTE}`,
+        body: `The session is over, or the link is incomplete. ${DELETED_NOTE}`,
+        canRetry: false,
+      };
+    case 'invalid_link':
+      return {
+        title: 'This link doesn’t work.',
+        body: 'It may be cut off. Ask the host to send the join link again, and copy it in full, including everything after #.',
         canRetry: false,
       };
     case 'kicked':

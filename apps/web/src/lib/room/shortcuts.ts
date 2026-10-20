@@ -1,8 +1,3 @@
-/**
- * Room keyboard shortcuts: 1–9 pick a card, Space reveals (facilitator), N next task
- * (facilitator), ? opens the shortcut help. Never fire while the user is typing.
- */
-
 export type ShortcutAction =
   | { type: 'pick'; index: number }
   | { type: 'reveal' }
@@ -21,8 +16,7 @@ export interface KeyLike {
 
 export interface ShortcutContext {
   canVote: boolean;
-  isFacilitator: boolean;
-  /** A dialog is open: only its own keys apply. */
+  canFacilitate: boolean;
   dialogOpen?: boolean;
 }
 
@@ -48,7 +42,6 @@ const TEXT_INPUT_TYPES = new Set([
   'week',
 ]);
 
-/** True when key presses on `target` are text entry (inputs, textareas, selects, editable). */
 export function isTypingTarget(target: unknown): boolean {
   if (!target || typeof target !== 'object') return false;
   const el = target as ElementLike;
@@ -63,7 +56,6 @@ export function isTypingTarget(target: unknown): boolean {
   return role === 'textbox' || role === 'combobox' || role === 'searchbox';
 }
 
-/** Space activates focused controls natively; only treat it as "reveal" on plain targets. */
 function isActivatable(target: unknown): boolean {
   if (!target || typeof target !== 'object') return false;
   const el = target as ElementLike;
@@ -75,6 +67,7 @@ function isActivatable(target: unknown): boolean {
   );
 }
 
+/** Maps a key press to a room action; never fires while typing or with a dialog open. */
 export function shortcutFor(e: KeyLike, ctx: ShortcutContext): ShortcutAction | null {
   if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return null;
   if (isTypingTarget(e.target)) return null;
@@ -85,7 +78,7 @@ export function shortcutFor(e: KeyLike, ctx: ShortcutContext): ShortcutAction | 
     if (!ctx.canVote || e.repeat) return null;
     return { type: 'pick', index: Number(e.key) - 1 };
   }
-  if (!ctx.isFacilitator || e.repeat) return null;
+  if (!ctx.canFacilitate || e.repeat) return null;
   if (e.key === ' ' || e.key === 'Spacebar') {
     return isActivatable(e.target) ? null : { type: 'reveal' };
   }
@@ -93,12 +86,15 @@ export function shortcutFor(e: KeyLike, ctx: ShortcutContext): ShortcutAction | 
   return null;
 }
 
-export const SHORTCUT_HELP: readonly { keys: string; does: string; who: 'all' | 'facilitator' }[] =
-  [
-    { keys: '1 – 9', does: 'Pick the card in that position', who: 'all' },
-    { keys: 'Arrow keys', does: 'Move between cards in the deck', who: 'all' },
-    { keys: 'Space', does: 'Reveal the votes', who: 'facilitator' },
-    { keys: 'N', does: 'Go to the next task', who: 'facilitator' },
-    { keys: '?', does: 'Show this list', who: 'all' },
-    { keys: 'Esc', does: 'Close a dialog', who: 'all' },
-  ];
+export const SHORTCUT_HELP: readonly { keys: string; does: string; who: 'all' | 'host' }[] = [
+  {
+    keys: '1 – 9',
+    does: 'Pick a card. The number is shown under each card while the deck has focus.',
+    who: 'all',
+  },
+  { keys: 'Arrow keys', does: 'Move between cards in the deck', who: 'all' },
+  { keys: 'Space', does: 'Reveal the votes', who: 'host' },
+  { keys: 'N', does: 'Go to the next task', who: 'host' },
+  { keys: '?', does: 'Show this list', who: 'all' },
+  { keys: 'Esc', does: 'Close a dialog or menu', who: 'all' },
+];

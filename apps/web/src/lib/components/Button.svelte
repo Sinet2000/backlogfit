@@ -4,11 +4,12 @@
   import Icon, { type IconName } from './Icon.svelte';
 
   type Common = {
-    variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'quiet';
+    variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'link';
     size?: 'sm' | 'md' | 'lg';
     icon?: IconName;
     iconAfter?: IconName;
     block?: boolean;
+    destructive?: boolean;
     children?: Snippet;
   };
   type Props = Common &
@@ -20,25 +21,29 @@
     icon,
     iconAfter,
     block = false,
+    destructive = false,
     children,
     class: klass = '',
     ...rest
   }: Props = $props();
 
-  const cls = $derived(`btn btn-${variant} btn-${size} ${block ? 'btn-block' : ''} ${klass ?? ''}`);
+  const cls = $derived(
+    `btn btn-${variant} btn-${size} ${block ? 'btn-block' : ''} ${destructive ? 'destructive' : ''} ${klass ?? ''}`,
+  );
+  const iconSize = $derived(size === 'lg' ? 20 : size === 'sm' ? 16 : 18);
 </script>
 
 {#if rest.href !== undefined}
   <a class={cls} {...rest as HTMLAnchorAttributes}>
-    {#if icon}<Icon name={icon} size={size === 'lg' ? 22 : 18} />{/if}
+    {#if icon}<Icon name={icon} size={iconSize} />{/if}
     {@render children?.()}
-    {#if iconAfter}<Icon name={iconAfter} size={size === 'lg' ? 22 : 18} />{/if}
+    {#if iconAfter}<Icon name={iconAfter} size={iconSize} />{/if}
   </a>
 {:else}
   <button class={cls} type="button" {...rest as HTMLButtonAttributes}>
-    {#if icon}<Icon name={icon} size={size === 'lg' ? 22 : 18} />{/if}
+    {#if icon}<Icon name={icon} size={iconSize} />{/if}
     {@render children?.()}
-    {#if iconAfter}<Icon name={iconAfter} size={size === 'lg' ? 22 : 18} />{/if}
+    {#if iconAfter}<Icon name={iconAfter} size={iconSize} />{/if}
   </button>
 {/if}
 
@@ -48,12 +53,12 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    min-height: var(--target-min);
+    min-height: var(--control-md);
     padding: 0 var(--space-4);
     border: 1px solid transparent;
     border-radius: var(--radius-md);
     font-weight: var(--weight-semibold);
-    font-size: var(--text-md);
+    font-size: var(--text-sm);
     line-height: 1.2;
     text-decoration: none;
     cursor: pointer;
@@ -71,16 +76,15 @@
   }
 
   .btn-sm {
-    min-height: 32px;
+    min-height: var(--control-sm);
     padding: 0 var(--space-3);
-    font-size: var(--text-sm);
     border-radius: var(--radius-sm);
   }
 
   .btn-lg {
-    min-height: 52px;
+    min-height: var(--control-lg);
     padding: 0 var(--space-6);
-    font-size: var(--text-lg);
+    font-size: var(--text-md);
   }
 
   .btn-block {
@@ -118,26 +122,43 @@
     color: var(--color-text);
   }
 
-  .btn-quiet {
-    background: transparent;
-    color: var(--color-accent);
-    padding-inline: var(--space-2);
-  }
-
-  .btn-quiet:hover:not(:disabled) {
-    background: var(--color-accent-soft);
-    color: var(--color-accent);
-  }
-
   .btn-danger {
-    background: var(--color-surface);
-    border-color: var(--color-danger);
-    color: var(--color-danger);
+    background: var(--color-danger);
+    color: var(--color-surface);
   }
 
   .btn-danger:hover:not(:disabled) {
+    background: var(--color-danger);
+    color: var(--color-surface);
+    filter: brightness(0.92);
+  }
+
+  .btn.destructive {
+    color: var(--color-danger);
+  }
+
+  .btn.destructive:hover:not(:disabled) {
     background: var(--color-danger-soft);
     color: var(--color-danger);
+  }
+
+  .btn-link {
+    min-height: auto;
+    padding: var(--space-1) 0;
+    background: transparent;
+    color: var(--color-accent);
+    font-weight: var(--weight-medium);
+  }
+
+  .btn-link:hover:not(:disabled) {
+    color: var(--color-accent-hover);
+    text-decoration: underline;
+  }
+
+  @media (pointer: coarse) {
+    .btn:not(.btn-link) {
+      min-height: var(--target-min);
+    }
   }
 
   @media (forced-colors: active) {

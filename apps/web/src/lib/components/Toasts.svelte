@@ -1,7 +1,12 @@
 <script lang="ts">
-  import { toasts } from '../toast.svelte.ts';
+  import { type ToastItem, toasts } from '../toast.svelte.ts';
   import Icon from './Icon.svelte';
   import IconButton from './IconButton.svelte';
+
+  function act(t: ToastItem) {
+    t.action?.run();
+    toasts.dismiss(t.id);
+  }
 </script>
 
 <div class="toasts no-print" role="status" aria-live="polite" aria-atomic="false">
@@ -9,6 +14,11 @@
     <div class="toast {t.kind}" data-testid="toast">
       <Icon name={t.kind === 'error' ? 'alert' : t.kind === 'success' ? 'check' : 'info'} />
       <span class="text">{t.text}</span>
+      {#if t.action}
+        <button type="button" class="action" onclick={() => act(t)} data-testid="toast-action">
+          {t.action.label}
+        </button>
+      {/if}
       <IconButton icon="x" size="sm" label="Dismiss" onclick={() => toasts.dismiss(t.id)} />
     </div>
   {/each}
@@ -57,6 +67,21 @@
 
   .text {
     flex: 1;
+  }
+
+  .action {
+    min-height: var(--control-sm);
+    padding: 0 var(--space-3);
+    border: 1px solid currentColor;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: inherit;
+    font-weight: var(--weight-semibold);
+    cursor: pointer;
+  }
+
+  .action:hover {
+    background: color-mix(in srgb, currentColor 14%, transparent);
   }
 
   @keyframes toast-in {

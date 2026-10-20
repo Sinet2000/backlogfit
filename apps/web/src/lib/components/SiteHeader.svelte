@@ -7,8 +7,8 @@
   <div class="container bar">
     <a class="brand" href="/" aria-label="Backlogfit home"><Logo /> <span>Backlogfit</span></a>
     <nav aria-label="Main">
-      <a class="hide-sm" href="/guide">Guide</a>
-      <a class="cta" href="/new">Start a session</a>
+      <a href="/guide">Guide</a>
+      <a class="cta" href="/new"><span class="long">Start a session</span><span class="short" aria-hidden="true">Start</span></a>
       <ThemeSwitcher />
     </nav>
   </div>
@@ -61,9 +61,36 @@
     color: var(--color-text);
   }
 
-  @media (max-width: 400px) {
-    .hide-sm {
-      display: none;
+  .short {
+    display: none;
+  }
+
+  @media (max-width: 640px) {
+    nav {
+      gap: var(--space-1);
+    }
+
+    nav a {
+      padding-inline: var(--space-2);
+    }
+
+    nav a.cta {
+      min-height: var(--control-sm);
+      padding-inline: var(--space-3);
+      font-size: var(--text-sm);
+    }
+
+    .long {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    .short {
+      display: inline;
     }
   }
 

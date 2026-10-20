@@ -23,7 +23,6 @@
       await navigator.clipboard.writeText(value);
       ok = true;
     } catch {
-      // Clipboard API unavailable (http, permissions): select the text for manual copy.
       input?.select();
       ok = document.execCommand?.('copy') ?? false;
     }
@@ -47,7 +46,7 @@
       aria-describedby={hint ? `${id}-hint` : undefined}
     />
     <Button
-      variant={tone === 'warning' ? 'secondary' : 'primary'}
+      variant="secondary"
       icon={copied ? 'check' : 'copy'}
       onclick={copy}
       data-testid={buttonTestId}

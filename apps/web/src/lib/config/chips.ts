@@ -1,28 +1,16 @@
-/** Pure helpers behind the ChipEditor (custom deck editing). */
-import {
-  type Card,
-  type CardKind,
-  colorize,
-  SPECIAL_COFFEE,
-  SPECIAL_INFINITY,
-  SPECIAL_UNSURE,
-} from '@backlogfit/core';
+import { type Card, type CardKind, colorize, NEUTRAL_CARD_COLOR } from '@backlogfit/core';
+import { SPECIAL_CARDS, SPECIAL_NAMES } from '../cards.ts';
 
-const SPECIAL_SET = new Set<string>([SPECIAL_UNSURE, SPECIAL_COFFEE, SPECIAL_INFINITY]);
-const SPECIAL_LABELS: Record<string, string> = {
-  [SPECIAL_UNSURE]: 'Unsure',
-  [SPECIAL_COFFEE]: 'Break',
-  [SPECIAL_INFINITY]: 'Too big',
-};
+const SPECIAL_SET = new Set<string>(SPECIAL_CARDS);
 const NUMERIC = /^-?\d{1,6}(\.\d{1,3})?$/;
 const FRACTIONS: Record<string, number> = { '½': 0.5, '¼': 0.25, '¾': 0.75 };
 
-/** Same kind inference as core's buildCustomScale, for a single card (no scale validation). */
+/** Infers a card's kind like core's buildCustomScale does, without validating the deck. */
 export function cardFromValue(raw: string): Omit<Card, 'color'> | null {
   const value = raw.normalize('NFC').trim();
   if (value === '' || value.length > 8) return null;
   if (SPECIAL_SET.has(value))
-    return { value, label: SPECIAL_LABELS[value] ?? value, kind: 'special' };
+    return { value, label: SPECIAL_NAMES[value] ?? value, kind: 'special' };
   const fraction = FRACTIONS[value];
   if (fraction !== undefined || NUMERIC.test(value)) {
     return { value, label: value, numeric: fraction ?? Number(value), kind: 'number' };
@@ -37,7 +25,7 @@ export function splitValues(text: string): string[] {
     .filter((s) => s !== '');
 }
 
-/** Append values (skipping duplicates and invalid ones). Returns the new deck and what was skipped. */
+/** Appends values, skipping duplicates and invalid ones, and reports what was skipped. */
 export function addValues(
   deck: readonly Card[],
   text: string,
@@ -53,7 +41,7 @@ export function addValues(
       continue;
     }
     existing.add(c.value);
-    added.push({ ...c, color: '#8b8f97' });
+    added.push({ ...c, color: NEUTRAL_CARD_COLOR });
   }
   const next = [...deck, ...added];
   return { deck: autoColors ? autoColor(next) : fillColors(next, added), skipped };
@@ -86,4 +74,18 @@ export function removeAt(deck: readonly Card[], index: number): Card[] {
 export function setColor(deck: readonly Card[], index: number, color: string): Card[] {
   if (!/^#[0-9a-fA-F]{6}$/.test(color)) return [...deck];
   return deck.map((c, i) => (i === index ? { ...c, color: color.toLowerCase() } : c));
+}
+
+/** Re-applies automatic colors after an edit, keeping the cards whose color the host picked. */
+export function keepCustomColors(before: readonly Card[], after: readonly Card[]): Card[] {
+  const auto = autoColor(before);
+  const picked = new Set(
+    before
+      .filter((c, i) => c.color.toLowerCase() !== auto[i]?.color.toLowerCase())
+      .map((c) => c.value),
+  );
+  const next = autoColor(after);
+  return after.map((c, i) =>
+    picked.has(c.value) ? c : { ...c, color: next[i]?.color ?? c.color },
+  );
 }
