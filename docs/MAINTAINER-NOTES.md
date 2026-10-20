@@ -12,9 +12,12 @@ The company name appears in exactly two places, each wrapped in HTML comment mar
 
 ```md
 <!-- company-attribution:start -->
-Dexlaris
+<company name>
 <!-- company-attribution:end -->
 ```
+
+This file deliberately does not repeat the company name, so removing the two blocks removes
+every mention.
 
 This block must be removed if the company's policy does not allow its name to be associated
 with the project (for example after a policy change, an employment change, or on request).
@@ -31,7 +34,8 @@ How to remove it:
    done
    ```
 
-2. Check that nothing else mentions it: `git grep -n -i dexlaris` must return no results.
+2. Check that nothing else mentions it: `git grep -n company-attribution` must only list this
+   file, and a `git grep -n -i` for the company name must return no results.
 3. Commit with `git commit -s -m "docs: remove company attribution"`.
 
 The personal author line (`NN Y2K0 (Nikita Nikitins)`) is independent of this block. No website
