@@ -3,6 +3,8 @@ import {
   type Card,
   DEFAULT_LIFETIME_HOURS,
   type ErrorCode,
+  hasUnsafeChars,
+  hasVisibleChar,
   ID_PATTERN_MAX_LENGTH,
   isValidIdPattern,
   LIFETIME_CHOICES_HOURS,
@@ -19,6 +21,10 @@ import {
   type RoomConfigInput,
   type ScaleError,
   serializePreset,
+  TEAM_NAME_MAX,
+  TEAMS_MAX,
+  type Team,
+  teamTag,
   validateLinkTemplate,
   validateScale,
 } from '@backlogfit/core';
@@ -46,6 +52,7 @@ export interface Draft {
   /** Never written to preset files or storage. */
   passcode: string;
   theme: 'corporate' | 'colorful';
+  teams: Team[];
 }
 
 export function defaultDraft(): Draft {
@@ -65,6 +72,7 @@ export function defaultDraft(): Draft {
     lifetimeHours: DEFAULT_LIFETIME_HOURS,
     passcode: '',
     theme: 'corporate',
+    teams: [],
   };
 }
 
@@ -116,6 +124,26 @@ export interface DraftErrors {
   allowlist?: string;
   maxParticipants?: string;
   passcode?: string;
+  teams?: string;
+}
+
+/** Why a team name cannot be used, or null. `except` is the team being renamed. */
+export function teamNameError(
+  name: string,
+  teams: readonly Team[],
+  except: string | null = null,
+): string | null {
+  const n = name.normalize('NFC').trim();
+  if (n === '') return 'Type a team name.';
+  if (n.length > TEAM_NAME_MAX) return `Use at most ${TEAM_NAME_MAX} characters.`;
+  if (hasUnsafeChars(n) || !hasVisibleChar(n)) {
+    return 'The name contains invisible or control characters. Please type it again.';
+  }
+  if (teams.some((t) => t.id !== except && teamTag(t.name) === teamTag(n))) {
+    return 'There is already a team with this name.';
+  }
+  if (except === null && teams.length >= TEAMS_MAX) return `Use at most ${TEAMS_MAX} teams.`;
+  return null;
 }
 
 export function draftErrors(d: Draft): DraftErrors {
@@ -146,6 +174,9 @@ export function draftErrors(d: Draft): DraftErrors {
     e.maxParticipants = 'Choose between 2 and 500 people.';
   }
   if (d.passcode.length > 64) e.passcode = 'Use at most 64 characters.';
+  const badTeam = d.teams.find((t, i) => teamNameError(t.name, d.teams.slice(0, i), null) !== null);
+  if (badTeam)
+    e.teams = `Check the team “${badTeam.name}”: names must be unique, 1 to 24 characters.`;
   return e;
 }
 
@@ -163,6 +194,7 @@ export function toConfigInput(d: Draft): RoomConfigInput {
     timerSeconds: d.timerSeconds,
     maxParticipants: d.maxParticipants,
     theme: d.theme,
+    teams: d.teams.map((t) => ({ ...t })),
   };
 }
 
@@ -234,6 +266,7 @@ export function parsePresetFile(text: string): PresetImport {
     lifetimeHours: parsed.msg.lifetimeHours ?? DEFAULT_LIFETIME_HOURS,
     passcode: '',
     theme: c.theme,
+    teams: c.teams.map((t) => ({ ...t })),
   };
   return { ok: true, draft, name: parsed.msg.name ?? 'Imported preset' };
 }

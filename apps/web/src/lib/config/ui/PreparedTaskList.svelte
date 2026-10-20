@@ -1,8 +1,11 @@
 <script lang="ts">
+  import { votersLabel } from '@backlogfit/core';
   import { tick } from 'svelte';
   import Icon from '../../components/Icon.svelte';
+  import type { MenuItem } from '../../components/MenuButton.svelte';
   import SortableList from '../../components/SortableList.svelte';
   import { type PreparedItem, preparedErrorText } from '../../room/prepared-tasks.ts';
+  import TeamBadge from '../../room-ui/TeamBadge.svelte';
   import type { SessionWizard } from '../wizard.svelte.ts';
 
   let { wizard }: { wizard: SessionWizard } = $props();
@@ -13,6 +16,27 @@
 
   const label = (i: PreparedItem) =>
     i.task ? [i.task.key, i.task.title].filter(Boolean).join(' ') || i.line : i.line;
+
+  const teams = $derived(wizard.draft.teams);
+
+  function menu(item: PreparedItem, i: number): MenuItem[] {
+    const out: MenuItem[] = [
+      { label: 'Edit', icon: 'edit', onselect: () => void edit(i), testid: 'prepared-edit' },
+    ];
+    if (teams.length === 0 || !item.task) return out;
+    const current =
+      item.voters === null ? null : item.voters.length === 1 ? item.voters[0] : undefined;
+    for (const t of [{ id: null, name: 'Everyone' }, ...teams]) {
+      out.push({
+        label: t.name,
+        group: 'Estimated by',
+        checked: current === t.id,
+        onselect: () => wizard.setLineVoters(i, t.id === null ? null : [t.id]),
+        testid: `prepared-voters-${t.id ?? 'all'}`,
+      });
+    }
+    return out;
+  }
 
   async function edit(index: number) {
     editing = index;
@@ -35,7 +59,7 @@
   {label}
   onmove={(from, to) => wizard.moveLine(from, to)}
   onremove={(idx) => wizard.removeLines([idx])}
-  extraItems={(_item, i) => [{ label: 'Edit', icon: 'edit', onselect: () => void edit(i), testid: 'prepared-edit' }]}
+  extraItems={menu}
   listLabel="Prepared tasks, in order"
   itemTestId="prepared-item"
   removeTestId="prepared-remove"
@@ -66,6 +90,9 @@
           {#if item.task?.key}<span class="key">{item.task.key}</span>{/if}
           <span class="title">{item.task ? (item.task.title ?? (item.task.key ? '' : item.line)) : item.line}</span>
         </span>
+        {#if item.voters && item.task}
+          <TeamBadge name="Estimated by {votersLabel(item.voters, teams)}" testid="prepared-voters" />
+        {/if}
         {#if item.shortened}
           <span class="chip" data-testid="prepared-shortened"><Icon name="link" size={12} /> Link shortened to ID</span>
         {/if}

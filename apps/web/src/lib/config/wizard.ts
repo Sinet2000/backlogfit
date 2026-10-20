@@ -27,7 +27,7 @@ export function choiceName(id: ScaleChoice): string {
 
 const STEP_FIELDS: Record<number, (keyof DraftErrors)[]> = {
   0: ['scale'],
-  1: ['idPattern', 'linkTemplate', 'allowlist'],
+  1: ['teams', 'idPattern', 'linkTemplate', 'allowlist'],
   2: ['maxParticipants', 'passcode'],
 };
 

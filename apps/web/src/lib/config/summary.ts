@@ -19,6 +19,11 @@ export function linksSummary(d: Draft): string {
   return d.linkTemplate ? `${policy}, IDs link to ${d.linkTemplate}` : policy;
 }
 
+export function teamsSummary(d: Pick<Draft, 'teams'>): string {
+  if (d.teams.length === 0) return 'No teams. Everyone estimates every task.';
+  return `${d.teams.map((t) => t.name).join(', ')}, each with its own join link`;
+}
+
 export function lengthSummary(d: Draft): string {
   return `${hoursLabel(d.lifetimeHours)}, then everything is deleted`;
 }
