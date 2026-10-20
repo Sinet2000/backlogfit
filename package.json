@@ -14,7 +14,8 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "verify": "pnpm lint && pnpm typecheck && pnpm test",
-    "e2e": "pnpm --filter @backlogfit/e2e e2e"
+    "e2e": "pnpm --filter @backlogfit/e2e e2e",
+    "load": "pnpm --filter @backlogfit/load load"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
