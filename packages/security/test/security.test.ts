@@ -242,6 +242,10 @@ describe('limits', () => {
     expect(readLimits({ MAX_PARTICIPANTS: '20' }).maxParticipants).toBe(20);
     expect(() => readLimits({ MAX_PARTICIPANTS: 'x' })).toThrow();
     expect(() => readLimits({ DEFAULT_LIFETIME_HOURS: '9' })).toThrow();
+    expect(readLimits({ SOCKET_TIMEOUT_SECONDS: '120' }).socketTimeoutSeconds).toBe(120);
+    expect(() => readLimits({ SOCKET_TIMEOUT_SECONDS: '10' })).toThrow();
+    expect(() => readLimits({ HELLO_TIMEOUT_SECONDS: '0' })).toThrow();
+    expect(readLimits({ WS_UPGRADES_PER_MIN: '7' }).upgradesPerMin).toBe(7);
   });
   it('rejects every non-decimal integer spelling', () => {
     for (const raw of [

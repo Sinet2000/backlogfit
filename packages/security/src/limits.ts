@@ -10,6 +10,9 @@ export interface Limits {
   rateBurst: number;
   roomCreatePerMin: number;
   passcodeMaxAttempts: number;
+  helloTimeoutSeconds: number;
+  socketTimeoutSeconds: number;
+  upgradesPerMin: number;
 }
 
 export const DEFAULT_LIMITS: Readonly<Limits> = Object.freeze({
@@ -24,6 +27,9 @@ export const DEFAULT_LIMITS: Readonly<Limits> = Object.freeze({
   rateBurst: 40,
   roomCreatePerMin: 10,
   passcodeMaxAttempts: 5,
+  helloTimeoutSeconds: 20,
+  socketTimeoutSeconds: 90,
+  upgradesPerMin: 120,
 });
 
 const ENV: Record<keyof Limits, [name: string, min: number, max: number]> = {
@@ -38,7 +44,16 @@ const ENV: Record<keyof Limits, [name: string, min: number, max: number]> = {
   rateBurst: ['RATE_BURST', 1, 10_000],
   roomCreatePerMin: ['ROOM_CREATE_PER_MIN', 1, 10_000],
   passcodeMaxAttempts: ['PASSCODE_MAX_ATTEMPTS', 1, 100],
+  helloTimeoutSeconds: ['HELLO_TIMEOUT_SECONDS', 1, 3600],
+  socketTimeoutSeconds: ['SOCKET_TIMEOUT_SECONDS', 30, 3600],
+  upgradesPerMin: ['WS_UPGRADES_PER_MIN', 1, 100_000],
 };
+
+/** Largest accepted POST /api/rooms body. A maximal RoomConfig is well below this. */
+export const MAX_CREATE_BODY_BYTES = 64 * 1024;
+
+/** Room ids accepted in `/ws/:roomId`; anything else is refused before an upgrade. */
+export const ROOM_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
 const DECIMAL_INT = /^(?:0|[1-9][0-9]{0,8})$/;
 
