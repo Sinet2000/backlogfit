@@ -1,0 +1,25 @@
+{
+  "name": "@backlogfit/host",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Transport-agnostic room host for Backlogfit backends: receive pipeline, queue, timers and decoys.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contract": "./test/contract.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@backlogfit/core": "workspace:*",
+    "@backlogfit/security": "workspace:*"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "5.0.5",
+    "vitest": "5.0.5"
+  }
+}
