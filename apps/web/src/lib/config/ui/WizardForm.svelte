@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import Button from '../../components/Button.svelte';
   import StatusBanner from '../../components/StatusBanner.svelte';
   import Stepper from '../../components/Stepper.svelte';
@@ -16,10 +17,10 @@
 
   function go(to: number) {
     if (wizard.go(to)) {
-      queueMicrotask(() => heading?.focus());
+      void tick().then(() => heading?.focus());
       return;
     }
-    queueMicrotask(() =>
+    void tick().then(() =>
       form?.querySelector<HTMLElement>('[aria-invalid="true"], .step-errors')?.focus(),
     );
   }

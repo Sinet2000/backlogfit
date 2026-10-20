@@ -173,3 +173,31 @@ test('keyboard: digits pick cards, Space reveals, N moves on, ? opens help', asy
   await expect(currentTask(a.page)).toHaveAttribute('data-key', 'SCP-61');
   await expect(card(a.page, second)).toBeVisible();
 });
+
+test('voters see no results or exports while voting, and no stray shortcut digits', async ({
+  page,
+  people,
+}) => {
+  const room = await createRoomApi({ autoReveal: false });
+  await joinAdmin(page, room.adminLink, 'Admin', { spectator: true });
+  const a = await people.join(room.joinLink, 'Alice');
+  await addTasks(page, ['SCP-70']);
+  await nextTask(page);
+  await expect(currentTask(a.page)).toHaveAttribute('data-key', 'SCP-70');
+  await expect(id(a.page, 'results')).toHaveCount(0);
+  await expect(id(a.page, 'btn-export')).toHaveCount(0);
+  await expect(id(page, 'results')).toBeVisible();
+  await expect(a.page.locator('[data-testid="card"] kbd').first()).toBeHidden();
+  await card(a.page, '5').focus();
+  await expect(a.page.locator('[data-testid="card"] kbd').first()).toBeVisible();
+
+  await vote(a.page, '5');
+  await id(page, 'btn-reveal').click();
+  await page.locator('[data-testid="final-value"][data-value="5"]').click();
+  await id(page, 'btn-save-next').click();
+  await expect(a.page.locator('[data-testid="task-item"][data-key="SCP-70"]')).toHaveAttribute(
+    'data-final',
+    '5',
+  );
+  await expect(id(a.page, 'results')).toBeVisible();
+});

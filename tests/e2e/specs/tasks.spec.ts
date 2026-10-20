@@ -112,3 +112,17 @@ test('tasks prepared in the configurator arrive in order; any task can be estima
   await page.reload();
   await expect.poll(() => keys(page)).toEqual(['SCP-1', 'SCP-3', 'SCP-2', 'SCP-9']);
 });
+
+test('typed task lines are kept when moving between steps', async ({ page }) => {
+  await page.goto('/new');
+  await id(page, 'wizard-next').click();
+  await id(page, 'prepared-input').fill('SCP-9999 Typed but never added\nSCP-9998 Second');
+  await expect(page.getByTestId('prepared-item')).toHaveCount(2);
+  await id(page, 'wizard-next').click();
+  await id(page, 'wizard-next').click();
+  await expect(id(page, 'summary-tasks')).toContainText('2 prepared');
+  await expect(id(page, 'summary-tasks')).toContainText('SCP-9999');
+  await id(page, 'wizard-back').click();
+  await id(page, 'wizard-back').click();
+  await expect(id(page, 'prepared-input')).toHaveValue(/SCP-9999/);
+});
