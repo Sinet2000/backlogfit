@@ -23,6 +23,8 @@ export interface ServerConfig {
   upgradesPerMin: number;
   /** Security headers without HSTS / upgrade-insecure-requests (dev, or plain-http origin). */
   dev: boolean;
+  /** NODE_ENV=production: Trusted Types enforced and no source maps, regardless of scheme. */
+  production: boolean;
   /** Test-only clock acceleration (1 = real time). Honoured only when NODE_ENV=test. */
   timeScale: number;
   /** Seconds between WebSocket pings; a socket that missed one pong is dropped. */
@@ -85,6 +87,7 @@ export function readConfig(env: Env = process.env): ServerConfig {
     upgradesPerMin: int(env, 'WS_UPGRADES_PER_MIN', 120, 1, 100_000),
     // HSTS and upgrade-insecure-requests only make sense when the public origin is https.
     dev: env.NODE_ENV !== 'production' || publicOrigin.startsWith('http:'),
+    production: env.NODE_ENV === 'production',
     timeScale,
     heartbeatSeconds: int(env, 'HEARTBEAT_SECONDS', 30, 1, 3600),
     helloTimeoutSeconds: int(env, 'HELLO_TIMEOUT_SECONDS', 20, 1, 3600),

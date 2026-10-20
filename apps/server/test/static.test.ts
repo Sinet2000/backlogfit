@@ -102,6 +102,27 @@ describe('static web build', () => {
     }
   });
 
+  it('enforces trusted types and hides source maps in production on plain http', async () => {
+    const prod = await start({
+      WEB_DIR: web.path,
+      NODE_ENV: 'production',
+      PUBLIC_ORIGIN: 'http://intranet.test',
+    });
+    try {
+      const page = await fetch(`http://127.0.0.1:${prod.port}/`);
+      const csp = page.headers.get('content-security-policy') ?? '';
+      expect(csp).toContain("require-trusted-types-for 'script'");
+      expect(csp).not.toContain('upgrade-insecure-requests');
+      expect(page.headers.get('strict-transport-security')).toBeNull();
+      const map = await fetch(
+        `http://127.0.0.1:${prod.port}/_app/immutable/entry/app.abc123.js.map`,
+      );
+      expect(map.status).toBe(404);
+    } finally {
+      await prod.close();
+    }
+  });
+
   it('answers HEAD without a body', async () => {
     const res = await fetch(`${base(server)}/`, { method: 'HEAD' });
     expect(res.status).toBe(200);

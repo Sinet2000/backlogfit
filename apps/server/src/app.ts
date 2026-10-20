@@ -84,9 +84,10 @@ export async function startServer(config: ServerConfig): Promise<RunningServer> 
   const allowedOrigin = createOriginChecker(config.origins);
   const headerOpts = {
     dev: config.dev,
+    trustedTypes: config.production,
     connectSrc: [...new Set(config.origins.map(wsOrigin))],
   };
-  const serveStatic = createStaticHandler(config.webDir, { sourceMaps: config.dev });
+  const serveStatic = createStaticHandler(config.webDir, { sourceMaps: !config.production });
 
   const app = new Hono<{ Bindings: HttpBindings }>();
 
