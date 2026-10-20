@@ -14,7 +14,6 @@
 /** `false`/0 = use the socket peer; n = trust n reverse proxies (X-Forwarded-For); or Cloudflare. */
 export type TrustProxy = boolean | number | 'cloudflare';
 
-/** Fetch `Headers`, or Node's `IncomingHttpHeaders` (lower-case keys). */
 export type HeaderSource =
   | { get(name: string): string | null }
   | Readonly<Record<string, string | readonly string[] | undefined>>;
@@ -37,9 +36,6 @@ function header(h: HeaderSource, name: string): string | null {
   if (v === undefined) return null;
   return typeof v === 'string' ? v : v.join(',');
 }
-
-// -----------------------------------------------------------------------------------------------
-// Address parsing
 
 function parseV4(s: string): number[] | null {
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s);
@@ -140,9 +136,6 @@ export function resolveClientAddress(
   if (list.length < hops) return socketAddr ?? null;
   return list[list.length - hops] ?? null;
 }
-
-// -----------------------------------------------------------------------------------------------
-// SipHash-2-4 (keyed PRF, 64-bit output)
 
 const MASK = (1n << 64n) - 1n;
 const rotl = (x: bigint, b: bigint) => ((x << b) | (x >> (64n - b))) & MASK;

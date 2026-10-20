@@ -1,7 +1,3 @@
-/**
- * Fuzzing task-line parsing (the only place user text becomes a clickable link) and the
- * room-creation request (the only unauthenticated write).
- */
 import {
   checkUrl,
   createRoom,
@@ -70,7 +66,7 @@ const BYPASS_URLS = [
   'https://backlogfit.com．evil.com',
   'https://evilbacklogfit.com',
   'https://evil-backlogfit.com',
-  'https://bаcklogfit.com', // Cyrillic а
+  'https://bаcklogfit.com',
   'https://xn--bcklogfit-2nh.com',
   'https://backlogfit.co',
   'https://backlogfit.com\u0000.evil.com',
@@ -110,7 +106,6 @@ function checkTaskInvariants(line: string, opts: TaskParseOptions): void {
       [...url].some((ch) => /\s/.test(ch) || (ch.codePointAt(0) ?? 0) < 0x20 || ch === '\x7f'),
     ).toBe(false);
     if (opts.policy === 'ids') {
-      // No pasted URL is ever stored; only the admin template can produce links.
       expect(opts.linkTemplate).not.toBeNull();
       expect(key).not.toBeNull();
       expect(url).toBe(linkFor(opts.linkTemplate ?? '', key ?? ''));
@@ -227,8 +222,6 @@ describe('idPattern ReDoS', () => {
     }
   });
 
-  // SEC-001 (fixed in core idpattern.ts): patterns never reach RegExp and are matched without
-  // backtracking; the quantifier budget additionally rejects these chains.
   it('rejects chains of overlapping quantifiers', () => {
     expect(isSafeIdPattern(`${'a*'.repeat(14)}b`)).toBe(false);
     expect(isSafeIdPattern(`${'[a-z]+'.repeat(10)}!`)).toBe(false);
@@ -312,7 +305,6 @@ describe('parseCreateRoomRequest fuzz', () => {
       fc.property(fc.array(fc.tuple(field, value), { minLength: 1, maxLength: 3 }), (edits) => {
         const req = valid() as Record<string, unknown>;
         for (const [p, v] of edits) setPath(req, p, v);
-        // Also through JSON text, which is how the HTTP body arrives.
         for (const input of [req, JSON.parse(JSON.stringify(req)) as unknown]) {
           let r: ReturnType<typeof parseCreateRoomRequest> | undefined;
           expect(() => {

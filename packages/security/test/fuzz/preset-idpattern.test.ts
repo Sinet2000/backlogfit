@@ -1,7 +1,3 @@
-/**
- * Phase C additions: preset import (local file → configurator) and the regex-free ID matcher that
- * replaced RegExp for admin-supplied patterns (SEC-001 fix).
- */
 import {
   compileIdMatcher,
   ID_MATCH_MAX_INPUT,
@@ -102,7 +98,7 @@ describe('ID matcher (SEC-001 fix)', () => {
     fc.assert(
       fc.property(pattern, fc.array(token, { minLength: 1, maxLength: 8 }), (p, tokens) => {
         const m = compileIdMatcher(p);
-        if (m === null) return; // over the quantifier budget
+        if (m === null) return;
         const re = new RegExp(`^(?:${p})$`, 'u');
         for (const t of tokens) {
           compared++;
@@ -148,13 +144,11 @@ describe('ID matcher (SEC-001 fix)', () => {
   });
 
   it('the worst pattern in budget stays cheap on maximal input', () => {
-    // 24 atoms, 6 of them unbounded (the full budget), 64-char tokens, 200 lines.
     const p = `${'.*'.repeat(6)}${'.'.repeat(17)}!`;
     expect(isSafeIdPattern(p)).toBe(true);
     const line = 'a'.repeat(ID_MATCH_MAX_INPUT);
     const t0 = performance.now();
     for (let i = 0; i < 200; i++) parseTaskLine(line, { policy: 'ids', idPattern: p });
-    // Measured ~10-30 ms locally; the bound is generous to stay stable on slow CI runners.
     expect(performance.now() - t0).toBeLessThan(5000);
   });
 });

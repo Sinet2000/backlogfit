@@ -142,9 +142,6 @@ export function securityHeaders(opts: HeaderOptions = {}): Record<string, string
   return headers;
 }
 
-// -----------------------------------------------------------------------------------------------
-// Per-path caching and indexing
-
 /** Long-lived, content-hashed build output (SvelteKit `_app/immutable`). */
 export const IMMUTABLE_PREFIX = '/_app/immutable/';
 
@@ -175,7 +172,6 @@ export function pathHeaders(pathname: string): Record<string, string> {
   return { 'Cache-Control': 'no-cache' };
 }
 
-/** Minimal mutable headers interface (Fetch `Headers`, Hono `c.res.headers`). */
 export interface MutableHeaders {
   set(name: string, value: string): void;
   delete(name: string): void;

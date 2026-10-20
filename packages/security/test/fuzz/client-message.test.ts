@@ -1,8 +1,3 @@
-/**
- * Fuzzing the WebSocket frame parser: the first thing every untrusted byte touches.
- * Invariants: never throws, accepts only schema-shaped messages, never pollutes prototypes,
- * accepted output is a fixed point (re-serializing and re-parsing yields the same message).
- */
 import { type ClientMessage, hasUnsafeChars, NAME_MAX, parseClientMessage } from '@backlogfit/core';
 import fc from 'fast-check';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -32,7 +27,6 @@ afterEach(assertNoPollution);
 const SECRET = 'S'.repeat(22);
 const ID = 'abcDEF123_-';
 
-/** Valid examples of every message type: the seeds that mutations start from. */
 const SEEDS: Record<string, unknown>[] = [
   { type: 'hello', v: 1, joinSecret: SECRET, name: 'Ana', role: 'voter' },
   {
@@ -139,7 +133,6 @@ const mutation: fc.Arbitrary<Mutation> = fc.oneof(
   }),
 );
 
-/** Builds JSON text by hand so __proto__ becomes an own key exactly as JSON.parse would see it. */
 function toJsonText(base: Record<string, unknown>, muts: Mutation[]): string {
   const entries: [string, unknown][] = Object.entries(base);
   for (const m of muts) {
@@ -160,14 +153,12 @@ function toJsonText(base: Record<string, unknown>, muts: Mutation[]): string {
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${JSON.stringify(v) ?? 'null'}`).join(',')}}`;
 }
 
-/** The invariants every accepted message must satisfy, independent of how it was produced. */
 function checkAccepted(msg: ClientMessage, raw: string): void {
   expect(Object.getPrototypeOf(msg)).toBe(Object.prototype);
   for (const k of POLLUTION_KEYS) {
     if (k === 'admin') continue;
     expect(Object.hasOwn(msg, k), `own key ${k} in ${raw.slice(0, 120)}`).toBe(false);
   }
-  // Fixed point: what we accepted survives a round trip unchanged.
   const again = parseClientMessage(JSON.stringify(msg));
   expect(again).toEqual({ ok: true, msg });
   if (msg.type === 'hello') {
@@ -218,12 +209,10 @@ describe('parseClientMessage fuzz', () => {
       }),
       RUNS,
     );
-    // Invalid UTF-8 never decodes leniently.
     expect(parseClientMessage(new Uint8Array([0x7b, 0xff, 0x7d]))).toEqual({
       ok: false,
       code: 'bad_json',
     });
-    // An overlong encoding of '"' must not be accepted as a quote.
     expect(parseClientMessage(new Uint8Array([0x7b, 0xc0, 0xa2, 0x7d])).ok).toBe(false);
   });
 
@@ -251,7 +240,6 @@ describe('parseClientMessage fuzz', () => {
       }),
       { numRuns: 5000 },
     );
-    // Some mutations are benign (e.g. a valid optional field); the property must not be vacuous.
     expect(accepted).toBeGreaterThan(0);
   });
 
@@ -289,7 +277,6 @@ describe('parseClientMessage fuzz', () => {
         expect(r.ok).toBe(false);
       }
     }
-    // Default cap: big frames are refused before JSON.parse.
     const big = JSON.stringify({
       type: 'admin.tasks.add',
       lines: Array(200).fill('x'.repeat(100)),
@@ -297,7 +284,6 @@ describe('parseClientMessage fuzz', () => {
     expect(parseClientMessage(big)).toEqual({ ok: false, code: 'too_large' });
     const multiByte = `{"type":"ping","x":"${'€'.repeat(6000)}"}`;
     expect(parseClientMessage(multiByte)).toEqual({ ok: false, code: 'too_large' });
-    // Oversized arrays inside the cap are still rejected by the schema.
     const many = JSON.stringify({ type: 'admin.tasks.add', lines: Array(201).fill('') });
     expect(parseClientMessage(many).ok).toBe(false);
     expect(parseClientMessage(JSON.stringify({ type: 'admin.tasks.add', lines: [] })).ok).toBe(
@@ -349,12 +335,10 @@ describe('display names', () => {
     ]) {
       expect(parseClientMessage(helloWith(name)).ok, JSON.stringify(name)).toBe(false);
     }
-    // NFC: a decomposed name is accepted in composed form, so it cannot impersonate.
     const r = parseClientMessage(helloWith('René'));
     expect(r.ok && r.msg.type === 'hello' && r.msg.name).toBe('René');
   });
 
-  // SEC-002 (fixed in core text.ts): lone surrogates and invisible fillers are rejected.
   it('rejects lone surrogates and invisible fillers in names', () => {
     for (const name of ['\ud800', 'Ana\udfff', 'ㅤ', 'ᅟ', '⠀', '­', '؜', 'A\u{e0041}']) {
       expect(parseClientMessage(helloWith(name)).ok, JSON.stringify(name)).toBe(false);

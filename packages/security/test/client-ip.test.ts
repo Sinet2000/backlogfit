@@ -13,7 +13,6 @@ const bytes = (n: number) => Uint8Array.from({ length: n }, (_, i) => i);
 
 describe('siphash24', () => {
   it('matches the reference vectors', () => {
-    // Aumasson & Bernstein, SipHash paper appendix / reference vectors.h (key 00..0f).
     expect(siphash24(bytes(16), bytes(0))).toBe(0x726fdb47dd0e0e31n);
     expect(siphash24(bytes(16), bytes(15))).toBe(0xa129ca6149be45e5n);
     expect(siphash24(bytes(16), bytes(8))).toBe(0x93f5f5799a932462n);

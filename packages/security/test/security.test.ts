@@ -137,10 +137,10 @@ describe('rate limiter', () => {
     const rl = createRateLimiter<number>({ rate: 1, burst: 1, maxKeys: 2 });
     rl.take(1, 0);
     rl.take(2, 0);
-    rl.take(1, 0); // 1 is now most recent
-    rl.take(3, 0); // evicts 2
+    rl.take(1, 0);
+    rl.take(3, 0);
     expect(rl.size).toBe(2);
-    expect(rl.take(1, 0)).toBe(false); // still tracked, still empty
+    expect(rl.take(1, 0)).toBe(false);
   });
   it('does not mint tokens when the clock goes backwards', () => {
     const rl = createRateLimiter<string>({ rate: 1, burst: 1 });
@@ -208,7 +208,7 @@ describe('origin', () => {
       'https://backlogfit.com/path',
       'HTTPS://BACKLOGFIT.COM',
       'https://Backlogfit.com',
-      'https://bаcklogfit.com', // Cyrillic а
+      'https://bаcklogfit.com',
       'https://xn--bcklogfit-2nh.com',
       ' https://backlogfit.com',
       'https://backlogfit.com ',

@@ -33,7 +33,6 @@ describe('rate limiter properties', () => {
             start ??= now;
             maxNow = Math.max(maxNow, now);
             if (rl.take('k', now, s.cost)) granted += s.cost;
-            // Time "elapsed" is bounded by the furthest point the clock has reached.
             const t = Math.max(0, maxNow - start) / 1000;
             expect(granted).toBeLessThanOrEqual(burst + rate * t + 1e-9);
           }
@@ -125,7 +124,7 @@ describe('origin properties', () => {
           case 'upper': {
             const i = Number(s);
             const ch = base[i] ?? '';
-            if (ch.toUpperCase() === ch) return; // not a letter
+            if (ch.toUpperCase() === ch) return;
             o = base.slice(0, i) + ch.toUpperCase() + base.slice(i + 1);
             break;
           }
