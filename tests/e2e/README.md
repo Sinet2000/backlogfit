@@ -16,7 +16,7 @@ Node servers, or reuses them if they are already listening:
 
 | URL | env | used by |
 |---|---|---|
-| `http://localhost:8080` | `NODE_ENV=test PUBLIC_ORIGIN=http://localhost:8080 ROOM_CREATE_PER_MIN=10000 MAX_ROOMS=5000` | all specs |
+| `http://localhost:8080` | `NODE_ENV=test PUBLIC_ORIGIN=http://localhost:8080 ROOM_CREATE_PER_MIN=10000 WS_UPGRADES_PER_MIN=10000 MAX_CONNECTIONS_PER_CLIENT=1000 MAX_ROOMS=5000` | all specs |
 | `http://localhost:8081` | same + `TEST_TIME_SCALE=60` (1 room minute per second) | idle / hard expiry specs |
 
 Useful subsets:
@@ -120,9 +120,10 @@ load:
     - run: pnpm install --frozen-lockfile
     - run: |
         NODE_ENV=test PUBLIC_ORIGIN=http://localhost:8080 ROOM_CREATE_PER_MIN=10000 \
+          WS_UPGRADES_PER_MIN=100000 MAX_CONNECTIONS_PER_CLIENT=100000 \
           pnpm --filter @backlogfit/server start &
         until curl -fs http://localhost:8080/api/health; do sleep 1; done
-        pnpm --filter @backlogfit/load load -- --rooms 20 --clients 20 --json load.json
+        pnpm --filter @backlogfit/load load -- --rooms 20 --clients 20 --ramp 5000 --json load.json
 ```
 
 Browsers are already in the image (`PLAYWRIGHT_BROWSERS_PATH=/ms-playwright`), so no

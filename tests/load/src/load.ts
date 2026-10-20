@@ -5,8 +5,9 @@
  *
  *   node src/load.ts --url http://localhost:8080 --rooms 20 --clients 20 --rounds 3
  *
- * The server's per-address room creation limit (ROOM_CREATE_PER_MIN, default 10) must be raised
- * for more than 10 rooms from one machine.
+ * The server's per-address limits must be raised when all clients come from one machine:
+ * ROOM_CREATE_PER_MIN (default 10), WS_UPGRADES_PER_MIN (default 120) and
+ * MAX_CONNECTIONS_PER_CLIENT (default 50 concurrent sockets), e.g. all 100000.
  */
 import { writeFile } from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
@@ -49,6 +50,9 @@ function countError(key: string): void {
   metrics.errors.set(key, (metrics.errors.get(key) ?? 0) + 1);
 }
 
+/** Every client ever created, so nothing is left open when a room fails half-way. */
+const allClients = new Set<Client>();
+
 class Client {
   readonly ws: WebSocket;
   readonly log: { at: number; msg: Msg }[] = [];
@@ -60,6 +64,7 @@ class Client {
 
   constructor(url: string, origin: string) {
     this.ws = new WebSocket(url, { headers: { origin }, perMessageDeflate: false });
+    allClients.add(this);
     this.ws.on('message', (data, isBinary) => {
       if (isBinary) return countError('binary_frame');
       let msg: Msg;
@@ -144,7 +149,8 @@ class Client {
 
   close(): void {
     this.done = true;
-    this.ws.close(1000);
+    if (this.ws.readyState === WebSocket.CONNECTING) this.ws.terminate();
+    else this.ws.close(1000);
   }
 }
 
@@ -189,8 +195,26 @@ async function connect(
   const t0 = performance.now();
   const c = new Client(wsUrl(opts.url, roomId), opts.origin);
   await new Promise<void>((resolve, reject) => {
-    c.ws.once('open', () => resolve());
-    c.ws.once('error', reject);
+    const timer = setTimeout(() => reject(new Error('connect timeout')), opts.timeoutMs);
+    let settled = false;
+    const fail = (why: string) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      countError(`connect:${why}`);
+      reject(new Error(`connect failed: ${why}`));
+    };
+    c.ws.once('open', () => {
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    });
+    c.ws.once('unexpected-response', (_req, res) => {
+      res.resume();
+      fail(`http_${res.statusCode ?? 0}`);
+    });
+    c.ws.once('error', (e) => fail(e.message.slice(0, 40)));
+    c.ws.once('close', (code) => fail(`close_${code}`));
   });
   const hello: Msg = { type: 'hello', v: 1, joinSecret, name, role: 'voter' };
   if (adminSecret) hello.adminSecret = adminSecret;
@@ -202,7 +226,13 @@ async function connect(
 
 async function runRoom(opts: LoadOptions, index: number): Promise<void> {
   if (opts.rampMs > 0) await new Promise((r) => setTimeout(r, (opts.rampMs * index) / opts.rooms));
-  const { roomId, join, admin } = await createRoom(opts);
+  let created: Awaited<ReturnType<typeof createRoom>>;
+  try {
+    created = await createRoom(opts);
+  } catch {
+    return; // counted as create:<status>
+  }
+  const { roomId, join, admin } = created;
   const clients: Client[] = [];
   try {
     clients.push(await connect(opts, roomId, join, 'Admin', admin));
@@ -354,3 +384,6 @@ async function main(): Promise<void> {
 }
 
 await main();
+for (const c of allClients) if (!c.done) c.close();
+// Pending per-step timers must not keep the process alive after the report.
+process.exit();
