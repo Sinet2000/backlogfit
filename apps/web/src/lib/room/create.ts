@@ -23,7 +23,7 @@ export interface CreatedRoom {
   expiresAt: number;
 }
 
-export type CreateError = 'network' | 'rejected' | 'rate_limited' | 'server';
+export type CreateError = 'network' | 'forbidden' | 'rejected' | 'rate_limited' | 'server';
 
 export class CreateRoomError extends Error {
   readonly kind: CreateError;
@@ -73,6 +73,7 @@ export async function createRoomOnServer(
   } catch {
     throw new CreateRoomError('network');
   }
+  if (res.status === 403) throw new CreateRoomError('forbidden');
   if (res.status === 429) throw new CreateRoomError('rate_limited');
   if (res.status === 400 || res.status === 413 || res.status === 422) {
     throw new CreateRoomError('rejected');
@@ -96,6 +97,8 @@ export async function createRoomOnServer(
 
 export const CREATE_ERROR_TEXT: Record<CreateError, string> = {
   network: 'The Backlogfit server could not be reached. Check your connection and try again.',
+  forbidden:
+    'This server does not accept sessions from this address. Ask your administrator to add it to PUBLIC_ORIGIN or ALLOWED_ORIGINS.',
   rejected: 'The server did not accept these settings. Please review them and try again.',
   rate_limited:
     'Too many sessions were created from here in a short time. Wait a minute and try again.',
