@@ -227,12 +227,9 @@ describe('idPattern ReDoS', () => {
     }
   });
 
-  // SEC finding (owner A1, High): a chain of overlapping quantifiers needs no group to
-  // backtrack polynomially with a high exponent. `a*` x14 + `b` (29 chars) passes the filter and
-  // a 24-character task line then blocks the event loop for about a minute on an M-series Mac;
-  // patterns may be 100 chars and tokens 64 chars. Kept as it.fails (deterministic, no timing);
-  // flip to `it` once isSafeIdPattern bounds the number of quantifiers.
-  it.fails('rejects chains of overlapping quantifiers', () => {
+  // SEC-001 (fixed in core idpattern.ts): patterns never reach RegExp and are matched without
+  // backtracking; the quantifier budget additionally rejects these chains.
+  it('rejects chains of overlapping quantifiers', () => {
     expect(isSafeIdPattern(`${'a*'.repeat(14)}b`)).toBe(false);
     expect(isSafeIdPattern(`${'[a-z]+'.repeat(10)}!`)).toBe(false);
     expect(isSafeIdPattern(`${'\\w?'.repeat(30)}\\w{30}`)).toBe(false);
