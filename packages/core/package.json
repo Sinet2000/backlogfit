@@ -1,0 +1,25 @@
+{
+  "name": "@backlogfit/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pure room logic for Backlogfit: schemas, reducer, projections, stats, task parsing, exports.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "verify": "tsc --noEmit && vitest run --coverage"
+  },
+  "dependencies": {
+    "valibot": "1.5.0"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "5.0.5",
+    "fast-check": "4.10.2",
+    "vitest": "5.0.5"
+  }
+}
