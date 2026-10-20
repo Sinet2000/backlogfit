@@ -211,6 +211,8 @@ Inspired by the estimation technique described in Mike Cohn's book 'Agile Estima
 
 Nikita Nikitins (NN Y2K0)
 
+[LinkedIn](https://www.linkedin.com/in/nn-y2k0) · [GitHub](https://github.com/Sinet2000)
+
 <!-- company-attribution:start -->
 Dexlaris
 <!-- company-attribution:end -->
