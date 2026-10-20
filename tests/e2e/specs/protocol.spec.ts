@@ -258,9 +258,7 @@ test.describe('expiry on the fast clock (TEST_TIME_SCALE)', () => {
     expect((await after.waitClose()).code).toBe(4404);
   });
 
-  test('hard expiry: closed expired (4001) even with activity', async ({
-    page,
-  }) => {
+  test('hard expiry: closed expired (4001) even with activity', async ({ page }) => {
     test.setTimeout(120_000);
     const room = await createRoomApi({ baseURL: FAST_URL, lifetimeHours: 1 });
     const admin = await RawClient.open(page, room.roomId);
