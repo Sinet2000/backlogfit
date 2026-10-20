@@ -25,6 +25,8 @@ library (icons are inline SVG components), no analytics, no runtime CDN. Fonts a
 | `@types/node` | 24.19.1 | MIT | Types for the build scripts (`scripts/*.ts`, run with Node's type stripping). | Needed for `node:fs` etc. in strict TS. |
 | `@backlogfit/security` | workspace | Apache-2.0 | `securityHeaders()` for `scripts/serve.ts` (serve the build under the production CSP). | Same headers as production. |
 
+Transitive pin: `chokidar` (via `svelte-check`) is locked to 4.0.1 in `pnpm-lock.yaml` because 4.0.2/4.0.3 lack npm provenance and fail the workspace `trustPolicy: no-downgrade`.
+
 Deliberately not used: `@testing-library/svelte`/jsdom (UI is covered by Playwright in
 `tests/e2e`, logic lives in plain TS modules that are unit-tested without a DOM).
 
