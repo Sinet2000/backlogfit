@@ -36,7 +36,7 @@ Requirements: Node 24 (see `.nvmrc`) and pnpm 11 (the exact version is in `packa
 git clone https://github.com/Sinet2000/backlogfit.git
 cd backlogfit
 pnpm install
-pnpm dev        # web app with a local backend
+pnpm dev        # API server on :8080 + web app with hot reload on :5173
 ```
 
 Before pushing:
@@ -46,6 +46,8 @@ pnpm verify     # biome lint + typecheck + unit tests
 pnpm build
 pnpm e2e        # Playwright end-to-end tests (install browsers once: pnpm exec playwright install --with-deps)
 ```
+
+`pnpm test:all` runs all of it plus the visual snapshots in the Linux Playwright container.
 
 `pnpm format` applies Biome formatting.
 

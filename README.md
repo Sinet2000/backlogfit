@@ -52,17 +52,22 @@ Requirements: Node 24 and pnpm 11.
 pnpm install && pnpm dev
 ```
 
-`pnpm dev` starts the Node server (port 8080) and the web app with hot reload
-(<http://localhost:5173>, which proxies `/api` and `/ws` to the server).
+Open <http://localhost:5173>. `pnpm dev` runs the API server on port 8080 and the web app
+with hot reload on 5173, which proxies `/api` and `/ws` to the server.
 
 Useful scripts:
 
 ```sh
-pnpm verify   # lint + typecheck + unit tests
-pnpm build    # build all packages and apps
-pnpm e2e      # Playwright end-to-end, accessibility and visual tests (see tests/e2e/README.md)
-pnpm load     # WebSocket load test against a running server (see tests/load)
+pnpm start        # production build served by the Node server on http://localhost:8080
+pnpm verify       # lint + typecheck + unit tests
+pnpm build        # build all packages and apps
+pnpm e2e          # Playwright end-to-end and accessibility tests, server included
+pnpm test:visual  # visual snapshots in the Linux Playwright container (Podman)
+pnpm test:all     # everything above, in order
+pnpm load         # WebSocket load test against a running server (see tests/load)
 ```
+
+Install the Playwright browsers once with `pnpm --filter @backlogfit/e2e exec playwright install`.
 
 ## Self-host with Podman or Docker
 
