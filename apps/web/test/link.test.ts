@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { parseFragment, roomUrls } from '../src/lib/room/link.ts';
+import { adminKey, parseFragment, roomUrls, settleAdminSecret } from '../src/lib/room/link.ts';
+import { memoryStore, RoomSessionStore } from '../src/lib/room/storage.ts';
 
 const ROOM = 'AAAAAAAAAAAAAAAAAAAAAA';
 const JOIN = 'jjjjjjjjjjjjjjjjjjjjjj';
@@ -42,5 +43,46 @@ describe('room links', () => {
         'demo',
       ).join,
     ).toBe(`http://x/r?demo#${ROOM}.${JOIN}`);
+  });
+});
+
+describe('SEC-014: admin secret out of the address bar', () => {
+  const base = { roomId: ROOM, joinSecret: JOIN, contentKey: null };
+
+  it('stores the admin secret and asks to show the join link', () => {
+    const store = memoryStore();
+    const r = settleAdminSecret({ ...base, adminSecret: ADMIN }, store);
+    expect(r.link.adminSecret).toBe(ADMIN);
+    expect(r.replace).toBe(`#${ROOM}.${JOIN}`);
+    expect(r.replace).not.toContain(ADMIN);
+    expect(store.getItem(adminKey(ROOM))).toBe(ADMIN);
+  });
+
+  it('restores it after a reload from the join link', () => {
+    const store = memoryStore();
+    settleAdminSecret({ ...base, adminSecret: ADMIN }, store);
+    const r = settleAdminSecret({ ...base, adminSecret: null }, store);
+    expect(r).toEqual({ link: { ...base, adminSecret: ADMIN }, replace: null });
+  });
+
+  it('leaves voters alone and ignores other rooms or junk', () => {
+    const store = memoryStore();
+    expect(settleAdminSecret({ ...base, adminSecret: null }, store)).toEqual({
+      link: { ...base, adminSecret: null },
+      replace: null,
+    });
+    store.setItem(adminKey('BBBBBBBBBBBBBBBBBBBBBB'), ADMIN);
+    store.setItem(adminKey(ROOM), 'bad secret!');
+    expect(settleAdminSecret({ ...base, adminSecret: null }, store).link.adminSecret).toBeNull();
+  });
+
+  it('is forgotten when the room ends', () => {
+    const store = memoryStore();
+    settleAdminSecret({ ...base, adminSecret: ADMIN }, store);
+    const session = new RoomSessionStore(store, ROOM);
+    session.clear();
+    expect(store.getItem(adminKey(ROOM))).toBe(ADMIN);
+    session.clear(true);
+    expect(store.getItem(adminKey(ROOM))).toBeNull();
   });
 });

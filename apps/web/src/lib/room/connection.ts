@@ -349,7 +349,7 @@ export class RoomConnection {
         this.#o.session.clear();
       }
       if (reason === 'expired' || reason === 'idle' || reason === 'closed') {
-        this.#o.session.clear();
+        this.#o.session.clear(true);
       }
       this.#update({ status: 'ended', ended: reason, joinError });
       return;

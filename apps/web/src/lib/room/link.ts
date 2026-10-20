@@ -21,3 +21,33 @@ export function roomUrls(
     admin: link.adminSecret ? path + formatRoomFragment(link) : null,
   };
 }
+
+/** Minimal storage needed to keep the admin secret for this tab (sessionStorage in the app). */
+export interface SecretStore {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+export const adminKey = (roomId: string) => `bf:admin:${roomId}`;
+
+/**
+ * SEC-014: keep the host link out of the address bar (history, history sync, screen shares).
+ * - Host link opened: remember the admin secret for this tab and return the join-link fragment
+ *   to show instead (`replace`).
+ * - Join link opened in a tab that already holds the admin secret (reload, reconnect): restore it.
+ * The admin link itself is shown once on /new and can be copied there again.
+ */
+export function settleAdminSecret(
+  link: RoomLink,
+  store: SecretStore,
+): { link: RoomLink; replace: string | null } {
+  if (link.adminSecret) {
+    store.setItem(adminKey(link.roomId), link.adminSecret);
+    return { link, replace: `#${formatRoomFragment(joinLinkOf(link))}` };
+  }
+  const saved = store.getItem(adminKey(link.roomId));
+  if (saved && /^[A-Za-z0-9_-]{16,128}$/.test(saved)) {
+    return { link: { ...link, adminSecret: saved }, replace: null };
+  }
+  return { link, replace: null };
+}
