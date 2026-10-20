@@ -148,6 +148,10 @@
     color: var(--color-text-muted);
   }
 
+  .row:has(:global([aria-expanded='true'])) {
+    z-index: 5;
+  }
+
   .row.over {
     border-color: var(--color-accent);
     border-style: dashed;
@@ -196,12 +200,12 @@
   @media (hover: hover) {
     .tools {
       position: absolute;
-      top: 50%;
+      top: 0;
+      bottom: 0;
       right: var(--space-1);
       padding-left: var(--space-2);
       border-radius: var(--radius-sm);
       background: var(--color-surface-2);
-      transform: translateY(-50%);
       opacity: 0;
     }
 

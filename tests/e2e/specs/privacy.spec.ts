@@ -5,7 +5,7 @@
 import { createRoomApi } from '../fixtures/api.ts';
 import { checkFrames, revealedVotes } from '../fixtures/privacy.ts';
 import { expect, joinAdmin, test } from '../fixtures/test.ts';
-import { addTasks, currentTask, expectVoted, id, vote } from '../fixtures/ui.ts';
+import { addTasks, currentTask, expectVoted, id, nextTask, vote } from '../fixtures/ui.ts';
 import { ownVotes } from '../fixtures/wire.ts';
 
 test('no other vote value reaches a voter before reveal @smoke', async ({ page, wire, people }) => {
@@ -16,7 +16,7 @@ test('no other vote value reaches a voter before reveal @smoke', async ({ page, 
   const carol = await people.join(room.joinLink, 'Carol');
 
   await addTasks(page, ['SCP-1', 'SCP-2']);
-  await id(page, 'btn-next').click();
+  await nextTask(page);
   await expect(currentTask(alice.page)).toHaveAttribute('data-key', 'SCP-1');
 
   // Alice changes her mind once; others use values Alice never picks.
@@ -65,7 +65,7 @@ test('admin frames before reveal contain no vote values either', async ({ page, 
   await joinAdmin(page, room.adminLink, 'Admin');
   const bob = await people.join(room.joinLink, 'Bob');
   await addTasks(page, ['SCP-10']);
-  await id(page, 'btn-next').click();
+  await nextTask(page);
   await expect(currentTask(bob.page)).toHaveAttribute('data-key', 'SCP-10');
   await vote(bob.page, '8');
   await expectVoted(page, 'Bob', true);

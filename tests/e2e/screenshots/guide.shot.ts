@@ -1,13 +1,18 @@
-/**
- * README / Manager Guide screenshots at 1440×900, light Corporate theme, written to
- * tests/e2e/artifacts/screenshots/. Data is fixed so reruns produce the same pictures.
- */
 import { mkdir } from 'node:fs/promises';
 import { type BrowserContext, expect, test } from '@playwright/test';
 import { createRoomApi } from '../fixtures/api.ts';
-import { addTasks, createRoom, currentTask, id, submitJoin, vote } from '../fixtures/ui.ts';
+import {
+  addTasks,
+  createRoom,
+  currentTask,
+  hostAction,
+  id,
+  nextTask,
+  submitJoin,
+  vote,
+} from '../fixtures/ui.ts';
 
-const OUT = new URL('../artifacts/screenshots/', import.meta.url).pathname;
+const OUT = new URL('../../../docs/assets/screenshots/', import.meta.url).pathname;
 const shot = (name: string) => ({ path: `${OUT}${name}.png`, animations: 'disabled' as const });
 
 test.beforeAll(async () => {
@@ -55,7 +60,7 @@ test('voter view, reveal and results', async ({ page, browser, contextOptions })
     'SCP-3656 Fix login on Safari',
     'SCP-3657 Export invoices as PDF',
   ]);
-  await id(page, 'btn-next').click();
+  await nextTask(page);
   const [alex, priya, jonas, mei] = pages;
   if (!alex || !priya || !jonas || !mei) throw new Error('team not joined');
   await expect(currentTask(alex)).toHaveAttribute('data-key', 'SCP-3655');
@@ -74,9 +79,7 @@ test('voter view, reveal and results', async ({ page, browser, contextOptions })
   await page.screenshot(shot('admin-reveal'));
 
   await page.locator('[data-testid="final-value"][data-value="5"]').first().click();
-  const finalBtn = id(page, 'btn-final');
-  if (await finalBtn.isVisible().catch(() => false)) await finalBtn.click();
-  await id(page, 'btn-next').click();
+  await id(page, 'btn-save-next').click();
   await expect(currentTask(alex)).toHaveAttribute('data-key', 'SCP-3656');
   for (const [p, v] of [
     [alex, '8'],
@@ -88,7 +91,7 @@ test('voter view, reveal and results', async ({ page, browser, contextOptions })
   }
   await id(page, 'btn-reveal').click();
   await page.locator('[data-testid="final-value"][data-value="8"]').first().click();
-  if (await finalBtn.isVisible().catch(() => false)) await finalBtn.click();
+  await hostAction(page, 'btn-final');
   await page.mouse.move(0, 0);
   await page.screenshot(shot('results'));
   await page.screenshot({ ...shot('results-full'), fullPage: true });

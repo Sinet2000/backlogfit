@@ -6,7 +6,7 @@
 import { createRoomApi } from '../fixtures/api.ts';
 import { expect, joinAdmin, test } from '../fixtures/test.ts';
 import { emulateMode, MODES, THEMES, useSwitcher } from '../fixtures/theme.ts';
-import { addTasks, currentTask, id, vote } from '../fixtures/ui.ts';
+import { addTasks, currentTask, id, nextTask, vote } from '../fixtures/ui.ts';
 
 const VIEWPORTS = {
   desktop: { width: 1280, height: 800 },
@@ -27,7 +27,7 @@ for (const [vpName, viewport] of Object.entries(VIEWPORTS)) {
         await emulateMode(p, mode);
         await useSwitcher(p, theme, mode);
         await addTasks(page, ['SCP-1000 Visual baseline']);
-        await id(page, 'btn-next').click();
+        await nextTask(page);
         await expect(currentTask(p)).toHaveAttribute('data-key', 'SCP-1000');
         await p.evaluate(() => document.fonts.ready);
         // Park the pointer: a hovered card lifts and would make snapshots depend on the last click.
@@ -46,7 +46,7 @@ for (const [vpName, viewport] of Object.entries(VIEWPORTS)) {
         await expect(panel).toBeVisible();
         await p.mouse.move(0, 0);
         await expect(panel).toHaveScreenshot(`reveal-${theme}-${mode}-${vpName}.png`);
-        await expect(p.getByTestId('reveal-card').first()).toHaveScreenshot(
+        await expect(p.getByTestId('reveal-group').first()).toHaveScreenshot(
           `revealed-card-${theme}-${mode}-${vpName}.png`,
         );
       });

@@ -13,6 +13,8 @@ import {
   expectClosed,
   expectVoted,
   id,
+  nextTask,
+  openSettings,
   selectedValues,
   submitJoin,
   vote,
@@ -59,7 +61,7 @@ for (const mode of MODES) {
       await useSwitcher(page, theme, mode);
       await submitJoin(voter.page, 'Alice');
       await addTasks(page, ['SCP-300 Accessible checkout']);
-      await id(page, 'btn-next').click();
+      await nextTask(page);
       await expect(currentTask(voter.page)).toHaveAttribute('data-key', 'SCP-300');
       await vote(voter.page, '5');
       await checkA11y(voter.page, `voting ${theme} ${mode}`, info);
@@ -70,9 +72,10 @@ for (const mode of MODES) {
       await checkA11y(voter.page, `revealed ${theme} ${mode}`, info);
       await checkA11y(page, `admin revealed ${theme} ${mode}`, info);
 
+      await openSettings(page);
+      await checkA11y(page, `settings dialog ${theme} ${mode}`, info);
       await id(page, 'btn-close-room').click();
-      const confirm = page.getByTestId('btn-close-confirm');
-      if (await confirm.isVisible().catch(() => false)) await confirm.click();
+      await id(page, 'btn-close-confirm').click();
       await expectClosed(voter.page, 'closed');
       await checkA11y(voter.page, `closed ${theme} ${mode}`, info);
     });
@@ -86,7 +89,7 @@ test('keyboard only: a voter joins, votes, changes the vote and reads the result
   const room = await createRoomApi({ autoReveal: false });
   await joinAdmin(page, room.adminLink, 'Admin', { spectator: true });
   await addTasks(page, ['SCP-310']);
-  await id(page, 'btn-next').click();
+  await nextTask(page);
 
   const v = await people.open();
   const kb = v.page.keyboard;
@@ -182,7 +185,7 @@ for (const reducedMotion of ['reduce', 'no-preference'] as const) {
     await joinAdmin(page, room.adminLink, 'Admin', { spectator: true });
     const a = await people.join(room.joinLink, 'Alice', { context: { reducedMotion } });
     await addTasks(page, ['SCP-330']);
-    await id(page, 'btn-next').click();
+    await nextTask(page);
     await expect(currentTask(a.page)).toHaveAttribute('data-key', 'SCP-330');
     await vote(a.page, '3');
     await id(page, 'btn-reveal').click();
@@ -199,7 +202,7 @@ for (const reducedMotion of ['reduce', 'no-preference'] as const) {
         );
       let max = 0;
       const els = document.querySelectorAll(
-        '[data-testid="reveal-card"], [data-testid="reveal-card"] *',
+        '[data-testid="reveal-group"], [data-testid="reveal-group"] *',
       );
       for (const el of els) {
         const s = getComputedStyle(el);

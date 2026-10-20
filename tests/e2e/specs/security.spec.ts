@@ -4,7 +4,7 @@
  */
 import { createRoomApi } from '../fixtures/api.ts';
 import { expect, joinAdmin, test, unexpectedCsp } from '../fixtures/test.ts';
-import { addTasks, id, vote } from '../fixtures/ui.ts';
+import { addTasks, id, nextTask, vote } from '../fixtures/ui.ts';
 
 const PAGES = ['/', '/guide', '/new', '/r'];
 
@@ -98,7 +98,7 @@ test('a whole session: no cookies, no third-party requests, no CSP violations @s
   await joinAdmin(page, room.adminLink, 'Admin', { spectator: true });
   const alice = await people.join(room.joinLink, 'Alice');
   await addTasks(page, ['SCP-200']);
-  await id(page, 'btn-next').click();
+  await nextTask(page);
   await vote(alice.page, '3');
   await expect(id(alice.page, 'reveal-results')).toBeVisible();
 

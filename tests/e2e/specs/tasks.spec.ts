@@ -1,7 +1,7 @@
 /** Task lines: links are rendered safely, dangerous schemes never reach the DOM. */
 import { createRoomApi } from '../fixtures/api.ts';
 import { expect, joinAdmin, test } from '../fixtures/test.ts';
-import { addTasks, createRoom, currentTask, id } from '../fixtures/ui.ts';
+import { addTasks, createRoom, currentTask, id, nextTask, rowAction } from '../fixtures/ui.ts';
 
 test('link tasks render as safe external links and javascript: is rejected @smoke', async ({
   page,
@@ -29,7 +29,7 @@ test('link tasks render as safe external links and javascript: is rejected @smok
   for (const t of await page.getByTestId('task-item').allInnerTexts()) {
     expect(t.toLowerCase()).not.toMatch(/javascript:|data:/);
   }
-  await id(page, 'btn-next').click();
+  await nextTask(page);
   for (const p of [page, alice.page]) {
     const items = p.getByTestId('task-item');
     await expect(items.first()).toBeVisible();
@@ -81,29 +81,30 @@ test('tasks prepared in the configurator arrive in order; any task can be estima
   const room = await createRoom(page, {
     tasks: ['SCP-1 First', 'SCP-2 Second', 'SCP-3 Third', 'SCP-1 First'],
     onStep: async (p) => {
-      const items = p.getByTestId('agenda-item');
+      const items = p.getByTestId('prepared-item');
       if ((await items.count()) === 3) {
-        // Duplicates are dropped; move the last task to the top.
-        await items.nth(2).getByTestId('move-up').click();
-        await items.nth(1).getByTestId('move-up').click();
+        await rowAction(items.nth(2), 'move-up');
+        await rowAction(items.nth(1), 'move-up');
       }
     },
   });
-  // Opening the room from the same tab adds the prepared list once.
-  await page.goto(room.adminLink);
+  await expect(id(page, 'prepared-note')).toContainText('3 prepared tasks');
+  await id(page, 'open-room').click();
   await id(page, 'join-name').fill('Admin');
   await id(page, 'join-submit').click();
+  await expect.poll(() => keys(page)).toEqual(['SCP-3', 'SCP-1', 'SCP-2']);
+  await expect(id(page, 'toast').filter({ hasText: '3 tasks added from your list' })).toBeVisible();
+  await page.reload();
   await expect.poll(() => keys(page)).toEqual(['SCP-3', 'SCP-1', 'SCP-2']);
 
   const alice = await people.join(room.joinLink, 'Alice');
   await expect.poll(() => keys(alice.page)).toEqual(['SCP-3', 'SCP-1', 'SCP-2']);
 
-  // Reorder in the room: everyone sees the new order.
-  await page.getByTestId('task-item').first().getByTestId('move-down').click();
+  await rowAction(page.getByTestId('task-item').first(), 'move-down');
   await expect.poll(() => keys(alice.page)).toEqual(['SCP-1', 'SCP-3', 'SCP-2']);
 
   // Next follows the order; a task from the discussion can jump the queue.
-  await id(page, 'btn-next').click();
+  await nextTask(page);
   await expect(currentTask(alice.page)).toHaveAttribute('data-key', 'SCP-1');
   await addTasks(page, ['SCP-9 Raised in standup'], { estimateNow: true });
   await expect(currentTask(alice.page)).toHaveAttribute('data-key', 'SCP-9');

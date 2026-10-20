@@ -3,11 +3,15 @@ import { createRoomApi } from '../fixtures/api.ts';
 import { expect, joinAdmin, test } from '../fixtures/test.ts';
 import {
   addTasks,
+  closeSettings,
   currentTask,
   expectClosed,
   id,
+  nextTask,
+  openSettings,
   participant,
   participantAction,
+  setToggle,
   submitJoin,
   vote,
   waitInRoom,
@@ -40,7 +44,6 @@ test('passcode: wrong is refused, right gets in', async ({ page, people }) => {
   await expect(id(p.page, 'toast').or(p.page.getByRole('alert')).first()).toBeVisible();
   await expect(participant(page, 'Alice')).toHaveCount(0);
 
-  // Retry from the same tab with the right passcode.
   if (!(await id(p.page, 'join-name').isVisible())) await p.page.reload();
   await submitJoin(p.page, 'Alice', { passcode: 'tiger-42' });
   await expect(participant(page, 'Alice')).toBeVisible();
@@ -51,7 +54,9 @@ test('lock: new joins are refused while locked, allowed after unlock', async ({ 
   await joinAdmin(page, room.adminLink);
   const alice = await people.join(room.joinLink, 'Alice');
 
-  await id(page, 'btn-lock').click();
+  await openSettings(page);
+  await setToggle(id(page, 'btn-lock'), true);
+  await closeSettings(page);
   const late = await people.open();
   await late.page.goto(room.joinLink);
   await submitJoin(late.page, 'Late', { expect: 'none' });
@@ -59,10 +64,11 @@ test('lock: new joins are refused while locked, allowed after unlock', async ({ 
   await expect(closed).toHaveAttribute('data-reason', 'rejected');
   await expect(closed).toHaveAttribute('data-error', 'room_locked');
   await expect(participant(page, 'Late')).toHaveCount(0);
-  // People already inside stay.
   await expect(participant(alice.page, 'Alice')).toBeVisible();
 
-  await id(page, 'btn-lock').click();
+  await openSettings(page);
+  await setToggle(id(page, 'btn-lock'), false);
+  await closeSettings(page);
   await people.join(room.joinLink, 'Later');
   await expect(participant(page, 'Later')).toBeVisible();
 });
@@ -76,12 +82,9 @@ test('kick removes a participant with a friendly closed screen @smoke', async ({
   const bob = await people.join(room.joinLink, 'Bob');
   const alice = await people.join(room.joinLink, 'Alice');
   await participantAction(page, 'Bob', 'btn-kick');
-  // Optional confirmation dialog.
-  const confirm = page.getByRole('dialog').getByRole('button', { name: /kick|remove|confirm/i });
-  if (await confirm.isVisible().catch(() => false)) await confirm.click();
+  await id(page, 'btn-kick-confirm').click();
   await expectClosed(bob.page, 'kicked');
   await expect(participant(alice.page, 'Bob')).toHaveCount(0);
-  // A kicked person's tab cannot silently rejoin with its resume token.
   await bob.page.reload();
   await bob.page.waitForTimeout(2_000);
   await expect(participant(page, 'Bob')).toHaveCount(0);
@@ -98,17 +101,19 @@ test('promote: a co-admin can run the round but not admin-only actions', async (
   await expect(id(bob.page, 'btn-reveal')).toHaveCount(0);
 
   await participantAction(page, 'Bob', 'btn-promote');
-  await expect(id(bob.page, 'btn-next')).toBeVisible();
+  await expect(id(bob.page, 'task-input')).toBeVisible();
   await addTasks(bob.page, ['SCP-70']);
-  await id(bob.page, 'btn-next').click();
+  await nextTask(bob.page);
   await expect(currentTask(alice.page)).toHaveAttribute('data-key', 'SCP-70');
   await vote(alice.page, '3');
   await id(bob.page, 'btn-reveal').click();
   await expect(id(alice.page, 'reveal-results')).toBeVisible();
-  // Admin-only controls stay hidden for co-admins.
   await expect(id(bob.page, 'btn-close-room')).toHaveCount(0);
   await expect(id(bob.page, 'btn-extend')).toHaveCount(0);
-  await expect(participant(bob.page, 'Alice').getByTestId('btn-promote')).toHaveCount(0);
+  await expect(participant(bob.page, 'Alice').getByTestId('participant-menu')).toHaveCount(1);
+  await participant(bob.page, 'Alice').getByTestId('participant-menu').click();
+  await expect(id(bob.page, 'btn-kick')).toBeVisible();
+  await expect(id(bob.page, 'btn-promote')).toHaveCount(0);
 });
 
 test('max participants: the room refuses joins once full', async ({ page, people }) => {

@@ -10,7 +10,9 @@ import {
   createRoom,
   currentTask,
   expectVoted,
+  hostAction,
   id,
+  nextTask,
   participant,
   revealCards,
   selectedValues,
@@ -20,6 +22,7 @@ import {
 } from '../fixtures/ui.ts';
 
 async function downloadText(page: Page, testId: string): Promise<{ d: Download; text: string }> {
+  await id(page, 'btn-export').click();
   const [d] = await Promise.all([page.waitForEvent('download'), id(page, testId).click()]);
   const path = await d.path();
   return { d, text: await readFile(path, 'utf8') };
@@ -66,7 +69,7 @@ test('full session with configurator, voting, reveal, final and exports @smoke',
   );
   await expect(page.locator('[data-testid="task-item"][data-key="SCP-3657"]')).toHaveCount(1);
 
-  await id(page, 'btn-next').click();
+  await nextTask(page);
   for (const p of [page, alice.page, bob.page, carol.page, sam.page]) {
     await expect(currentTask(p)).toHaveAttribute('data-key', 'SCP-3655');
   }
@@ -108,13 +111,11 @@ test('full session with configurator, voting, reveal, final and exports @smoke',
 
   // Final estimate.
   await page.locator('[data-testid="final-value"][data-value="5"]').first().click();
-  const finalBtn = id(page, 'btn-final');
-  if (await finalBtn.isVisible().catch(() => false)) await finalBtn.click();
+  await expect(id(page, 'btn-save-next')).toHaveText(/Save 5 and continue/);
+  await id(page, 'btn-save-next').click();
   await expect(alice.page.locator('[data-testid="task-item"][data-key="SCP-3655"]')).toContainText(
     '5',
   );
-
-  await id(page, 'btn-next').click();
   await expect(currentTask(alice.page)).toHaveAttribute('data-key', 'SCP-3656');
   await expect.poll(() => selectedValues(alice.page)).toEqual([]);
 
@@ -157,7 +158,7 @@ test('full session with configurator, voting, reveal, final and exports @smoke',
 
   if (browserName === 'chromium') {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-    await id(page, 'btn-copy-summary').click();
+    await hostAction(page, 'btn-copy-summary');
     await expect(id(page, 'toast')).toBeVisible();
     const clip = await page.evaluate(() => navigator.clipboard.readText());
     expect(clip).toContain('SCP-3655');

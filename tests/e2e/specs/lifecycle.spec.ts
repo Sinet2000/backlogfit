@@ -8,6 +8,8 @@ import {
   expectClosed,
   expectVoted,
   id,
+  nextTask,
+  openSettings,
   participant,
   selectedValues,
   submitJoin,
@@ -20,7 +22,7 @@ test('reload resumes the same participant with the same vote @smoke', async ({ p
   await joinAdmin(page, room.adminLink, 'Admin', { spectator: true });
   const alice = await people.join(room.joinLink, 'Alice');
   await addTasks(page, ['SCP-80']);
-  await id(page, 'btn-next').click();
+  await nextTask(page);
   await expect(currentTask(alice.page)).toHaveAttribute('data-key', 'SCP-80');
   await vote(alice.page, '5');
 
@@ -45,9 +47,9 @@ test('admin closes the room: everyone sees the closed screen', async ({ page, pe
   const room = await createRoomApi();
   await joinAdmin(page, room.adminLink);
   const alice = await people.join(room.joinLink, 'Alice');
+  await openSettings(page);
   await id(page, 'btn-close-room').click();
-  const confirm = page.getByTestId('btn-close-confirm');
-  if (await confirm.isVisible().catch(() => false)) await confirm.click();
+  await id(page, 'btn-close-confirm').click();
   await expectClosed(alice.page, 'closed');
   // The link is dead afterwards, and indistinguishable from a link that never existed.
   const again = await people.open();
@@ -78,6 +80,23 @@ test('invalid and malformed links show the friendly ended page', async ({ page }
     ).toBeVisible();
     await expect(page.locator('script:not([src])')).toHaveCount(0);
   }
+
+  await page.goto('/r#garbage');
+  await expectClosed(page, 'invalid_link');
+  await expect(page.getByRole('heading', { level: 1 })).not.toContainText(/ended/i);
+});
+
+test('leaving removes the person for everyone and shows a friendly screen @smoke', async ({
+  page,
+  people,
+}) => {
+  const room = await createRoomApi();
+  await joinAdmin(page, room.adminLink);
+  const alice = await people.join(room.joinLink, 'Alice');
+  await expect(participant(page, 'Alice')).toBeVisible();
+  await id(alice.page, 'btn-leave').click();
+  await expectClosed(alice.page, 'left');
+  await expect(participant(page, 'Alice')).toHaveCount(0);
 });
 
 test.describe('expiry with TEST_TIME_SCALE', () => {
@@ -105,7 +124,7 @@ test.describe('expiry with TEST_TIME_SCALE', () => {
     await joinAdmin(page, room.adminLink, 'Admin', { spectator: true });
     const alice = await people.join(room.joinLink, 'Alice');
     await addTasks(page, ['SCP-90']);
-    await id(page, 'btn-next').click();
+    await nextTask(page);
     await expect(currentTask(alice.page)).toHaveAttribute('data-key', 'SCP-90');
     const deadline = Date.now() + (60 * 60_000) / FAST_TIME_SCALE + 30_000;
     const values = ['1', '2'];

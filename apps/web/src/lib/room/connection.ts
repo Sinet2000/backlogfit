@@ -379,7 +379,12 @@ export class RoomConnection {
       return;
     }
     if (reason !== null) {
-      if (reason === 'kicked' || reason === 'denied' || reason === 'not_found' || reason === 'left') {
+      if (
+        reason === 'kicked' ||
+        reason === 'denied' ||
+        reason === 'not_found' ||
+        reason === 'left'
+      ) {
         this.#o.session.clear();
       }
       if (reason === 'expired' || reason === 'idle' || reason === 'closed') {

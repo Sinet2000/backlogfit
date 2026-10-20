@@ -1,12 +1,8 @@
-/**
- * UI helpers built only on the data-testid contract (apps/web/TESTIDS.md).
- */
 import { expect, type Locator, type Page } from '@playwright/test';
 import { linksFor, parseLink } from './api.ts';
 
 export const id = (page: Page | Locator, testId: string): Locator => page.getByTestId(testId);
 
-/** Read the on/off state of a checkbox, switch or toggle button. */
 export async function isOn(el: Locator): Promise<boolean> {
   return el.evaluate((node) => {
     if (node instanceof HTMLInputElement && (node.type === 'checkbox' || node.type === 'radio')) {
@@ -43,16 +39,13 @@ export type ScalePresetId =
 
 export interface ConfiguratorOptions {
   preset?: ScalePresetId;
-  /** Value or label of the expiry select, e.g. '2' (hours). */
   expiry?: string;
   autoReveal?: boolean;
   anonymous?: boolean;
   lobby?: boolean;
   spectators?: boolean;
   passcode?: string;
-  /** Task lines prepared in the configurator. */
   tasks?: string[];
-  /** Called on every wizard step before moving on (screenshots, axe). */
   onStep?: (page: Page, step: number) => Promise<void>;
 }
 
@@ -64,10 +57,7 @@ export interface CreatedRoom {
   adminLink: string;
 }
 
-/**
- * Walk the /new configurator. Settings are applied on whichever step shows them, so the helper
- * does not depend on the step order.
- */
+/** Walks the /new configurator, applying each setting on whichever step shows it. */
 export async function createRoom(page: Page, opts: ConfiguratorOptions = {}): Promise<CreatedRoom> {
   await page.goto('/new');
   const pending = new Map<string, (el: Locator) => Promise<void>>();
@@ -93,10 +83,7 @@ export async function createRoom(page: Page, opts: ConfiguratorOptions = {}): Pr
   }
   if (opts.tasks !== undefined) {
     const lines = opts.tasks;
-    pending.set('agenda-input', async (el) => {
-      await el.fill(lines.join('\n'));
-      await id(page, 'agenda-add').click();
-    });
+    pending.set('prepared-input', (el) => el.fill(lines.join('\n')));
   }
 
   for (let step = 1; step <= 8; step++) {
@@ -107,6 +94,17 @@ export async function createRoom(page: Page, opts: ConfiguratorOptions = {}): Pr
       if (await el.isVisible()) {
         await apply(el);
         pending.delete(tid);
+      }
+    }
+    const more = id(page, 'rules-more');
+    if (pending.size > 0 && (await more.isVisible()) && !(await more.getAttribute('open'))) {
+      await more.locator('summary').click();
+      for (const [tid, apply] of [...pending]) {
+        const el = id(page, tid);
+        if (await el.isVisible()) {
+          await apply(el);
+          pending.delete(tid);
+        }
       }
     }
     if (opts.onStep) await opts.onStep(page, step);
@@ -141,11 +139,9 @@ export async function createRoom(page: Page, opts: ConfiguratorOptions = {}): Pr
 export interface JoinOptions {
   spectator?: boolean;
   passcode?: string;
-  /** What to wait for after submitting. Default 'room'. */
   expect?: 'room' | 'lobby' | 'none';
 }
 
-/** On a page that shows the join screen, fill it and submit. */
 export async function submitJoin(page: Page, name: string, opts: JoinOptions = {}): Promise<void> {
   const nameField = id(page, 'join-name');
   await expect(nameField).toBeVisible({ timeout: 15_000 });
@@ -158,7 +154,6 @@ export async function submitJoin(page: Page, name: string, opts: JoinOptions = {
   if (wait === 'lobby') await expect(id(page, 'lobby-waiting')).toBeVisible();
 }
 
-/** The viewer is in the room once they see themselves in the participant list. */
 export async function waitInRoom(page: Page, name: string): Promise<void> {
   await expect(participant(page, name)).toBeVisible({ timeout: 15_000 });
 }
@@ -180,7 +175,6 @@ export async function addTasks(
   lines: string[],
   opts: { estimateNow?: boolean } = {},
 ): Promise<void> {
-  // Once the room has tasks the add form is folded behind an "Add" button.
   const input = id(page, 'task-input');
   await expect(input.or(id(page, 'task-add-open')).first()).toBeVisible();
   if (!(await input.isVisible())) await id(page, 'task-add-open').click();
@@ -191,7 +185,6 @@ export async function addTasks(
 export async function vote(page: Page, value: string): Promise<void> {
   const c = card(page, value);
   await c.click();
-  // The last vote may auto-reveal, which replaces the deck's selection with the results.
   await expect
     .poll(
       async () =>
@@ -202,9 +195,7 @@ export async function vote(page: Page, value: string): Promise<void> {
     .toBe(true);
 }
 
-/** True when the card shows as selected (aria-pressed or aria-checked). */
 export async function isSelected(c: Locator): Promise<boolean> {
-  // Short timeout: an auto-reveal can remove the deck between count() and here.
   const [p, ch] = await Promise.all([
     c.getAttribute('aria-pressed', { timeout: 500 }).catch(() => null),
     c.getAttribute('aria-checked', { timeout: 500 }).catch(() => null),
@@ -224,17 +215,60 @@ export async function expectVoted(page: Page, name: string, voted: boolean): Pro
   await expect(participant(page, name)).toHaveAttribute('data-voted', String(voted));
 }
 
-/** Click a per-participant action (btn-kick, btn-promote) in that participant's row. */
+/** Opens a participant's row menu and picks an action (btn-kick, btn-promote, btn-demote). */
 export async function participantAction(page: Page, name: string, testId: string): Promise<void> {
   const row = participant(page, name);
-  const inRow = row.getByTestId(testId);
-  if ((await inRow.count()) > 0) {
-    await inRow.first().click();
-  } else {
-    // Some layouts open a per-participant menu; fall back to clicking the row first.
-    await row.click();
-    await id(page, testId).first().click();
+  await row.hover();
+  await row.getByTestId('participant-menu').click();
+  await id(page, testId).click();
+}
+
+/** Opens a sortable row's menu and picks an action (move-up, move-down, remove). */
+export async function rowAction(row: Locator, testId: string): Promise<void> {
+  await row.hover();
+  await row.getByTestId('row-menu').click();
+  await row.page().getByTestId(testId).click();
+}
+
+/** Runs a host control that may sit behind the "More actions" or "Export" menu. */
+export async function hostAction(page: Page, testId: string): Promise<void> {
+  const direct = id(page, testId);
+  if (await direct.isVisible()) {
+    await direct.click();
+    return;
   }
+  for (const menu of ['host-menu', 'btn-export']) {
+    const trigger = id(page, menu);
+    if (!(await trigger.isVisible())) continue;
+    await trigger.click();
+    if (await direct.isVisible()) {
+      await direct.click();
+      return;
+    }
+    await page.keyboard.press('Escape');
+  }
+  throw new Error(`host control ${testId} not found`);
+}
+
+/** Moves to the next task: Start/Continue when idle, Skip otherwise (no estimate saved). */
+export async function nextTask(page: Page): Promise<void> {
+  const start = id(page, 'btn-next');
+  await expect(start.or(id(page, 'host-menu')).first()).toBeVisible();
+  if (await start.isVisible()) await start.click();
+  else await hostAction(page, 'btn-skip');
+}
+
+/** Opens the session settings dialog (lock, rules, end session). */
+export async function openSettings(page: Page): Promise<Locator> {
+  const dialog = page.getByRole('dialog', { name: 'Session settings' });
+  if (!(await dialog.isVisible())) await id(page, 'btn-settings').click();
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+export async function closeSettings(page: Page): Promise<void> {
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Session settings' })).toBeHidden();
 }
 
 export async function revealCards(page: Page): Promise<{ name: string; value: string }[]> {
@@ -247,7 +281,6 @@ export async function revealCards(page: Page): Promise<{ name: string; value: st
   );
 }
 
-/** Numbers in a stat element's text, e.g. "Average 4.5" → 4.5. */
 export async function statNumber(page: Page, testId: string): Promise<number> {
   const t = (await id(page, testId).textContent()) ?? '';
   const m = t.replace(',', '.').match(/-?\d+(\.\d+)?/g);
@@ -259,7 +292,6 @@ export async function expectClosed(page: Page, reason: string, timeout = 15_000)
   const closed = id(page, 'room-closed');
   await expect(closed).toBeVisible({ timeout });
   await expect(closed).toHaveAttribute('data-reason', reason);
-  // A friendly, human message, never a raw code.
   const text = ((await closed.innerText()) ?? '').trim();
   expect(text.length, 'closed screen has a message').toBeGreaterThan(10);
   expect(text).not.toMatch(/\b(4\d{3}|not_found|undefined|null|NaN)\b/);

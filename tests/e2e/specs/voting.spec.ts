@@ -7,6 +7,7 @@ import {
   currentTask,
   expectVoted,
   id,
+  nextTask,
   participant,
   revealCards,
   selectedValues,
@@ -21,7 +22,7 @@ test('auto-reveal when every connected voter has voted @smoke', async ({ page, p
   const b = await people.join(room.joinLink, 'Bob');
   await people.join(room.joinLink, 'Sam', { spectator: true });
   await addTasks(page, ['SCP-20']);
-  await id(page, 'btn-next').click();
+  await nextTask(page);
   await expect(currentTask(a.page)).toHaveAttribute('data-key', 'SCP-20');
 
   await vote(a.page, '8');
@@ -43,7 +44,7 @@ test('re-vote starts a new round and keeps the previous one in history', async (
   const a = await people.join(room.joinLink, 'Alice');
   const b = await people.join(room.joinLink, 'Bob');
   await addTasks(page, ['SCP-30']);
-  await id(page, 'btn-next').click();
+  await nextTask(page);
   await expect(currentTask(a.page)).toHaveAttribute('data-key', 'SCP-30');
 
   await vote(a.page, '1');
@@ -87,7 +88,7 @@ test('anonymous reveal shows no names, on screen or on the wire', async ({ page,
   const b = await people.join(room.joinLink, 'Bob');
   const c = await people.join(room.joinLink, 'Carol');
   await addTasks(page, ['SCP-40']);
-  await id(page, 'btn-next').click();
+  await nextTask(page);
   await expect(currentTask(a.page)).toHaveAttribute('data-key', 'SCP-40');
   await vote(a.page, '2');
   await vote(b.page, '5');
@@ -119,7 +120,7 @@ test('a spectator cannot vote and is not counted', async ({ page, people }) => {
   const a = await people.join(room.joinLink, 'Alice');
   const s = await people.join(room.joinLink, 'Sam', { spectator: true });
   await addTasks(page, ['SCP-50']);
-  await id(page, 'btn-next').click();
+  await nextTask(page);
   await expect(currentTask(s.page)).toHaveAttribute('data-key', 'SCP-50');
 
   await expect(participant(page, 'Sam')).toHaveAttribute('data-role', /spectator/);
@@ -142,7 +143,7 @@ test('keyboard: digits pick cards, Space reveals, N moves on, ? opens help', asy
   await joinAdmin(page, room.adminLink, 'Admin', { spectator: true });
   const a = await people.join(room.joinLink, 'Alice');
   await addTasks(page, ['SCP-60', 'SCP-61']);
-  await id(page, 'btn-next').click();
+  await nextTask(page);
   await expect(currentTask(a.page)).toHaveAttribute('data-key', 'SCP-60');
 
   // Focus the page body, not an input, so shortcuts apply.
