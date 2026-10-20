@@ -67,7 +67,10 @@ class Client {
   #seen = 0;
   #wake: (() => void) | null = null;
 
-  constructor(readonly ws: WebSocket) {
+  readonly ws: WebSocket;
+
+  constructor(ws: WebSocket) {
+    this.ws = ws;
     ws.accept();
     this.closed = new Promise((resolve) => ws.addEventListener('close', (e) => resolve(e.code)));
     ws.addEventListener('message', (e) => {
