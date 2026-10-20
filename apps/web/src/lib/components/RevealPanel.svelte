@@ -1,42 +1,42 @@
 <script lang="ts">
-import type { Card as CardT, RoundView } from '@backlogfit/core';
-import { onMount } from 'svelte';
-import { cardFor, cardName } from '../cards.ts';
-import { consensusText, formatStat } from '../room/format.ts';
-import Card from './Card.svelte';
-import Icon from './Icon.svelte';
+  import type { Card as CardT, RoundView } from '@backlogfit/core';
+  import { onMount } from 'svelte';
+  import { cardFor, cardName } from '../cards.ts';
+  import { consensusText, formatStat } from '../room/format.ts';
+  import Card from './Card.svelte';
+  import Icon from './Icon.svelte';
 
-interface Props {
-  round: RoundView;
-  scale: readonly CardT[];
-  /** Flip the cards in on first show (disabled by prefers-reduced-motion via tokens). */
-  animate?: boolean;
-}
-let { round, scale, animate = true }: Props = $props();
-
-let faceUp = $state(false);
-onMount(() => {
-  if (!animate) {
-    faceUp = true;
-    return;
+  interface Props {
+    round: RoundView;
+    scale: readonly CardT[];
+    /** Flip the cards in on first show (disabled by prefers-reduced-motion via tokens). */
+    animate?: boolean;
   }
-  const id = requestAnimationFrame(() => requestAnimationFrame(() => (faceUp = true)));
-  return () => cancelAnimationFrame(id);
-});
+  let { round, scale, animate = true }: Props = $props();
 
-const stats = $derived(round.stats);
-const votes = $derived(round.votes ?? []);
-const fallback = (value: string): CardT =>
-  cardFor(scale, value) ?? { value, label: value, kind: 'special', color: '#8b8f97' };
-const maxCount = $derived(
-  Math.max(
-    1,
-    ...(stats?.distribution.map((d) => d.count) ?? [1]),
-    ...(stats?.special.map((d) => d.count) ?? [1]),
-  ),
-);
-const consensus = $derived(stats?.consensus ? consensusText(stats.consensus) : null);
-const specials = $derived(stats?.special.filter((s) => s.count > 0) ?? []);
+  let faceUp = $state(false);
+  onMount(() => {
+    if (!animate) {
+      faceUp = true;
+      return;
+    }
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => (faceUp = true)));
+    return () => cancelAnimationFrame(id);
+  });
+
+  const stats = $derived(round.stats);
+  const votes = $derived(round.votes ?? []);
+  const fallback = (value: string): CardT =>
+    cardFor(scale, value) ?? { value, label: value, kind: 'special', color: '#8b8f97' };
+  const maxCount = $derived(
+    Math.max(
+      1,
+      ...(stats?.distribution.map((d) => d.count) ?? [1]),
+      ...(stats?.special.map((d) => d.count) ?? [1]),
+    ),
+  );
+  const consensus = $derived(stats?.consensus ? consensusText(stats.consensus) : null);
+  const specials = $derived(stats?.special.filter((s) => s.count > 0) ?? []);
 </script>
 
 <section class="reveal" data-testid="reveal-results" aria-labelledby="reveal-h">

@@ -1,19 +1,19 @@
 <script lang="ts">
-import type { Card } from '@backlogfit/core';
-import { cardName, inkFor } from '../cards.ts';
+  import type { Card } from '@backlogfit/core';
+  import { cardName, inkFor } from '../cards.ts';
 
-interface Props {
-  card: Pick<Card, 'value' | 'label' | 'kind' | 'color'>;
-  /** Face up shows the value; face down shows the back (a vote is hidden). */
-  faceUp?: boolean;
-  selected?: boolean;
-  size?: 'sm' | 'md' | 'lg';
-  /** Extra caption under the card (e.g. a participant name). */
-  caption?: string;
-}
-let { card, faceUp = true, selected = false, size = 'md', caption }: Props = $props();
-const special = $derived(card.kind === 'special');
-const sub = $derived(special ? cardName(card) : card.label !== card.value ? card.label : '');
+  interface Props {
+    card: Pick<Card, 'value' | 'label' | 'kind' | 'color'>;
+    /** Face up shows the value; face down shows the back (a vote is hidden). */
+    faceUp?: boolean;
+    selected?: boolean;
+    size?: 'sm' | 'md' | 'lg';
+    /** Extra caption under the card (e.g. a participant name). */
+    caption?: string;
+  }
+  let { card, faceUp = true, selected = false, size = 'md', caption }: Props = $props();
+  const special = $derived(card.kind === 'special');
+  const sub = $derived(special ? cardName(card) : card.label !== card.value ? card.label : '');
 </script>
 
 <span

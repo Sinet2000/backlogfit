@@ -1,41 +1,41 @@
 <script lang="ts">
-import { onMount } from 'svelte';
-import {
-  applyTheme,
-  MODE_LABELS,
-  type Mode,
-  readTheme,
-  THEME_LABELS,
-  type Theme,
-} from '../theme.ts';
-import Icon from './Icon.svelte';
+  import { onMount } from 'svelte';
+  import {
+    applyTheme,
+    MODE_LABELS,
+    type Mode,
+    readTheme,
+    THEME_LABELS,
+    type Theme,
+  } from '../theme.ts';
+  import Icon from './Icon.svelte';
 
-let open = $state(false);
-let theme = $state<Theme>('corporate');
-let mode = $state<Mode>('system');
-let root: HTMLDivElement | undefined = $state();
+  let open = $state(false);
+  let theme = $state<Theme>('corporate');
+  let mode = $state<Mode>('system');
+  let root: HTMLDivElement | undefined = $state();
 
-onMount(() => {
-  ({ theme, mode } = readTheme());
-  const close = (e: Event) => {
-    if (open && root && !root.contains(e.target as Node)) open = false;
-  };
-  document.addEventListener('pointerdown', close);
-  return () => document.removeEventListener('pointerdown', close);
-});
+  onMount(() => {
+    ({ theme, mode } = readTheme());
+    const close = (e: Event) => {
+      if (open && root && !root.contains(e.target as Node)) open = false;
+    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  });
 
-function set(t: Theme, m: Mode) {
-  theme = t;
-  mode = m;
-  applyTheme(t, m);
-}
-
-function onkeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && open) {
-    open = false;
-    root?.querySelector<HTMLButtonElement>('.trigger')?.focus();
+  function set(t: Theme, m: Mode) {
+    theme = t;
+    mode = m;
+    applyTheme(t, m);
   }
-}
+
+  function onkeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && open) {
+      open = false;
+      root?.querySelector<HTMLButtonElement>('.trigger')?.focus();
+    }
+  }
 </script>
 
 <div class="theme-switcher" bind:this={root} {onkeydown} role="presentation">

@@ -1,6 +1,6 @@
 <script lang="ts">
-import Logo from './Logo.svelte';
-import ThemeSwitcher from './ThemeSwitcher.svelte';
+  import Logo from './Logo.svelte';
+  import ThemeSwitcher from './ThemeSwitcher.svelte';
 </script>
 
 <header class="site-header no-print">

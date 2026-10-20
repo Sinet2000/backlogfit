@@ -1,13 +1,13 @@
 <script lang="ts">
-import Icon from './Icon.svelte';
+  import Icon from './Icon.svelte';
 
-interface Props {
-  steps: readonly string[];
-  current: number;
-  /** Steps the user may jump back to. */
-  onselect?: (index: number) => void;
-}
-let { steps, current, onselect }: Props = $props();
+  interface Props {
+    steps: readonly string[];
+    current: number;
+    /** Steps the user may jump back to. */
+    onselect?: (index: number) => void;
+  }
+  let { steps, current, onselect }: Props = $props();
 </script>
 
 <nav aria-label="Setup steps" class="stepper">

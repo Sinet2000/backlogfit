@@ -1,36 +1,36 @@
 <script lang="ts">
-import Button from './Button.svelte';
+  import Button from './Button.svelte';
 
-interface Props {
-  label: string;
-  value: string;
-  hint?: string;
-  inputTestId?: string;
-  buttonTestId?: string;
-  tone?: 'normal' | 'warning';
-}
-let { label, value, hint, inputTestId, buttonTestId, tone = 'normal' }: Props = $props();
-
-let copied = $state(false);
-let input: HTMLInputElement | undefined = $state();
-const uid = $props.id();
-const id = `copy-${uid}`;
-let timer: ReturnType<typeof setTimeout> | undefined;
-
-async function copy() {
-  let ok = false;
-  try {
-    await navigator.clipboard.writeText(value);
-    ok = true;
-  } catch {
-    // Clipboard API unavailable (http, permissions): select the text for manual copy.
-    input?.select();
-    ok = document.execCommand?.('copy') ?? false;
+  interface Props {
+    label: string;
+    value: string;
+    hint?: string;
+    inputTestId?: string;
+    buttonTestId?: string;
+    tone?: 'normal' | 'warning';
   }
-  copied = ok;
-  clearTimeout(timer);
-  timer = setTimeout(() => (copied = false), 2500);
-}
+  let { label, value, hint, inputTestId, buttonTestId, tone = 'normal' }: Props = $props();
+
+  let copied = $state(false);
+  let input: HTMLInputElement | undefined = $state();
+  const uid = $props.id();
+  const id = `copy-${uid}`;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  async function copy() {
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(value);
+      ok = true;
+    } catch {
+      // Clipboard API unavailable (http, permissions): select the text for manual copy.
+      input?.select();
+      ok = document.execCommand?.('copy') ?? false;
+    }
+    copied = ok;
+    clearTimeout(timer);
+    timer = setTimeout(() => (copied = false), 2500);
+  }
 </script>
 
 <div class="copy-field {tone}">

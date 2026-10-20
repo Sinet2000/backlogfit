@@ -1,7 +1,7 @@
 <script lang="ts">
-import { toasts } from '../toast.svelte.ts';
-import Icon from './Icon.svelte';
-import IconButton from './IconButton.svelte';
+  import { toasts } from '../toast.svelte.ts';
+  import Icon from './Icon.svelte';
+  import IconButton from './IconButton.svelte';
 </script>
 
 <div class="toasts no-print" role="status" aria-live="polite" aria-atomic="false">

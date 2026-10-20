@@ -1,14 +1,14 @@
 <script lang="ts">
-import { qrMatrix } from '../qr.ts';
+  import { qrMatrix } from '../qr.ts';
 
-interface Props {
-  value: string;
-  label: string;
-  size?: number;
-}
-let { value, label, size = 200 }: Props = $props();
-const qr = $derived(qrMatrix(value));
-const margin = 4;
+  interface Props {
+    value: string;
+    label: string;
+    size?: number;
+  }
+  let { value, label, size = 200 }: Props = $props();
+  const qr = $derived(qrMatrix(value));
+  const margin = 4;
 </script>
 
 <svg

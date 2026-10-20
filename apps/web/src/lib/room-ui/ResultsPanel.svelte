@@ -1,38 +1,38 @@
 <script lang="ts">
-import { type RoomView, toCsv, toJson, toMarkdown, toSummary } from '@backlogfit/core';
-import Button from '../components/Button.svelte';
-import { downloadText, stamp } from '../download.ts';
-import { formatStat } from '../room/format.ts';
-import { toasts } from '../toast.svelte.ts';
+  import { type RoomView, toCsv, toJson, toMarkdown, toSummary } from '@backlogfit/core';
+  import Button from '../components/Button.svelte';
+  import { downloadText, stamp } from '../download.ts';
+  import { formatStat } from '../room/format.ts';
+  import { toasts } from '../toast.svelte.ts';
 
-let { view }: { view: RoomView } = $props();
+  let { view }: { view: RoomView } = $props();
 
-const rows = $derived(
-  view.tasks.map((t) => {
-    const revealed = t.rounds.filter((r) => r.revealed);
-    const last = revealed[revealed.length - 1];
-    return {
-      id: t.id,
-      key: t.key ?? '',
-      title: t.title ?? '',
-      final: t.final ?? '',
-      rounds: revealed.length,
-      median: last?.stats ? formatStat(last.stats, 'median') : '',
-      consensus: last?.stats?.consensus ?? '',
-    };
-  }),
-);
+  const rows = $derived(
+    view.tasks.map((t) => {
+      const revealed = t.rounds.filter((r) => r.revealed);
+      const last = revealed[revealed.length - 1];
+      return {
+        id: t.id,
+        key: t.key ?? '',
+        title: t.title ?? '',
+        final: t.final ?? '',
+        rounds: revealed.length,
+        median: last?.stats ? formatStat(last.stats, 'median') : '',
+        consensus: last?.stats?.consensus ?? '',
+      };
+    }),
+  );
 
-const name = () => `backlogfit-${stamp()}`;
+  const name = () => `backlogfit-${stamp()}`;
 
-async function copySummary() {
-  try {
-    await navigator.clipboard.writeText(toSummary(view));
-    toasts.show('Summary copied to the clipboard.', 'success');
-  } catch {
-    toasts.show('Could not copy. Use one of the downloads instead.', 'error');
+  async function copySummary() {
+    try {
+      await navigator.clipboard.writeText(toSummary(view));
+      toasts.show('Summary copied to the clipboard.', 'success');
+    } catch {
+      toasts.show('Could not copy. Use one of the downloads instead.', 'error');
+    }
   }
-}
 </script>
 
 <section class="results print-keep" aria-labelledby="results-h">

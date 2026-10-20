@@ -1,9 +1,9 @@
 <script lang="ts">
-import type { RoomView } from '@backlogfit/core';
-import Button from '../components/Button.svelte';
-import type { RoomStore } from '../room/room.svelte.ts';
+  import type { RoomView } from '@backlogfit/core';
+  import Button from '../components/Button.svelte';
+  import type { RoomStore } from '../room/room.svelte.ts';
 
-let { room, view }: { room: RoomStore; view: RoomView } = $props();
+  let { room, view }: { room: RoomStore; view: RoomView } = $props();
 </script>
 
 {#if view.lobby.length > 0}

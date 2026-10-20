@@ -1,5 +1,5 @@
 <script lang="ts">
-import { REPO_URL, TAGLINE } from '#lib/seo/site.ts';
+  import { REPO_URL, TAGLINE } from '#lib/seo/site.ts';
 </script>
 
 <footer class="site-footer no-print">

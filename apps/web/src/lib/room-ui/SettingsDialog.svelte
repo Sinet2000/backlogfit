@@ -1,20 +1,20 @@
 <script lang="ts">
-import type { RoomView } from '@backlogfit/core';
-import Dialog from '../components/Dialog.svelte';
-import type { RoomStore } from '../room/room.svelte.ts';
+  import type { RoomView } from '@backlogfit/core';
+  import Dialog from '../components/Dialog.svelte';
+  import type { RoomStore } from '../room/room.svelte.ts';
 
-let {
-  room,
-  view,
-  open = $bindable(),
-}: { room: RoomStore; view: RoomView; open: boolean } = $props();
+  let {
+    room,
+    view,
+    open = $bindable(),
+  }: { room: RoomStore; view: RoomView; open: boolean } = $props();
 
-const s = $derived(view.settings);
-const set = (patch: Record<string, boolean | number | null>) =>
-  room.send({ type: 'admin.settings', ...patch });
-const TIMERS = [null, 30, 60, 120, 180, 300];
-const timerLabel = (t: number | null) =>
-  t === null ? 'No default timer' : t < 60 ? `${t} seconds` : `${t / 60} min`;
+  const s = $derived(view.settings);
+  const set = (patch: Record<string, boolean | number | null>) =>
+    room.send({ type: 'admin.settings', ...patch });
+  const TIMERS = [null, 30, 60, 120, 180, 300];
+  const timerLabel = (t: number | null) =>
+    t === null ? 'No default timer' : t < 60 ? `${t} seconds` : `${t / 60} min`;
 </script>
 
 <Dialog bind:open title="Session settings">

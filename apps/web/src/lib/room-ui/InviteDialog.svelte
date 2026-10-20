@@ -1,9 +1,9 @@
 <script lang="ts">
-import CopyField from '../components/CopyField.svelte';
-import Dialog from '../components/Dialog.svelte';
-import QR from '../components/QR.svelte';
+  import CopyField from '../components/CopyField.svelte';
+  import Dialog from '../components/Dialog.svelte';
+  import QR from '../components/QR.svelte';
 
-let { url, open = $bindable() }: { url: string; open: boolean } = $props();
+  let { url, open = $bindable() }: { url: string; open: boolean } = $props();
 </script>
 
 <Dialog bind:open title="Invite your team">

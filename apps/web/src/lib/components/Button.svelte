@@ -1,31 +1,31 @@
 <script lang="ts">
-import type { Snippet } from 'svelte';
-import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements';
-import Icon, { type IconName } from './Icon.svelte';
+  import type { Snippet } from 'svelte';
+  import type { HTMLAnchorAttributes, HTMLButtonAttributes } from 'svelte/elements';
+  import Icon, { type IconName } from './Icon.svelte';
 
-type Common = {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'quiet';
-  size?: 'sm' | 'md' | 'lg';
-  icon?: IconName;
-  iconAfter?: IconName;
-  block?: boolean;
-  children?: Snippet;
-};
-type Props = Common &
-  ((HTMLButtonAttributes & { href?: undefined }) | (HTMLAnchorAttributes & { href: string }));
+  type Common = {
+    variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'quiet';
+    size?: 'sm' | 'md' | 'lg';
+    icon?: IconName;
+    iconAfter?: IconName;
+    block?: boolean;
+    children?: Snippet;
+  };
+  type Props = Common &
+    ((HTMLButtonAttributes & { href?: undefined }) | (HTMLAnchorAttributes & { href: string }));
 
-let {
-  variant = 'secondary',
-  size = 'md',
-  icon,
-  iconAfter,
-  block = false,
-  children,
-  class: klass = '',
-  ...rest
-}: Props = $props();
+  let {
+    variant = 'secondary',
+    size = 'md',
+    icon,
+    iconAfter,
+    block = false,
+    children,
+    class: klass = '',
+    ...rest
+  }: Props = $props();
 
-const cls = $derived(`btn btn-${variant} btn-${size} ${block ? 'btn-block' : ''} ${klass ?? ''}`);
+  const cls = $derived(`btn btn-${variant} btn-${size} ${block ? 'btn-block' : ''} ${klass ?? ''}`);
 </script>
 
 {#if rest.href !== undefined}

@@ -1,129 +1,138 @@
 <script lang="ts">
-import { onDestroy, onMount } from 'svelte';
-import CardDeck from '#lib/components/CardDeck.svelte';
-import Icon from '#lib/components/Icon.svelte';
-import ParticipantList from '#lib/components/ParticipantList.svelte';
-import RevealPanel from '#lib/components/RevealPanel.svelte';
-import Timer from '#lib/components/Timer.svelte';
-import Toasts from '#lib/components/Toasts.svelte';
-import { createDemoRoom } from '#lib/room/demo.ts';
-import { parseFragment, type RoomLink, roomUrls } from '#lib/room/link.ts';
-import { RoomStore } from '#lib/room/room.svelte.ts';
-import { shortcutFor } from '#lib/room/shortcuts.ts';
-import CurrentTask from '#lib/room-ui/CurrentTask.svelte';
-import EndedState from '#lib/room-ui/EndedState.svelte';
-import FacilitatorControls from '#lib/room-ui/FacilitatorControls.svelte';
-import InviteDialog from '#lib/room-ui/InviteDialog.svelte';
-import JoinForm from '#lib/room-ui/JoinForm.svelte';
-import LobbyPanel from '#lib/room-ui/LobbyPanel.svelte';
-import ResultsPanel from '#lib/room-ui/ResultsPanel.svelte';
-import SessionPanel from '#lib/room-ui/SessionPanel.svelte';
-import SettingsDialog from '#lib/room-ui/SettingsDialog.svelte';
-import ShortcutHelp from '#lib/room-ui/ShortcutHelp.svelte';
-import TaskList from '#lib/room-ui/TaskList.svelte';
-import Seo from '#lib/seo/Seo.svelte';
-import { applyTheme, readTheme } from '#lib/theme.ts';
+  import { onDestroy, onMount } from 'svelte';
+  import CardDeck from '#lib/components/CardDeck.svelte';
+  import Icon from '#lib/components/Icon.svelte';
+  import ParticipantList from '#lib/components/ParticipantList.svelte';
+  import RevealPanel from '#lib/components/RevealPanel.svelte';
+  import Timer from '#lib/components/Timer.svelte';
+  import Toasts from '#lib/components/Toasts.svelte';
+  import { createDemoRoom, takeDemoTasks } from '#lib/room/demo.ts';
+  import { parseFragment, type RoomLink, roomUrls } from '#lib/room/link.ts';
+  import { RoomStore } from '#lib/room/room.svelte.ts';
+  import { shortcutFor } from '#lib/room/shortcuts.ts';
+  import { localStore } from '#lib/room/storage.ts';
+  import CurrentTask from '#lib/room-ui/CurrentTask.svelte';
+  import EndedState from '#lib/room-ui/EndedState.svelte';
+  import FacilitatorControls from '#lib/room-ui/FacilitatorControls.svelte';
+  import InviteDialog from '#lib/room-ui/InviteDialog.svelte';
+  import JoinForm from '#lib/room-ui/JoinForm.svelte';
+  import LobbyPanel from '#lib/room-ui/LobbyPanel.svelte';
+  import ResultsPanel from '#lib/room-ui/ResultsPanel.svelte';
+  import SessionPanel from '#lib/room-ui/SessionPanel.svelte';
+  import SettingsDialog from '#lib/room-ui/SettingsDialog.svelte';
+  import ShortcutHelp from '#lib/room-ui/ShortcutHelp.svelte';
+  import TaskList from '#lib/room-ui/TaskList.svelte';
+  import Seo from '#lib/seo/Seo.svelte';
+  import { applyTheme, readTheme } from '#lib/theme.ts';
 
-let room = $state<RoomStore | null>(null);
-let invalidLink = $state(false);
-let preparing = $state(true);
-let helpOpen = $state(false);
-let settingsOpen = $state(false);
-let inviteOpen = $state(false);
+  let room = $state<RoomStore | null>(null);
+  let invalidLink = $state(false);
+  let preparing = $state(true);
+  let helpOpen = $state(false);
+  let settingsOpen = $state(false);
+  let inviteOpen = $state(false);
 
-const view = $derived(room?.view ?? null);
-const status = $derived(room?.snap.status ?? 'idle');
-const joinUrl = $derived(
-  room ? roomUrls(location.origin, room.link, room.demo ? 'demo' : '').join : '',
-);
-const anyDialog = $derived(helpOpen || settingsOpen || inviteOpen);
+  const view = $derived(room?.view ?? null);
+  const status = $derived(room?.snap.status ?? 'idle');
+  const joinUrl = $derived(
+    room ? roomUrls(location.origin, room.link, room.demo ? 'demo' : '').join : '',
+  );
+  const anyDialog = $derived(helpOpen || settingsOpen || inviteOpen);
 
-function start(link: RoomLink, demo: boolean) {
-  const store = new RoomStore(link, { demo });
-  room = store;
-  // Same tab reloaded: rejoin silently with the saved identity and resume token.
-  const who = store.session.identity;
-  if (who) store.join(who);
-}
-
-async function init() {
-  const demo = new URLSearchParams(location.search).has('demo');
-  let link = parseFragment(location.hash);
-  if (!link && demo && location.hash === '') {
-    link = await createDemoRoom({ sampleTasks: true });
-    history.replaceState(history.state, '', `/r?demo#${roomUrls('', link).admin?.split('#')[1]}`);
+  function start(link: RoomLink, demo: boolean) {
+    const store = new RoomStore(link, { demo });
+    room = store;
+    // Same tab reloaded: rejoin silently with the saved identity and resume token.
+    const who = store.session.identity;
+    if (who) store.join(who);
   }
-  preparing = false;
-  if (!link) {
-    invalidLink = true;
-    return;
+
+  async function init() {
+    const demo = new URLSearchParams(location.search).has('demo');
+    let link = parseFragment(location.hash);
+    if (!link && demo && location.hash === '') {
+      link = await createDemoRoom({ sampleTasks: true });
+      history.replaceState(history.state, '', `/r?demo#${roomUrls('', link).admin?.split('#')[1]}`);
+    }
+    preparing = false;
+    if (!link) {
+      invalidLink = true;
+      return;
+    }
+    start(link, demo);
   }
-  start(link, demo);
-}
 
-function onHashChange() {
-  room?.dispose();
-  room = null;
-  invalidLink = false;
-  void init();
-}
+  function onHashChange() {
+    room?.dispose();
+    room = null;
+    invalidLink = false;
+    void init();
+  }
 
-function onKeydown(e: KeyboardEvent) {
-  if (!room || !view || status !== 'joined') return;
-  const action = shortcutFor(e, {
-    canVote: room.canVote && view.phase === 'voting',
-    isFacilitator: room.isFacilitator,
-    dialogOpen: anyDialog,
+  function onKeydown(e: KeyboardEvent) {
+    if (!room || !view || status !== 'joined') return;
+    const action = shortcutFor(e, {
+      canVote: room.canVote && view.phase === 'voting',
+      isFacilitator: room.isFacilitator,
+      dialogOpen: anyDialog,
+    });
+    if (!action) return;
+    e.preventDefault();
+    if (action.type === 'help') helpOpen = true;
+    else if (action.type === 'pick') {
+      const card = view.config.scale[action.index];
+      if (card) room.vote(view.myVote === card.value ? null : card.value);
+    } else if (action.type === 'reveal' && view.phase === 'voting')
+      room.send({ type: 'admin.reveal' });
+    else if (action.type === 'next') room.send({ type: 'admin.next' });
+  }
+
+  const onOnline = () => room?.nudge();
+  const onVisible = () => document.visibilityState === 'visible' && room?.nudge();
+
+  onMount(() => {
+    void init();
+    addEventListener('online', onOnline);
+    document.addEventListener('visibilitychange', onVisible);
   });
-  if (!action) return;
-  e.preventDefault();
-  if (action.type === 'help') helpOpen = true;
-  else if (action.type === 'pick') {
-    const card = view.config.scale[action.index];
-    if (card) room.vote(view.myVote === card.value ? null : card.value);
-  } else if (action.type === 'reveal' && view.phase === 'voting')
-    room.send({ type: 'admin.reveal' });
-  else if (action.type === 'next') room.send({ type: 'admin.next' });
-}
 
-const onOnline = () => room?.nudge();
-const onVisible = () => document.visibilityState === 'visible' && room?.nudge();
+  onDestroy(() => {
+    room?.dispose();
+    if (typeof window !== 'undefined') {
+      removeEventListener('online', onOnline);
+      document.removeEventListener('visibilitychange', onVisible);
+    }
+  });
 
-onMount(() => {
-  void init();
-  addEventListener('online', onOnline);
-  document.addEventListener('visibilitychange', onVisible);
-});
+  // Follow the host's theme hint unless this person chose a style themselves.
+  $effect(() => {
+    const hint = view?.config.theme;
+    if (!hint) return;
+    const mine = readTheme();
+    if (
+      mine.theme === 'corporate' &&
+      hint === 'colorful' &&
+      localStore().getItem('bf-theme') === null
+    ) {
+      applyTheme('colorful', mine.mode, false);
+    }
+  });
 
-onDestroy(() => {
-  room?.dispose();
-  if (typeof window !== 'undefined') {
-    removeEventListener('online', onOnline);
-    document.removeEventListener('visibilitychange', onVisible);
-  }
-});
+  // Fresh offline demo: the host's own connection adds the sample tasks once.
+  $effect(() => {
+    if (room?.demo && status === 'joined' && room.isFacilitator) {
+      const lines = takeDemoTasks(room.link.roomId);
+      if (lines) room.send({ type: 'admin.tasks.add', lines });
+    }
+  });
 
-// Follow the host's theme hint unless this person chose a style themselves.
-$effect(() => {
-  const hint = view?.config.theme;
-  if (!hint) return;
-  const mine = readTheme();
-  if (
-    mine.theme === 'corporate' &&
-    hint === 'colorful' &&
-    localStorage.getItem('bf-theme') === null
-  ) {
-    applyTheme('colorful', mine.mode, false);
-  }
-});
-
-const announce = $derived.by(() => {
-  if (!view) return '';
-  if (view.phase === 'revealed') return 'Votes revealed.';
-  if (view.phase === 'voting')
-    return `Voting on ${room?.currentTask?.key ?? 'a new task'}, round ${view.round}.`;
-  return '';
-});
+  const announce = $derived.by(() => {
+    if (!view) return '';
+    if (view.phase === 'revealed') return 'Votes revealed.';
+    if (view.phase === 'voting')
+      return `Voting on ${room?.currentTask?.key ?? 'a new task'}, round ${view.round}.`;
+    return '';
+  });
 </script>
 
 <svelte:window onkeydown={onKeydown} onhashchange={onHashChange} />

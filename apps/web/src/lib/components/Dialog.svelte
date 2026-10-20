@@ -1,43 +1,43 @@
 <script lang="ts">
-import type { Snippet } from 'svelte';
-import IconButton from './IconButton.svelte';
+  import type { Snippet } from 'svelte';
+  import IconButton from './IconButton.svelte';
 
-interface Props {
-  open: boolean;
-  title: string;
-  children: Snippet;
-  actions?: Snippet;
-  onclose?: () => void;
-  size?: 'sm' | 'md';
-}
-let { open = $bindable(), title, children, actions, onclose, size = 'md' }: Props = $props();
-
-let dialog: HTMLDialogElement | undefined = $state();
-let returnFocus: Element | null = null;
-const uid = $props.id();
-const titleId = `dlg-${uid}`;
-
-// Native modal <dialog>: the rest of the page becomes inert (focus is trapped), Esc closes it,
-// and focus goes back to the element that opened it.
-$effect(() => {
-  if (!dialog) return;
-  if (open && !dialog.open) {
-    returnFocus = document.activeElement;
-    dialog.showModal();
-  } else if (!open && dialog.open) {
-    dialog.close();
+  interface Props {
+    open: boolean;
+    title: string;
+    children: Snippet;
+    actions?: Snippet;
+    onclose?: () => void;
+    size?: 'sm' | 'md';
   }
-});
+  let { open = $bindable(), title, children, actions, onclose, size = 'md' }: Props = $props();
 
-function handleClose() {
-  open = false;
-  onclose?.();
-  if (returnFocus instanceof HTMLElement) returnFocus.focus();
-}
+  let dialog: HTMLDialogElement | undefined = $state();
+  let returnFocus: Element | null = null;
+  const uid = $props.id();
+  const titleId = `dlg-${uid}`;
 
-function handleClick(e: MouseEvent) {
-  if (e.target === dialog) open = false;
-}
+  // Native modal <dialog>: the rest of the page becomes inert (focus is trapped), Esc closes it,
+  // and focus goes back to the element that opened it.
+  $effect(() => {
+    if (!dialog) return;
+    if (open && !dialog.open) {
+      returnFocus = document.activeElement;
+      dialog.showModal();
+    } else if (!open && dialog.open) {
+      dialog.close();
+    }
+  });
+
+  function handleClose() {
+    open = false;
+    onclose?.();
+    if (returnFocus instanceof HTMLElement) returnFocus.focus();
+  }
+
+  function handleClick(e: MouseEvent) {
+    if (e.target === dialog) open = false;
+  }
 </script>
 
 <dialog
