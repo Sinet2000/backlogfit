@@ -1,0 +1,37 @@
+{
+  "name": "@backlogfit/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backlogfit web app: landing, guide, configurator and room UI.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "imports": {
+    "#lib": "./src/lib",
+    "#lib/*": "./src/lib/*"
+  },
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build && node scripts/externalize.ts",
+    "preview": "vite preview",
+    "serve:csp": "node scripts/serve.ts",
+    "gen:tokens": "node scripts/gen-tokens.ts",
+    "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "test": "svelte-kit sync && vitest run"
+  },
+  "dependencies": {
+    "@backlogfit/core": "workspace:*",
+    "qrcode-generator": "2.0.4"
+  },
+  "devDependencies": {
+    "@backlogfit/security": "workspace:*",
+    "@sveltejs/adapter-static": "4.0.0",
+    "@sveltejs/kit": "3.1.0",
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "@types/node": "24.19.1",
+    "svelte": "5.57.2",
+    "svelte-check": "4.7.7",
+    "typescript": "6.0.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.5"
+  }
+}
