@@ -1,6 +1,7 @@
 /**
- * Writes the static-assets `_headers` file (security headers on every asset, immutable caching
- * for hashed SvelteKit assets) into the asset directory. Run after the web build.
+ * Writes the static-assets `_headers` file (security headers on every asset, no-store + noindex
+ * for /r and /new, immutable caching for hashed SvelteKit assets) into the asset directory.
+ * Run after the web build.
  *   node scripts/write-headers.ts [--dev] [assetDir]
  * --dev omits HSTS and upgrade-insecure-requests (for http://localhost with wrangler dev).
  */
@@ -14,10 +15,9 @@ const dev = args.includes('--dev');
 const here = dirname(fileURLToPath(import.meta.url));
 const dir = resolve(args.find((a) => !a.startsWith('--')) ?? join(here, '../../web/build'));
 
-const body = `${headersFile({ dev })}
-/_app/immutable/*
-  Cache-Control: public, max-age=31536000, immutable
-`;
+// headersFile() already carries the per-path blocks (/r, /new, /_app/immutable/*); adding our
+// own would make Cloudflare join duplicate Cache-Control values (SEC-011).
+const body = headersFile({ dev });
 
 mkdirSync(dir, { recursive: true });
 writeFileSync(join(dir, '_headers'), body);

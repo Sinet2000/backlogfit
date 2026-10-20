@@ -3,7 +3,7 @@
  * (see wrangler.jsonc `assets.run_worker_first`). No logging of request data anywhere.
  */
 import { parseCreateRoomRequest, randomToken } from '@backlogfit/core';
-import { createRateLimiter, isAllowedOrigin, securityHeaders } from '@backlogfit/security';
+import { applySecurityHeaders, clientIp, createRateLimiter } from '@backlogfit/security';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { configOf, type Env } from './env.ts';
@@ -14,32 +14,45 @@ export { RoomDO } from './room-do.ts';
 const MAX_CREATE_BODY_BYTES = 64 * 1024;
 const ROOM_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
-/** Used only when the CREATE_LIMITER binding is absent (e.g. some local setups). */
-let fallbackLimiter: ReturnType<typeof createRateLimiter<string>> | null = null;
+type Bucket = ReturnType<typeof createRateLimiter<string>>;
+/** Used only when a Rate Limiting binding is absent (e.g. some local setups). Per isolate. */
+const fallback = new Map<string, Bucket>();
 
-async function allowCreate(env: Env, key: string, perMin: number): Promise<boolean> {
-  if (env.CREATE_LIMITER) {
+async function allow(
+  binding: RateLimit | undefined,
+  name: string,
+  key: string,
+  perMin: number,
+): Promise<boolean> {
+  if (binding) {
     try {
-      return (await env.CREATE_LIMITER.limit({ key })).success;
+      return (await binding.limit({ key })).success;
     } catch {
       // binding misbehaving: fall back to the in-memory bucket
     }
   }
-  fallbackLimiter ??= createRateLimiter<string>({ rate: perMin / 60, burst: perMin });
-  return fallbackLimiter.take(key, Date.now());
+  let bucket = fallback.get(name);
+  if (!bucket) {
+    bucket = createRateLimiter<string>({ rate: perMin / 60, burst: perMin });
+    fallback.set(name, bucket);
+  }
+  return bucket.take(key, Date.now());
+}
+
+/** Keyed hash of cf-connecting-ip, held only for this request; never stored or logged. */
+function clientKey(headers: Headers): string {
+  return clientIp(headers, null, 'cloudflare') ?? 'unknown';
 }
 
 const app = new Hono<{ Bindings: Env }>();
 
 app.use('*', async (c, next) => {
   await next();
-  const headers = securityHeaders({ dev: configOf(c.env).dev });
   // A 101 response carries a webSocket and immutable headers; leave it alone.
   if (c.res.status === 101) return;
   // Responses from bindings (ASSETS, Durable Objects) have immutable headers: copy first.
   const res = new Response(c.res.body, c.res);
-  for (const [k, v] of Object.entries(headers)) res.headers.set(k, v);
-  if (!res.headers.has('Cache-Control')) res.headers.set('Cache-Control', 'no-store');
+  applySecurityHeaders(res.headers, c.req.path, { dev: configOf(c.env).dev });
   c.res = res;
 });
 
@@ -54,15 +67,14 @@ app.post(
   async (c) => {
     const config = configOf(c.env);
     const origin = c.req.header('origin');
-    if (origin !== undefined && !isAllowedOrigin(origin, config.origins)) {
+    if (origin !== undefined && !config.allowedOrigin(origin)) {
       return c.json({ error: 'forbidden' }, 403);
     }
     if (!/^application\/json\s*(;|$)/i.test(c.req.header('content-type') ?? '')) {
       return c.json({ error: 'unsupported_media_type' }, 415);
     }
-    // Held only for this call, never stored or logged.
-    const key = c.req.header('cf-connecting-ip') ?? 'unknown';
-    if (!(await allowCreate(c.env, key, config.limits.roomCreatePerMin))) {
+    const key = clientKey(c.req.raw.headers);
+    if (!(await allow(c.env.CREATE_LIMITER, 'create', key, config.limits.roomCreatePerMin))) {
       return c.json({ error: 'rate_limited' }, 429, { 'Retry-After': '60' });
     }
     let body: unknown;
@@ -91,8 +103,14 @@ app.get('/ws/:roomId', async (c) => {
   }
   const roomId = c.req.param('roomId');
   if (!ROOM_ID.test(roomId)) return c.json({ error: 'not_found' }, 404);
-  if (!isAllowedOrigin(c.req.header('origin'), configOf(c.env).origins)) {
+  const config = configOf(c.env);
+  if (!config.allowedOrigin(c.req.header('origin'))) {
     return c.json({ error: 'forbidden' }, 403);
+  }
+  // Every upgrade instantiates a Durable Object, so bound them per client (SEC-004).
+  const key = clientKey(c.req.raw.headers);
+  if (!(await allow(c.env.UPGRADE_LIMITER, 'upgrade', key, config.upgradesPerMin))) {
+    return c.json({ error: 'rate_limited' }, 429, { 'Retry-After': '60' });
   }
   const stub = c.env.ROOMS.get(c.env.ROOMS.idFromName(roomId));
   return stub.fetch(c.req.raw);

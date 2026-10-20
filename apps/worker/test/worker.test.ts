@@ -49,11 +49,24 @@ async function createRoom(): Promise<Room> {
   const joinSecret = randomToken();
   const adminSecret = randomToken();
   const res = await post(body(await hashSecret(joinSecret), await hashSecret(adminSecret)), {
-    'cf-connecting-ip': randomToken(4),
+    'cf-connecting-ip': randomIp(),
   });
   expect(res.status).toBe(201);
   const { roomId } = (await res.json()) as { roomId: string };
   return { roomId, joinSecret, adminSecret };
+}
+
+/** A fresh TEST-NET-3 address per call, so the per-client upgrade budget does not interfere. */
+function randomIp(): string {
+  const b = new Uint8Array(2);
+  crypto.getRandomValues(b);
+  return `203.0.${b[0]}.${b[1]}`;
+}
+
+function upgrade(roomId: string, origin: string | null = ORIGIN, ip: string = randomIp()) {
+  return SELF.fetch(`${BASE}/ws/${roomId}`, {
+    headers: { upgrade: 'websocket', 'cf-connecting-ip': ip, ...(origin ? { origin } : {}) },
+  });
 }
 
 function stubOf(roomId: string) {
@@ -83,10 +96,12 @@ class Client {
     });
   }
 
-  static async open(roomId: string, origin: string | null = ORIGIN): Promise<Client> {
-    const res = await SELF.fetch(`${BASE}/ws/${roomId}`, {
-      headers: { upgrade: 'websocket', ...(origin ? { origin } : {}) },
-    });
+  static async open(
+    roomId: string,
+    origin: string | null = ORIGIN,
+    ip: string = randomIp(),
+  ): Promise<Client> {
+    const res = await upgrade(roomId, origin, ip);
     if (!res.webSocket) throw new Error(`upgrade refused: ${res.status}`);
     return new Client(res.webSocket);
   }
@@ -132,6 +147,18 @@ async function join(room: Room, name: string, admin = false) {
   });
   const welcome = await c.next('welcome');
   return { c, welcome };
+}
+
+/** Every table in the object's SQLite database (internal `_cf_` tables excluded). */
+async function tables(roomId: string): Promise<string[]> {
+  return runInDurableObject(stubOf(roomId), (_i, state) =>
+    state.storage.sql
+      .exec<{ name: string }>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE '\\_cf\\_%' ESCAPE '\\'",
+      )
+      .toArray()
+      .map((r) => r.name),
+  );
 }
 
 async function storageKeys(roomId: string): Promise<number> {
@@ -305,5 +332,74 @@ describe('RoomDO over WebSockets', () => {
     expect(await admin.c.next('closed')).toEqual({ type: 'closed', reason: 'expired' });
     expect(await admin.c.closed).toBe(4001);
     expect(await storageKeys(room.roomId)).toBe(0);
+  });
+});
+
+describe('static assets headers (SEC-006)', () => {
+  it('/r and /new are no-store and noindex; hashed assets immutable', async () => {
+    for (const p of ['/r', '/new']) {
+      const res = await SELF.fetch(`${BASE}${p}`);
+      expect(res.status, p).toBe(200);
+      expect(res.headers.get('cache-control'), p).toBe('no-store');
+      expect(res.headers.get('x-robots-tag'), p).toContain('noindex');
+      expect(res.headers.get('content-security-policy'), p).toContain("default-src 'none'");
+    }
+    const home = await SELF.fetch(`${BASE}/`);
+    expect(home.headers.get('x-robots-tag')).toBeNull();
+    const js = await SELF.fetch(`${BASE}/_app/immutable/app.abc.js`);
+    // Exactly one value: no duplicated immutable block in _headers (SEC-011).
+    expect(js.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
+  });
+});
+
+describe('abuse limits', () => {
+  it('rate-limits WebSocket upgrades per client address (SEC-004)', async () => {
+    const ip = '198.51.100.44';
+    const statuses: number[] = [];
+    for (let i = 0; i < 7; i++) {
+      const res = await upgrade(`probe${i}abcdefghijklmnop`, ORIGIN, ip);
+      statuses.push(res.status);
+      res.webSocket?.accept();
+      res.webSocket?.close();
+    }
+    expect(statuses.slice(0, 5).every((s) => s === 101)).toBe(true);
+    expect(statuses.slice(5)).toEqual([429, 429]);
+  });
+
+  it('unknown and ended rooms leave no storage behind (SEC-010)', async () => {
+    const fakeId = `unknownRoom${randomToken(8)}`;
+    const fake = await Client.open(fakeId);
+    fake.send({ type: 'hello', v: 1, joinSecret: 'A'.repeat(22), name: 'Eve', role: 'voter' });
+    expect(await fake.closed).toBe(4404);
+    expect(await tables(fakeId)).toEqual([]);
+    expect(await storageKeys(fakeId)).toBe(0);
+
+    const room = await createRoom();
+    expect(await tables(room.roomId)).toEqual(['room']);
+    const admin = await join(room, 'Ada', true);
+    admin.c.send({ type: 'admin.close' });
+    expect(await admin.c.closed).toBe(4003);
+    expect(await tables(room.roomId)).toEqual([]);
+    // Touching the ended id again (wake-up, probe) still writes nothing.
+    const again = await Client.open(room.roomId);
+    again.send({ type: 'hello', v: 1, joinSecret: room.joinSecret, name: 'Late', role: 'voter' });
+    expect(await again.closed).toBe(4404);
+    expect(await tables(room.roomId)).toEqual([]);
+    expect(await storageKeys(room.roomId)).toBe(0);
+  });
+
+  it('pre-hello squatters cannot lock participants out (SEC-005)', async () => {
+    // MAX_PARTICIPANTS=2 in the test config ⇒ pre-hello pool of 2 × 2 + 20 = 24 sockets.
+    const room = await createRoom();
+    const squatters = await Promise.all(Array.from({ length: 30 }, () => Client.open(room.roomId)));
+    const admin = await join(room, 'Ada', true);
+    const bob = await join(room, 'Bob');
+    expect(bob.welcome.room.participants).toHaveLength(2);
+    // The oldest squatters were dropped to make room; the newest are still waiting.
+    const codes = await Promise.all(
+      squatters.slice(0, 8).map((s) => Promise.race([s.closed, Promise.resolve(-1)])),
+    );
+    expect(codes.filter((c) => c === 1008).length).toBeGreaterThan(0);
+    admin.c.ws.close();
   });
 });

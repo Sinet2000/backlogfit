@@ -23,13 +23,19 @@ import {
   toCoreLimits,
   toEvent,
 } from '@backlogfit/core';
-import { createRateLimiter } from '@backlogfit/security';
+import {
+  createRateLimiter,
+  createStrikeCounter,
+  frameTooLarge,
+  WS_CLOSE_MESSAGE_TOO_BIG,
+  WS_CLOSE_POLICY_VIOLATION,
+} from '@backlogfit/security';
 import { configOf, type Env, type WorkerConfig } from './env.ts';
 
 /** Persisted RoomState.v this build reads; other versions are wiped on load. */
 export const STATE_VERSION = 1;
-export const CLOSE_POLICY = 1008;
-export const CLOSE_TOO_BIG = 1009;
+export const CLOSE_POLICY = WS_CLOSE_POLICY_VIOLATION;
+export const CLOSE_TOO_BIG = WS_CLOSE_MESSAGE_TOO_BIG;
 /** Invalid or rate-limited frames tolerated per connection before closing with 1008. */
 export const MAX_STRIKES = 10;
 /** The per-room bucket allows this many times the per-connection rate and burst (ADR-0007). */
@@ -41,15 +47,11 @@ export interface Attachment {
   helloBy: number;
 }
 
-const encoder = new TextEncoder();
+const CREATE_TABLE =
+  'CREATE TABLE IF NOT EXISTS room (k INTEGER PRIMARY KEY CHECK (k = 1), state TEXT NOT NULL)';
 
 function newId(): string {
   return randomToken(12);
-}
-
-function byteLength(raw: string | ArrayBuffer): number {
-  if (typeof raw !== 'string') return raw.byteLength;
-  return raw.length * 3 <= 1024 ? raw.length : encoder.encode(raw).byteLength;
 }
 
 export class RoomDO extends DurableObject<Env> {
@@ -63,7 +65,9 @@ export class RoomDO extends DurableObject<Env> {
   #decoy: RoomState | null = null;
   #queue: Promise<void> = Promise.resolve();
   #armedAt: number | null = null;
-  readonly #strikes = new Map<string, number>();
+  /** The room table exists. Created lazily by #save, so unknown ids never write storage. */
+  #tableReady = false;
+  readonly #strikes = createStrikeCounter<string>({ max: MAX_STRIKES, windowMs: 60_000 });
   readonly #connLimiter;
   readonly #roomLimiter;
 
@@ -78,10 +82,12 @@ export class RoomDO extends DurableObject<Env> {
       maxKeys: 1,
     });
     ctx.blockConcurrencyWhile(async () => {
-      this.ctx.storage.sql.exec(
-        'CREATE TABLE IF NOT EXISTS room (k INTEGER PRIMARY KEY CHECK (k = 1), state TEXT NOT NULL)',
-      );
-      this.#state = this.#load();
+      // Read-only probe: a schema write would persist storage for every probed roomId (SEC-010).
+      this.#tableReady =
+        this.ctx.storage.sql
+          .exec("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'room'")
+          .toArray().length > 0;
+      this.#state = this.#tableReady ? this.#load() : null;
       this.#armedAt = await this.ctx.storage.getAlarm();
       // Woken from hibernation or restarted: drop participants whose socket is gone.
       if (this.#state) {
@@ -118,8 +124,11 @@ export class RoomDO extends DurableObject<Env> {
 
   override async fetch(request: Request): Promise<Response> {
     const roomId = new URL(request.url).pathname.split('/').pop() ?? '';
-    const cap = this.#config.limits.maxParticipants * 2 + 20;
-    if (this.ctx.getWebSockets().length >= cap) return new Response(null, { status: 503 });
+    // Only sockets that have not completed a hello are bounded here; joined ones are bounded by
+    // the reducer (room capacity). When the pre-hello pool is full the *oldest* pre-hello socket
+    // is dropped instead of refusing the newcomer, so squatters cannot lock participants out.
+    // Real and unknown ids share this code path, so it reveals nothing about existence.
+    this.#evictPreHello(this.#config.limits.maxParticipants * 2 + 20 - 1);
     const pair = new WebSocketPair();
     const client = pair[0];
     const server = pair[1];
@@ -127,7 +136,7 @@ export class RoomDO extends DurableObject<Env> {
     this.ctx.acceptWebSocket(server, [conn]);
     const attachment: Attachment = { conn, helloBy: Date.now() + this.#config.helloTimeoutMs };
     server.serializeAttachment(attachment);
-    if (!this.#state && !this.#decoy) this.#decoy = this.#makeDecoy(roomId);
+    if (!this.#state) this.#refreshDecoy(roomId);
     await this.#enqueue(() => this.#dispatch({ type: 'connect', conn }));
     // Best effort while awake; #sweepHellos also runs on every wake-up and message.
     setTimeout(() => this.#sweepHellos(), this.#config.helloTimeoutMs + 50);
@@ -139,7 +148,7 @@ export class RoomDO extends DurableObject<Env> {
     if (!conn || ws.readyState !== WebSocket.OPEN) return;
     this.#sweepHellos();
     const { maxMessageBytes } = this.#config.limits;
-    if (byteLength(raw) > maxMessageBytes) {
+    if (frameTooLarge(raw, maxMessageBytes)) {
       ws.close(CLOSE_TOO_BIG, 'message too big');
       return;
     }
@@ -205,6 +214,30 @@ export class RoomDO extends DurableObject<Env> {
     return this.#state ?? this.#decoy;
   }
 
+  /** A fresh decoy well before its idle deadline, so it never answers `closed{idle}`. */
+  #refreshDecoy(roomId: string): void {
+    const maxAge = toCoreLimits(this.#config.limits).idleTimeoutMs / 4;
+    const d = this.#decoy;
+    if (d && d.closed === null && Date.now() - d.createdAt < maxAge) return;
+    this.#decoy = this.#makeDecoy(roomId);
+  }
+
+  /** Close the oldest pre-hello sockets until at most `keep` remain. */
+  #evictPreHello(keep: number): void {
+    const state = this.#current();
+    const joined = new Set(state?.participants.map((p) => p.conn) ?? []);
+    const waiting: { ws: WebSocket; helloBy: number }[] = [];
+    for (const ws of this.ctx.getWebSockets()) {
+      const a = this.#attachment(ws);
+      if (a && !joined.has(a.conn) && ws.readyState === WebSocket.OPEN) {
+        waiting.push({ ws, helloBy: a.helloBy });
+      }
+    }
+    if (waiting.length <= keep) return;
+    waiting.sort((x, y) => x.helloBy - y.helloBy);
+    for (const w of waiting.slice(0, waiting.length - keep)) w.ws.close(CLOSE_POLICY, 'policy');
+  }
+
   #ctx() {
     return { now: Date.now(), randomId: newId };
   }
@@ -223,6 +256,10 @@ export class RoomDO extends DurableObject<Env> {
   }
 
   #save(state: RoomState): void {
+    if (!this.#tableReady) {
+      this.ctx.storage.sql.exec(CREATE_TABLE);
+      this.#tableReady = true;
+    }
     this.ctx.storage.sql.exec(
       'INSERT INTO room (k, state) VALUES (1, ?) ON CONFLICT(k) DO UPDATE SET state = excluded.state',
       JSON.stringify(state),
@@ -288,6 +325,7 @@ export class RoomDO extends DurableObject<Env> {
           }
           this.#state = null;
           this.#armedAt = null;
+          this.#tableReady = false;
           await this.ctx.storage.deleteAlarm();
           await this.ctx.storage.deleteAll();
           for (const ws of this.ctx.getWebSockets()) {
@@ -319,9 +357,7 @@ export class RoomDO extends DurableObject<Env> {
   }
 
   #strike(ws: WebSocket, conn: string, code: Extract<ServerMessage, { type: 'error' }>['code']) {
-    const n = (this.#strikes.get(conn) ?? 0) + 1;
-    this.#strikes.set(conn, n);
-    if (n >= MAX_STRIKES) {
+    if (this.#strikes.strike(conn, Date.now())) {
       ws.close(CLOSE_POLICY, 'policy');
       return;
     }
