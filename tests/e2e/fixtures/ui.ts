@@ -187,9 +187,10 @@ export async function vote(page: Page, value: string): Promise<void> {
 
 /** True when the card shows as selected (aria-pressed or aria-checked). */
 export async function isSelected(c: Locator): Promise<boolean> {
+  // Short timeout: an auto-reveal can remove the deck between count() and here.
   const [p, ch] = await Promise.all([
-    c.getAttribute('aria-pressed'),
-    c.getAttribute('aria-checked'),
+    c.getAttribute('aria-pressed', { timeout: 500 }).catch(() => null),
+    c.getAttribute('aria-checked', { timeout: 500 }).catch(() => null),
   ]);
   return p === 'true' || ch === 'true';
 }

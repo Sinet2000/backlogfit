@@ -52,13 +52,9 @@ test('admin closes the room: everyone sees the closed screen', async ({ page, pe
   // The link is dead afterwards, and indistinguishable from a link that never existed.
   const again = await people.open();
   await again.page.goto(room.joinLink);
-  if (
-    await id(again.page, 'join-name')
-      .isVisible({ timeout: 3_000 })
-      .catch(() => false)
-  ) {
-    await submitJoin(again.page, 'Again', { expect: 'none' });
-  }
+  // The server only answers after a hello, so the join form always shows first.
+  await expect(id(again.page, 'join-name')).toBeVisible();
+  await submitJoin(again.page, 'Again', { expect: 'none' });
   await expectClosed(again.page, 'not_found');
 });
 
