@@ -1,27 +1,27 @@
 <script lang="ts">
-import type { RoomView } from '@backlogfit/core';
-import { onMount } from 'svelte';
-import Button from '../components/Button.svelte';
-import Dialog from '../components/Dialog.svelte';
-import { formatRemaining } from '../room/format.ts';
-import type { RoomStore } from '../room/room.svelte.ts';
+  import type { RoomView } from '@backlogfit/core';
+  import { onMount } from 'svelte';
+  import Button from '../components/Button.svelte';
+  import Dialog from '../components/Dialog.svelte';
+  import { formatRemaining } from '../room/format.ts';
+  import type { RoomStore } from '../room/room.svelte.ts';
 
-let {
-  room,
-  view,
-  onsettings,
-  oninvite,
-}: { room: RoomStore; view: RoomView; onsettings: () => void; oninvite: () => void } = $props();
+  let {
+    room,
+    view,
+    onsettings,
+    oninvite,
+  }: { room: RoomStore; view: RoomView; onsettings: () => void; oninvite: () => void } = $props();
 
-let now = $state(0);
-let confirmClose = $state(false);
-onMount(() => {
-  now = room.serverNow();
-  const id = setInterval(() => (now = room.serverNow()), 15_000);
-  return () => clearInterval(id);
-});
+  let now = $state(0);
+  let confirmClose = $state(false);
+  onMount(() => {
+    now = room.serverNow();
+    const id = setInterval(() => (now = room.serverNow()), 15_000);
+    return () => clearInterval(id);
+  });
 
-const canExtend = $derived(room.isAdmin && view.expiresAt < view.maxExpiresAt);
+  const canExtend = $derived(room.isAdmin && view.expiresAt < view.maxExpiresAt);
 </script>
 
 <section class="session" aria-labelledby="session-h">

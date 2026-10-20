@@ -1,87 +1,87 @@
 <script lang="ts">
-import type { Card } from '@backlogfit/core';
-import { cardName } from '../cards.ts';
-import { addValues, autoColor, move, removeAt, setColor } from '../config/chips.ts';
-import Button from './Button.svelte';
-import IconButton from './IconButton.svelte';
+  import type { Card } from '@backlogfit/core';
+  import { cardName } from '../cards.ts';
+  import { addValues, autoColor, move, removeAt, setColor } from '../config/chips.ts';
+  import Button from './Button.svelte';
+  import IconButton from './IconButton.svelte';
 
-interface Props {
-  deck: Card[];
-  onchange: (deck: Card[]) => void;
-}
-let { deck, onchange }: Props = $props();
-
-let text = $state('');
-let autoColors = $state(true);
-let note = $state('');
-let dragFrom = $state<number | null>(null);
-let dragOver = $state<number | null>(null);
-const uid = $props.id();
-
-function commit(next: Card[], message = '') {
-  onchange(next);
-  note = message;
-}
-
-function add() {
-  if (text.trim() === '') return;
-  const { deck: next, skipped } = addValues(deck, text, autoColors);
-  text = '';
-  commit(
-    next,
-    skipped.length ? `Skipped: ${skipped.join(', ')} (duplicate or too long).` : 'Cards added.',
-  );
-}
-
-function onkeydown(e: KeyboardEvent) {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    add();
+  interface Props {
+    deck: Card[];
+    onchange: (deck: Card[]) => void;
   }
-}
+  let { deck, onchange }: Props = $props();
 
-function moveCard(i: number, to: number) {
-  const card = deck[i];
-  const next = move(deck, i, to);
-  commit(
-    autoColors ? autoColor(next) : next,
-    `Moved ${card?.value} to position ${to + 1} of ${deck.length}.`,
-  );
-}
+  let text = $state('');
+  let autoColors = $state(true);
+  let note = $state('');
+  let dragFrom = $state<number | null>(null);
+  let dragOver = $state<number | null>(null);
+  const uid = $props.id();
 
-function remove(i: number) {
-  const card = deck[i];
-  const next = removeAt(deck, i);
-  commit(autoColors ? autoColor(next) : next, `Removed ${card?.value}.`);
-}
+  function commit(next: Card[], message = '') {
+    onchange(next);
+    note = message;
+  }
 
-function color(i: number, value: string) {
-  autoColors = false;
-  commit(setColor(deck, i, value));
-}
+  function add() {
+    if (text.trim() === '') return;
+    const { deck: next, skipped } = addValues(deck, text, autoColors);
+    text = '';
+    commit(
+      next,
+      skipped.length ? `Skipped: ${skipped.join(', ')} (duplicate or too long).` : 'Cards added.',
+    );
+  }
 
-function resetColors() {
-  autoColors = true;
-  commit(autoColor(deck), 'Colors reset to the colorblind-safe palette.');
-}
+  function onkeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      add();
+    }
+  }
 
-function addSpecial(v: string) {
-  const { deck: next } = addValues(deck, v, autoColors);
-  commit(next, `Added ${v}.`);
-}
+  function moveCard(i: number, to: number) {
+    const card = deck[i];
+    const next = move(deck, i, to);
+    commit(
+      autoColors ? autoColor(next) : next,
+      `Moved ${card?.value} to position ${to + 1} of ${deck.length}.`,
+    );
+  }
 
-function drop(i: number) {
-  if (dragFrom !== null && dragFrom !== i) moveCard(dragFrom, i);
-  dragFrom = null;
-  dragOver = null;
-}
+  function remove(i: number) {
+    const card = deck[i];
+    const next = removeAt(deck, i);
+    commit(autoColors ? autoColor(next) : next, `Removed ${card?.value}.`);
+  }
 
-const SPECIAL_BUTTONS: readonly [string, string][] = [
-  ['?', 'Unclear'],
-  ['☕', 'Coffee break'],
-  ['∞', 'Too big'],
-];
-const has = (v: string) => deck.some((c) => c.value === v);
+  function color(i: number, value: string) {
+    autoColors = false;
+    commit(setColor(deck, i, value));
+  }
+
+  function resetColors() {
+    autoColors = true;
+    commit(autoColor(deck), 'Colors reset to the colorblind-safe palette.');
+  }
+
+  function addSpecial(v: string) {
+    const { deck: next } = addValues(deck, v, autoColors);
+    commit(next, `Added ${v}.`);
+  }
+
+  function drop(i: number) {
+    if (dragFrom !== null && dragFrom !== i) moveCard(dragFrom, i);
+    dragFrom = null;
+    dragOver = null;
+  }
+
+  const SPECIAL_BUTTONS: readonly [string, string][] = [
+    ['?', 'Unclear'],
+    ['☕', 'Coffee break'],
+    ['∞', 'Too big'],
+  ];
+  const has = (v: string) => deck.some((c) => c.value === v);
 </script>
 
 <div class="chip-editor">

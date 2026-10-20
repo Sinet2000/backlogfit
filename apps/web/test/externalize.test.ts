@@ -1,3 +1,4 @@
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   addNoindex,
@@ -106,5 +107,19 @@ describe('addNoindex', () => {
     expect(out).toContain('<meta name="robots" content="noindex, nofollow" />');
     expect(out).toContain('<title>Backlogfit</title>');
     expect(addNoindex(out)).toBe(out);
+  });
+});
+
+describe('built output (when present)', () => {
+  const build = new URL('../build/', import.meta.url);
+  const present = existsSync(build);
+  it.skipIf(!present)('every HTML file in build/ passes the CSP scan', () => {
+    const files = readdirSync(build, { recursive: true })
+      .map(String)
+      .filter((f) => f.endsWith('.html'));
+    expect(files.length).toBeGreaterThan(0);
+    for (const f of files) {
+      expect(findCspViolations(readFileSync(new URL(f, build), 'utf8')), f).toEqual([]);
+    }
   });
 });

@@ -1,10 +1,10 @@
 <script lang="ts">
-import '#lib/styles/app.css';
-import type { Snippet } from 'svelte';
-import SiteFooter from '#lib/components/SiteFooter.svelte';
-import SiteHeader from '#lib/components/SiteHeader.svelte';
+  import '#lib/styles/app.css';
+  import type { Snippet } from 'svelte';
+  import SiteFooter from '#lib/components/SiteFooter.svelte';
+  import SiteHeader from '#lib/components/SiteHeader.svelte';
 
-let { children }: { children: Snippet } = $props();
+  let { children }: { children: Snippet } = $props();
 </script>
 
 <a class="skip-link" href="#main">Skip to content</a>

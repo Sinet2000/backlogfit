@@ -16,6 +16,20 @@ import {
 
 const engines = new Map<string, LoopbackEngine>();
 const alarmTimers = new Map<string, ReturnType<typeof setInterval>>();
+const pendingTasks = new Map<string, string[]>();
+
+export const SAMPLE_TASKS = [
+  'DEMO-101 Export results as CSV',
+  'DEMO-102 Single sign-on for admins',
+  'DEMO-103 Audit log retention',
+] as const;
+
+/** Sample tasks for a fresh demo room, handed out once (the host's own connection adds them). */
+export function takeDemoTasks(roomId: string): string[] | null {
+  const t = pendingTasks.get(roomId) ?? null;
+  pendingTasks.delete(roomId);
+  return t;
+}
 
 export function demoEngine(roomId: string): LoopbackEngine | null {
   return engines.get(roomId) ?? null;
@@ -54,26 +68,7 @@ export async function createDemoRoom(opts: DemoOptions = {}): Promise<RoomLink> 
     );
   }
   const bots = opts.bots ?? BOT_NAMES.length;
-  const admin = engine.connect();
-  await admin.send({
-    type: 'hello',
-    v: 1,
-    joinSecret,
-    adminSecret,
-    name: 'Demo host',
-    role: 'spectator',
-  });
-  if (opts.sampleTasks) {
-    await admin.send({
-      type: 'admin.tasks.add',
-      lines: [
-        'DEMO-101 Export results as CSV',
-        'DEMO-102 Single sign-on for admins',
-        'DEMO-103 Audit log retention',
-      ],
-    });
-  }
-  await admin.disconnect();
+  if (opts.sampleTasks) pendingTasks.set(roomId, [...SAMPLE_TASKS]);
   for (let i = 0; i < Math.min(bots, BOT_NAMES.length); i++) {
     await startBot(engine, joinSecret, BOT_NAMES[i] ?? `Bot ${i + 1}`, i);
   }

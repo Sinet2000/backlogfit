@@ -1,45 +1,45 @@
 <script lang="ts">
-import type { RoomView } from '@backlogfit/core';
-import Button from '../components/Button.svelte';
-import IconButton from '../components/IconButton.svelte';
-import type { RoomStore } from '../room/room.svelte.ts';
+  import type { RoomView } from '@backlogfit/core';
+  import Button from '../components/Button.svelte';
+  import IconButton from '../components/IconButton.svelte';
+  import type { RoomStore } from '../room/room.svelte.ts';
 
-interface Props {
-  room: RoomStore;
-  view: RoomView;
-  canManage: boolean;
-}
-let { room, view, canManage }: Props = $props();
-
-let text = $state('');
-const policyHint = $derived(
-  view.config.taskPolicy === 'ids'
-    ? 'One per line: an ID with an optional title, e.g. SCP-3655 Fix login. Links are reduced to their ID.'
-    : view.config.taskPolicy === 'links'
-      ? 'One per line: an ID, a title, or a link (https://…) followed by a title.'
-      : 'One per line: an ID, a title, or a link to an allowed domain.',
-);
-
-function add() {
-  const lines = text
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l !== '')
-    .slice(0, 200);
-  if (lines.length === 0) return;
-  room.send({ type: 'admin.tasks.add', lines });
-  text = '';
-}
-
-function onkeydown(e: KeyboardEvent) {
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-    e.preventDefault();
-    add();
+  interface Props {
+    room: RoomStore;
+    view: RoomView;
+    canManage: boolean;
   }
-}
+  let { room, view, canManage }: Props = $props();
 
-const label = (t: { key: string | null; title: string | null }) =>
-  [t.key, t.title].filter(Boolean).join(' ') || 'Untitled task';
+  let text = $state('');
+  const policyHint = $derived(
+    view.config.taskPolicy === 'ids'
+      ? 'One per line: an ID with an optional title, e.g. SCP-3655 Fix login. Links are reduced to their ID.'
+      : view.config.taskPolicy === 'links'
+        ? 'One per line: an ID, a title, or a link (https://…) followed by a title.'
+        : 'One per line: an ID, a title, or a link to an allowed domain.',
+  );
+
+  function add() {
+    const lines = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l !== '')
+      .slice(0, 200);
+    if (lines.length === 0) return;
+    room.send({ type: 'admin.tasks.add', lines });
+    text = '';
+  }
+
+  function onkeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      add();
+    }
+  }
+
+  const label = (t: { key: string | null; title: string | null }) =>
+    [t.key, t.title].filter(Boolean).join(' ') || 'Untitled task';
 </script>
 
 <section class="tasks" aria-labelledby="tasks-h">

@@ -1,4 +1,5 @@
-import { cleanText, hasUnsafeChars } from './text.ts';
+import { compileIdMatcher, type IdMatcher, isValidIdPattern } from './idpattern.ts';
+import { cleanText, hasUnsafeChars, hasVisibleChar } from './text.ts';
 
 export type TaskPolicy = 'ids' | 'links' | 'allowlist';
 
@@ -40,31 +41,27 @@ export type TaskLineError =
 export type TaskLineResult = { ok: true; task: ParsedTask } | { ok: false; error: TaskLineError };
 
 /**
- * Admin-supplied ID patterns run on the server, so they are restricted to a subset that cannot
- * backtrack catastrophically: no lookaround, no backreferences, no quantified groups. Inputs
- * tested against them are also capped at TASK_KEY_MAX characters.
+ * Admin-supplied ID patterns run on the server, so they never reach RegExp: they are parsed into
+ * a flat atom sequence and matched without backtracking (see idpattern.ts, SEC-001). Inputs are
+ * capped at TASK_KEY_MAX characters before matching.
  */
 export function isSafeIdPattern(pattern: string): boolean {
-  if (pattern.length < 1 || pattern.length > ID_PATTERN_MAX) return false;
-  if (/\(\?[=!<]/.test(pattern)) return false;
-  if (/\\[1-9k]/.test(pattern)) return false;
-  if (/\)[*+?{]/.test(pattern)) return false;
-  try {
-    new RegExp(pattern, 'u');
-    return true;
-  } catch {
-    return false;
-  }
+  return pattern.length <= ID_PATTERN_MAX && isValidIdPattern(pattern);
 }
 
-/** Anchored matcher for an ID pattern, or null if the pattern is unsafe/invalid. */
-export function compileIdPattern(pattern: string | null | undefined): RegExp | null {
-  if (pattern == null || pattern === '') return new RegExp(`^(?:${DEFAULT_ID_PATTERN})$`, 'iu');
+/**
+ * Whole-token matcher for an ID pattern, or null if the pattern is invalid. `null`/'' gives the
+ * default pattern, matched case-insensitively. Returns an IdMatcher (has `test`), not a RegExp.
+ */
+export function compileIdPattern(pattern: string | null | undefined): IdMatcher | null {
+  if (pattern == null || pattern === '') return DEFAULT_MATCHER;
   if (!isSafeIdPattern(pattern)) return null;
-  return new RegExp(`^(?:${pattern})$`, 'u');
+  return compileIdMatcher(pattern);
 }
 
-function matchKey(re: RegExp, token: string, isDefault: boolean): string | null {
+const DEFAULT_MATCHER = compileIdMatcher(DEFAULT_ID_PATTERN, true) as IdMatcher;
+
+function matchKey(re: IdMatcher, token: string, isDefault: boolean): string | null {
   if (token.length > TASK_KEY_MAX || !re.test(token)) return null;
   return isDefault ? token.toUpperCase() : token;
 }
@@ -142,10 +139,11 @@ function cleanTitle(
   if (title === '') return { ok: true, title: null };
   if (title.length > TASK_TITLE_MAX) return { ok: false, error: 'title_too_long' };
   if (title.includes('://')) return { ok: false, error: 'url_in_title' };
+  if (!hasVisibleChar(title)) return { ok: false, error: 'unsafe_chars' };
   return { ok: true, title };
 }
 
-function keyFromUrl(url: URL, re: RegExp, isDefault: boolean): string | null {
+function keyFromUrl(url: URL, re: IdMatcher, isDefault: boolean): string | null {
   const segments = url.pathname.split('/').filter((s) => s !== '');
   const last = segments[segments.length - 1];
   if (last === undefined) return null;

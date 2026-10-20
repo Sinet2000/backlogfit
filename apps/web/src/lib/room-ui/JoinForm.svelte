@@ -1,50 +1,57 @@
 <script lang="ts">
-import type { ErrorCode } from '@backlogfit/core';
-import { onMount } from 'svelte';
-import Button from '../components/Button.svelte';
-import { errorText } from '../room/messages.ts';
-import { rememberedName, rememberName } from '../room/storage.ts';
+  import { type ErrorCode, hasUnsafeChars, hasVisibleChar, NAME_MAX } from '@backlogfit/core';
+  import { onMount } from 'svelte';
+  import Button from '../components/Button.svelte';
+  import { errorText } from '../room/messages.ts';
+  import { rememberedName, rememberName } from '../room/storage.ts';
 
-interface Props {
-  isHost: boolean;
-  busy: boolean;
-  error: ErrorCode | null;
-  demo: boolean;
-  onjoin: (req: { name: string; role: 'voter' | 'spectator'; passcode?: string }) => void;
-}
-let { isHost, busy, error, demo, onjoin }: Props = $props();
-
-let name = $state('');
-let passcode = $state('');
-let spectator = $state(false);
-let nameInput: HTMLInputElement | undefined = $state();
-let passInput: HTMLInputElement | undefined = $state();
-let touched = $state(false);
-
-onMount(() => {
-  name = rememberedName();
-  nameInput?.focus();
-});
-
-$effect(() => {
-  if (error === 'bad_passcode' || error === 'passcode_locked') passInput?.focus();
-});
-
-const nameError = $derived(
-  touched && name.trim() === '' ? 'Enter your name so others know who voted.' : '',
-);
-
-function submit(e: SubmitEvent) {
-  e.preventDefault();
-  touched = true;
-  const n = name.trim().slice(0, 40);
-  if (n === '') {
-    nameInput?.focus();
-    return;
+  interface Props {
+    isHost: boolean;
+    busy: boolean;
+    error: ErrorCode | null;
+    demo: boolean;
+    onjoin: (req: { name: string; role: 'voter' | 'spectator'; passcode?: string }) => void;
   }
-  rememberName(n);
-  onjoin({ name: n, role: spectator ? 'spectator' : 'voter', ...(passcode ? { passcode } : {}) });
-}
+  let { isHost, busy, error, demo, onjoin }: Props = $props();
+
+  let name = $state('');
+  let passcode = $state('');
+  let spectator = $state(false);
+  let nameInput: HTMLInputElement | undefined = $state();
+  let passInput: HTMLInputElement | undefined = $state();
+  let touched = $state(false);
+
+  onMount(() => {
+    name = rememberedName();
+    nameInput?.focus();
+  });
+
+  $effect(() => {
+    if (error === 'bad_passcode' || error === 'passcode_locked') passInput?.focus();
+  });
+
+  const nameError = $derived.by(() => {
+    if (!touched) return '';
+    const n = name.normalize('NFC').trim();
+    if (n === '') return 'Enter your name so others know who voted.';
+    if (hasUnsafeChars(n) || !hasVisibleChar(n)) {
+      return 'Your name contains invisible or control characters. Please type it again.';
+    }
+    if (n.length > NAME_MAX) return `Use at most ${NAME_MAX} characters.`;
+    return '';
+  });
+
+  function submit(e: SubmitEvent) {
+    e.preventDefault();
+    touched = true;
+    const n = name.normalize('NFC').trim();
+    if (nameError !== '') {
+      nameInput?.focus();
+      return;
+    }
+    rememberName(n);
+    onjoin({ name: n, role: spectator ? 'spectator' : 'voter', ...(passcode ? { passcode } : {}) });
+  }
 </script>
 
 <div class="join panel">

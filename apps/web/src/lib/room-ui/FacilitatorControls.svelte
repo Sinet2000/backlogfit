@@ -1,36 +1,36 @@
 <script lang="ts">
-import type { Card, RoomView, TaskView } from '@backlogfit/core';
-import Button from '../components/Button.svelte';
-import type { RoomStore } from '../room/room.svelte.ts';
+  import type { Card, RoomView, TaskView } from '@backlogfit/core';
+  import Button from '../components/Button.svelte';
+  import type { RoomStore } from '../room/room.svelte.ts';
 
-interface Props {
-  room: RoomStore;
-  view: RoomView;
-  task: TaskView | null;
-}
-let { room, view, task }: Props = $props();
+  interface Props {
+    room: RoomStore;
+    view: RoomView;
+    task: TaskView | null;
+  }
+  let { room, view, task }: Props = $props();
 
-const round = $derived(task?.rounds.find((r) => r.n === view.round) ?? null);
-const estimable = $derived(view.config.scale.filter((c: Card) => c.kind !== 'special'));
-let finalChoice = $state<string | null>(null);
-let custom = $state('');
+  const round = $derived(task?.rounds.find((r) => r.n === view.round) ?? null);
+  const estimable = $derived(view.config.scale.filter((c: Card) => c.kind !== 'special'));
+  let finalChoice = $state<string | null>(null);
+  let custom = $state('');
 
-// Preselect the suggested card when a round is revealed.
-$effect(() => {
-  if (view.phase === 'revealed') finalChoice = task?.final ?? round?.stats?.suggested ?? null;
-});
+  // Preselect the suggested card when a round is revealed.
+  $effect(() => {
+    if (view.phase === 'revealed') finalChoice = task?.final ?? round?.stats?.suggested ?? null;
+  });
 
-const remaining = $derived(
-  view.tasks.filter((t) => t.final === null && t.id !== view.currentTaskId).length,
-);
+  const remaining = $derived(
+    view.tasks.filter((t) => t.final === null && t.id !== view.currentTaskId).length,
+  );
 
-function saveFinal() {
-  if (!task) return;
-  const value = custom.trim() !== '' ? custom.trim().slice(0, 16) : finalChoice;
-  if (!value) return;
-  room.send({ type: 'admin.final', taskId: task.id, value });
-  custom = '';
-}
+  function saveFinal() {
+    if (!task) return;
+    const value = custom.trim() !== '' ? custom.trim().slice(0, 16) : finalChoice;
+    if (!value) return;
+    room.send({ type: 'admin.final', taskId: task.id, value });
+    custom = '';
+  }
 </script>
 
 <div class="controls" aria-label="Facilitator controls" role="group">

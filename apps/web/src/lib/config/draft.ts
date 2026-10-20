@@ -8,7 +8,8 @@ import {
   DEFAULT_ID_PATTERN,
   DEFAULT_LIFETIME_HOURS,
   type ErrorCode,
-  isSafeIdPattern,
+  ID_PATTERN_MAX_LENGTH,
+  isValidIdPattern,
   LIFETIME_CHOICES_HOURS,
   type LifetimeHours,
   linkFor,
@@ -123,6 +124,10 @@ export const SCALE_ERROR_TEXT: Record<ScaleError, string> = {
   duplicate_numeric: 'Two cards have the same number.',
 };
 
+/** Plain-language rules for ID patterns (matches core's isValidIdPattern). */
+export const ID_PATTERN_HELP =
+  'Use letters, digits, \\d (a digit), \\w (a letter or digit), . (any character) and classes like [A-Z], each with at most one count such as + or {1,9}. Groups, | and anchors are not allowed.';
+
 export interface DraftErrors {
   scale?: string;
   idPattern?: string;
@@ -136,8 +141,9 @@ export function draftErrors(d: Draft): DraftErrors {
   const e: DraftErrors = {};
   const scaleErr = validateScale(d.scale);
   if (scaleErr) e.scale = SCALE_ERROR_TEXT[scaleErr];
-  if (d.idPattern.trim() !== '' && !isSafeIdPattern(d.idPattern.trim())) {
-    e.idPattern = 'Use a simpler pattern (letters, digits, ranges like [A-Z] and {1,9}).';
+  const pattern = d.idPattern.trim();
+  if (pattern !== '' && (pattern.length > ID_PATTERN_MAX_LENGTH || !isValidIdPattern(pattern))) {
+    e.idPattern = ID_PATTERN_HELP;
   }
   const bad = d.allowlist.filter((h) => normalizeAllowlistEntry(h) === null);
   if (bad.length > 0) e.allowlist = `Not a valid domain: ${bad.join(', ')}`;

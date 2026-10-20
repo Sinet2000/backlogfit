@@ -1,33 +1,33 @@
 <script lang="ts">
-import type { Card, TaskView } from '@backlogfit/core';
-import Icon from '../components/Icon.svelte';
-import { formatStat } from '../room/format.ts';
+  import type { Card, TaskView } from '@backlogfit/core';
+  import Icon from '../components/Icon.svelte';
+  import { formatStat } from '../room/format.ts';
 
-interface Props {
-  task: TaskView;
-  round: number | null;
-  phase: 'idle' | 'voting' | 'revealed';
-  scale: readonly Card[];
-}
-let { task, round, phase }: Props = $props();
-
-const safeUrl = $derived.by(() => {
-  if (!task.url || !/^https?:\/\//i.test(task.url)) return null;
-  try {
-    const u = new URL(task.url);
-    return u.protocol === 'http:' || u.protocol === 'https:'
-      ? { href: u.href, host: u.host }
-      : null;
-  } catch {
-    return null;
+  interface Props {
+    task: TaskView;
+    round: number | null;
+    phase: 'idle' | 'voting' | 'revealed';
+    scale: readonly Card[];
   }
-});
-const earlier = $derived(task.rounds.filter((r) => r.revealed && r.n !== round));
-const summary = (votes: { value: string }[] | null) => {
-  const counts = new Map<string, number>();
-  for (const v of votes ?? []) counts.set(v.value, (counts.get(v.value) ?? 0) + 1);
-  return [...counts].map(([v, n]) => `${n}× ${v}`).join(', ') || 'no votes';
-};
+  let { task, round, phase }: Props = $props();
+
+  const safeUrl = $derived.by(() => {
+    if (!task.url || !/^https?:\/\//i.test(task.url)) return null;
+    try {
+      const u = new URL(task.url);
+      return u.protocol === 'http:' || u.protocol === 'https:'
+        ? { href: u.href, host: u.host }
+        : null;
+    } catch {
+      return null;
+    }
+  });
+  const earlier = $derived(task.rounds.filter((r) => r.revealed && r.n !== round));
+  const summary = (votes: { value: string }[] | null) => {
+    const counts = new Map<string, number>();
+    for (const v of votes ?? []) counts.set(v.value, (counts.get(v.value) ?? 0) + 1);
+    return [...counts].map(([v, n]) => `${n}× ${v}`).join(', ') || 'no votes';
+  };
 </script>
 
 <section class="current" data-testid="current-task" data-key={task.key ?? ''} aria-labelledby="task-h">

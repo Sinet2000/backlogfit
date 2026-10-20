@@ -40,15 +40,21 @@ const ENV: Record<keyof Limits, [name: string, min: number, max: number]> = {
   passcodeMaxAttempts: ['PASSCODE_MAX_ATTEMPTS', 1, 100],
 };
 
-/** Reads limits from env vars. Invalid or out-of-range values throw so misconfiguration fails fast. */
+const DECIMAL_INT = /^(?:0|[1-9][0-9]{0,8})$/;
+
+/**
+ * Reads limits from env vars. Invalid or out-of-range values throw so misconfiguration fails fast.
+ * Only plain decimal integers are accepted: no sign, exponent, hex, fraction, separators or
+ * surrounding whitespace (`Number()` would accept "1e3", "0x10", " 20 " and "20.0").
+ */
 export function readLimits(env: Readonly<Record<string, string | undefined>>): Limits {
   const out = { ...DEFAULT_LIMITS };
   for (const key of Object.keys(ENV) as (keyof Limits)[]) {
     const [name, min, max] = ENV[key];
     const raw = env[name];
     if (raw === undefined || raw === '') continue;
-    const n = Number(raw);
-    if (!Number.isInteger(n) || n < min || n > max) {
+    const n = DECIMAL_INT.test(raw) ? Number(raw) : Number.NaN;
+    if (!Number.isSafeInteger(n) || n < min || n > max) {
       throw new Error(`${name} must be an integer between ${min} and ${max}`);
     }
     out[key] = n;

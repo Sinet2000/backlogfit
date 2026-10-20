@@ -1,20 +1,20 @@
 <script lang="ts">
-import type { ErrorCode } from '@backlogfit/core';
-import Button from '../components/Button.svelte';
-import Icon from '../components/Icon.svelte';
-import type { EndReason } from '../room/connection.ts';
-import { endedText } from '../room/messages.ts';
+  import type { ErrorCode } from '@backlogfit/core';
+  import Button from '../components/Button.svelte';
+  import Icon from '../components/Icon.svelte';
+  import type { EndReason } from '../room/connection.ts';
+  import { endedText } from '../room/messages.ts';
 
-interface Props {
-  reason: EndReason;
-  joinError: ErrorCode | null;
-  demo?: boolean;
-  onretry?: () => void;
-}
-let { reason, joinError, demo = false, onretry }: Props = $props();
-const t = $derived(endedText(reason, joinError));
-let heading: HTMLHeadingElement | undefined = $state();
-$effect(() => heading?.focus());
+  interface Props {
+    reason: EndReason;
+    joinError: ErrorCode | null;
+    demo?: boolean;
+    onretry?: () => void;
+  }
+  let { reason, joinError, demo = false, onretry }: Props = $props();
+  const t = $derived(endedText(reason, joinError));
+  let heading: HTMLHeadingElement | undefined = $state();
+  $effect(() => heading?.focus());
 </script>
 
 <section class="ended panel" data-testid="room-closed" data-reason={reason} data-error={joinError ?? ''}>

@@ -1,36 +1,36 @@
 <script lang="ts">
-import type { ParticipantView } from '@backlogfit/core';
-import Icon from './Icon.svelte';
+  import type { ParticipantView } from '@backlogfit/core';
+  import Icon from './Icon.svelte';
 
-interface Props {
-  participants: readonly ParticipantView[];
-  meId: string | null;
-  phase: 'idle' | 'voting' | 'revealed';
-  /** Viewer's authority. */
-  authority: 'admin' | 'coadmin' | 'none';
-  onkick?: (p: ParticipantView) => void;
-  onpromote?: (p: ParticipantView) => void;
-  ondemote?: (p: ParticipantView) => void;
-}
-let { participants, meId, phase, authority, onkick, onpromote, ondemote }: Props = $props();
+  interface Props {
+    participants: readonly ParticipantView[];
+    meId: string | null;
+    phase: 'idle' | 'voting' | 'revealed';
+    /** Viewer's authority. */
+    authority: 'admin' | 'coadmin' | 'none';
+    onkick?: (p: ParticipantView) => void;
+    onpromote?: (p: ParticipantView) => void;
+    ondemote?: (p: ParticipantView) => void;
+  }
+  let { participants, meId, phase, authority, onkick, onpromote, ondemote }: Props = $props();
 
-const sorted = $derived(
-  [...participants].sort((a, b) => {
-    const rank = (p: ParticipantView) => (p.role === 'spectator' ? 1 : 0);
-    return rank(a) - rank(b) || a.name.localeCompare(b.name);
-  }),
-);
-const voters = $derived(participants.filter((p) => p.role === 'voter'));
-const voted = $derived(voters.filter((p) => p.hasVoted).length);
+  const sorted = $derived(
+    [...participants].sort((a, b) => {
+      const rank = (p: ParticipantView) => (p.role === 'spectator' ? 1 : 0);
+      return rank(a) - rank(b) || a.name.localeCompare(b.name);
+    }),
+  );
+  const voters = $derived(participants.filter((p) => p.role === 'voter'));
+  const voted = $derived(voters.filter((p) => p.hasVoted).length);
 
-const canKick = (p: ParticipantView) =>
-  p.id !== meId &&
-  p.authority !== 'admin' &&
-  (authority === 'admin' || (authority === 'coadmin' && p.authority === 'none'));
-const canPromote = (p: ParticipantView) => authority === 'admin' && p.id !== meId;
+  const canKick = (p: ParticipantView) =>
+    p.id !== meId &&
+    p.authority !== 'admin' &&
+    (authority === 'admin' || (authority === 'coadmin' && p.authority === 'none'));
+  const canPromote = (p: ParticipantView) => authority === 'admin' && p.id !== meId;
 
-const badge = (p: ParticipantView) =>
-  p.authority === 'admin' ? 'Host' : p.authority === 'coadmin' ? 'Co-host' : null;
+  const badge = (p: ParticipantView) =>
+    p.authority === 'admin' ? 'Host' : p.authority === 'coadmin' ? 'Co-host' : null;
 </script>
 
 <section class="participants" aria-labelledby="people-h">

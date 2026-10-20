@@ -1,15 +1,15 @@
 <script lang="ts">
-import type { HTMLButtonAttributes } from 'svelte/elements';
-import Icon, { type IconName } from './Icon.svelte';
+  import type { HTMLButtonAttributes } from 'svelte/elements';
+  import Icon, { type IconName } from './Icon.svelte';
 
-type Props = HTMLButtonAttributes & {
-  icon: IconName;
-  /** Required accessible name (also shown as tooltip). */
-  label: string;
-  size?: 'sm' | 'md';
-  variant?: 'ghost' | 'secondary' | 'danger';
-};
-let { icon, label, size = 'md', variant = 'ghost', class: klass = '', ...rest }: Props = $props();
+  type Props = HTMLButtonAttributes & {
+    icon: IconName;
+    /** Required accessible name (also shown as tooltip). */
+    label: string;
+    size?: 'sm' | 'md';
+    variant?: 'ghost' | 'secondary' | 'danger';
+  };
+  let { icon, label, size = 'md', variant = 'ghost', class: klass = '', ...rest }: Props = $props();
 </script>
 
 <button
