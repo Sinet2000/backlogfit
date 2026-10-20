@@ -7,7 +7,6 @@ export interface ServerConfig {
   host: string;
   /** Origins allowed to open WebSockets and create rooms: PUBLIC_ORIGIN plus ALLOWED_ORIGINS. */
   origins: string[];
-  publicOrigin: string;
   /** null keeps rooms in memory only (SEC-007). */
   dataDir: string | null;
   webDir: string;
@@ -69,7 +68,6 @@ export function readConfig(env: Env = process.env): ServerConfig {
     port,
     host: env.HOST || '0.0.0.0',
     origins: [...new Set([publicOrigin, ...extra])],
-    publicOrigin,
     dataDir: env.DATA_DIR ? resolve(env.DATA_DIR) : null,
     webDir: resolve(env.WEB_DIR || resolve(APP_DIR, '../web/build')),
     limits: readLimits(env),

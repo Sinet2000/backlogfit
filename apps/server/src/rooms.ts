@@ -118,10 +118,6 @@ export class RoomRegistry {
     await Promise.all([...this.#rooms.values(), ...this.#decoys.values()].map((h) => h.stop()));
   }
 
-  async idle(): Promise<void> {
-    await Promise.all([...this.#rooms.values()].map((h) => h.idle()));
-  }
-
   #basePorts(wakeup: Wakeup): HostPorts {
     return {
       clock: this.#opts.clock,

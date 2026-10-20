@@ -12,7 +12,6 @@ export interface Env {
 }
 
 export interface WorkerConfig {
-  origins: string[];
   limits: Limits;
   dev: boolean;
   allowedOrigin: (origin: string | null | undefined) => boolean;
@@ -38,7 +37,6 @@ export function configOf(env: Env): WorkerConfig {
     .map((s) => new URL(s).origin);
   const origins = [...new Set([publicOrigin, ...extra])];
   const config: WorkerConfig = {
-    origins,
     allowedOrigin: createOriginChecker(origins),
     limits: readLimits(vars),
     dev: vars.NODE_ENV !== 'production' || publicOrigin.startsWith('http:'),
