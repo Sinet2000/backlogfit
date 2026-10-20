@@ -202,7 +202,7 @@ const encoder = new TextEncoder();
 export function createClientKeyer(key?: Uint8Array): (normalized: string) => string {
   const k = new Uint8Array(16);
   if (key) k.set(key.subarray(0, 16));
-  else globalThis.crypto.getRandomValues(k);
+  else crypto.getRandomValues(k);
   return (normalized) =>
     `ip:${siphash24(k, encoder.encode(normalized)).toString(16).padStart(16, '0')}`;
 }

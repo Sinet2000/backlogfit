@@ -19,11 +19,3 @@ Rate Limiting binding are platform features and need no npm packages.
 | `@cloudflare/workers-types` | 5.20261019.1 | MIT OR Apache-2.0 | Types for the Workers runtime. | |
 | `vitest` | 5.0.5 | MIT | Test runner (workspace version). | |
 | `@types/node` | 26.6.5 | MIT | Types for the small Node scripts in `scripts/`. | |
-
-## Known typing mismatch
-
-`@cloudflare/workers-types` declares `crypto` as a global `const` (so `globalThis.crypto` does
-not type-check) and makes both `TextDecoder` options required. packages/core uses
-`globalThis.crypto` and `{ fatal: true }`. Both are fine at runtime. `scripts/typecheck.ts`
-tolerates exactly those diagnostics inside packages/core and fails on anything else. The fix
-in core is requested in coordination/A2.md.
