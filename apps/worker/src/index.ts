@@ -10,7 +10,8 @@ import { configOf, type Env } from './env.ts';
 
 export { RoomDO } from './room-do.ts';
 
-export const MAX_CREATE_BODY_BYTES = 64 * 1024;
+/** Largest accepted POST /api/rooms body (module-private: entry exports must be handlers). */
+const MAX_CREATE_BODY_BYTES = 64 * 1024;
 const ROOM_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 /** Used only when the CREATE_LIMITER binding is absent (e.g. some local setups). */
@@ -35,8 +36,11 @@ app.use('*', async (c, next) => {
   const headers = securityHeaders({ dev: configOf(c.env).dev });
   // A 101 response carries a webSocket and immutable headers; leave it alone.
   if (c.res.status === 101) return;
-  for (const [k, v] of Object.entries(headers)) c.res.headers.set(k, v);
-  c.res.headers.set('Cache-Control', 'no-store');
+  // Responses from bindings (ASSETS, Durable Objects) have immutable headers: copy first.
+  const res = new Response(c.res.body, c.res);
+  for (const [k, v] of Object.entries(headers)) res.headers.set(k, v);
+  if (!res.headers.has('Cache-Control')) res.headers.set('Cache-Control', 'no-store');
+  c.res = res;
 });
 
 app.get('/api/health', (c) => c.json({ ok: true }));

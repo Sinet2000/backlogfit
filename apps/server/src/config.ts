@@ -1,6 +1,6 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type Limits, readLimits } from '@backlogfit/security';
+import { type Limits, parseTrustProxy, readLimits, type TrustProxy } from '@backlogfit/security';
 
 export interface ServerConfig {
   port: number;
@@ -13,7 +13,14 @@ export interface ServerConfig {
   /** Static web build directory (may not exist). */
   webDir: string;
   limits: Limits;
-  trustProxy: boolean;
+  /** false = socket peer; n = n trusted proxies append to X-Forwarded-For; or 'cloudflare'. */
+  trustProxy: TrustProxy;
+  /** Global cap on concurrent WebSocket connections (including handshakes). */
+  maxConnections: number;
+  /** Concurrent WebSocket connections per client address. */
+  maxConnectionsPerClient: number;
+  /** WebSocket upgrades per minute per client address (token bucket, burst = same value). */
+  upgradesPerMin: number;
   /** Security headers without HSTS / upgrade-insecure-requests (dev, or plain-http origin). */
   dev: boolean;
   /** Test-only clock acceleration (1 = real time). Honoured only when NODE_ENV=test. */
@@ -72,7 +79,10 @@ export function readConfig(env: Env = process.env): ServerConfig {
     dataDir: env.DATA_DIR ? resolve(env.DATA_DIR) : null,
     webDir: resolve(env.WEB_DIR || resolve(APP_DIR, '../web/build')),
     limits: readLimits(env),
-    trustProxy: env.TRUST_PROXY === 'true',
+    trustProxy: parseTrustProxy(env.TRUST_PROXY),
+    maxConnections: int(env, 'MAX_CONNECTIONS', 5000, 1, 1_000_000),
+    maxConnectionsPerClient: int(env, 'MAX_CONNECTIONS_PER_CLIENT', 50, 1, 100_000),
+    upgradesPerMin: int(env, 'WS_UPGRADES_PER_MIN', 120, 1, 100_000),
     // HSTS and upgrade-insecure-requests only make sense when the public origin is https.
     dev: env.NODE_ENV !== 'production' || publicOrigin.startsWith('http:'),
     timeScale,

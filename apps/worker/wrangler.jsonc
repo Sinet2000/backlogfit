@@ -10,6 +10,8 @@
   "observability": { "enabled": false, "logs": { "enabled": false, "invocation_logs": false } },
   "logpush": false,
   "preview_urls": false,
+  // No Wrangler CLI usage telemetry.
+  "send_metrics": false,
 
   "assets": {
     "directory": "../web/build",

@@ -49,9 +49,13 @@ function contentType(path: string): string {
   return TYPES[extname(path).toLowerCase()] ?? 'application/octet-stream';
 }
 
-function cacheControl(urlPath: string, file: string): string {
-  if (urlPath.startsWith('/_app/immutable/')) return 'public, max-age=31536000, immutable';
-  if (file.endsWith('.html')) return 'no-cache';
+/**
+ * Only non-HTML, non-hashed assets get a cache lifetime here. Everything else is left to
+ * applySecurityHeaders()/pathHeaders(): no-store + noindex for /r and /new, immutable for
+ * /_app/immutable/*, no-cache for other HTML.
+ */
+function cacheControl(urlPath: string, file: string): string | null {
+  if (urlPath.startsWith('/_app/immutable/') || file.endsWith('.html')) return null;
   return 'public, max-age=3600';
 }
 
@@ -72,25 +76,22 @@ function safeSegments(urlPath: string): string[] | null {
   return segments;
 }
 
-export function createStaticHandler(webDir: string) {
+export function createStaticHandler(webDir: string, opts: { sourceMaps?: boolean } = {}) {
   const root = normalize(webDir);
   const inside = (p: string) => p.startsWith(root + sep);
 
   async function load(path: string, urlPath: string, status: 200 | 404): Promise<StaticFile> {
     const body = await readFile(path);
-    return {
-      status,
-      body,
-      headers: {
-        'Content-Type': contentType(path),
-        'Cache-Control': status === 404 ? 'no-store' : cacheControl(urlPath, path),
-      },
-    };
+    const headers: Record<string, string> = { 'Content-Type': contentType(path) };
+    const cache = status === 404 ? 'no-store' : cacheControl(urlPath, path);
+    if (cache) headers['Cache-Control'] = cache;
+    return { status, body, headers };
   }
 
   return async function serve(urlPath: string): Promise<StaticFile | null> {
     const segments = safeSegments(urlPath);
-    if (segments !== null) {
+    const hidden = !opts.sourceMaps && urlPath.toLowerCase().endsWith('.map');
+    if (segments !== null && !hidden) {
       const base = join(root, ...segments);
       if (base === root || inside(base)) {
         const candidates =

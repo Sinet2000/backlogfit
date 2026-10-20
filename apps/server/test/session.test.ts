@@ -116,7 +116,8 @@ describe('full session over real WebSockets', () => {
     }
     const [r, f] = await Promise.all([real.closed, fake.closed]);
     expect(f.code).toBe(r.code);
-    expect(fake.frames).toEqual(real.frames);
+    // Parse errors are answered immediately and queued ones after; compare as multisets.
+    expect([...fake.frames].sort()).toEqual([...real.frames].sort());
     expect(server.registry.get('doesNotExist1234567890')).toBeUndefined();
   });
 

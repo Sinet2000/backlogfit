@@ -24,6 +24,7 @@ beforeAll(async () => {
   w('_app/immutable/entry/app.abc123.js', 'export {};');
   w('_app/version.json', '{"version":"1"}');
   w('fonts/inter.woff2', 'font');
+  w('_app/immutable/entry/app.abc123.js.map', '{"sources":[]}');
   w('.env', 'SECRET=1');
   w('.well-known/security.txt', 'Contact: x');
   mkdirSync(join(web.path, 'empty-dir'));
@@ -66,9 +67,14 @@ describe('static web build', () => {
     expect(home.res.headers.get('content-security-policy')).toContain("script-src 'self'");
     expect(home.res.headers.get('referrer-policy')).toBe('no-referrer');
 
-    expect((await get('/r')).text).toContain('room');
-    expect((await get('/new')).text).toContain('new');
-    expect((await get('/new/')).text).toContain('new');
+    for (const p of ['/r', '/new', '/new/']) {
+      const { res, text } = await get(p);
+      expect(text, p).toMatch(/room|new/);
+      // SEC-006: pages that carry secrets in the fragment are never cached or indexed.
+      expect(res.headers.get('cache-control'), p).toBe('no-store');
+      expect(res.headers.get('x-robots-tag'), p).toContain('noindex');
+    }
+    expect(home.res.headers.get('x-robots-tag')).toBeNull();
 
     const js = await get('/_app/immutable/entry/app.abc123.js');
     expect(js.res.headers.get('content-type')).toBe('text/javascript; charset=utf-8');
@@ -77,6 +83,23 @@ describe('static web build', () => {
     expect(version.res.headers.get('cache-control')).toBe('public, max-age=3600');
     expect((await get('/fonts/inter.woff2')).res.headers.get('content-type')).toBe('font/woff2');
     expect((await get('/.well-known/security.txt')).res.status).toBe(200);
+  });
+
+  it('serves source maps only in dev', async () => {
+    expect((await get('/_app/immutable/entry/app.abc123.js.map')).res.status).toBe(200);
+    const prod = await start({
+      WEB_DIR: web.path,
+      NODE_ENV: 'production',
+      PUBLIC_ORIGIN: 'https://app.test',
+    });
+    try {
+      const res = await fetch(
+        `http://127.0.0.1:${prod.port}/_app/immutable/entry/app.abc123.js.map`,
+      );
+      expect(res.status).toBe(404);
+    } finally {
+      await prod.close();
+    }
   });
 
   it('answers HEAD without a body', async () => {
