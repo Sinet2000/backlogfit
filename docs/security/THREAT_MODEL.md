@@ -1,6 +1,6 @@
 # Backlogfit threat model
 
-Status: v0.1 (2026-10-20). Method: data-flow diagram + STRIDE per component. Owner: security
+Status: v0.2 (2026-10-20, Phase C final review). Method: data-flow diagram + STRIDE per component. Owner: security
 maintainer (A4). Review this document whenever the protocol (docs/protocol/PROTOCOL.md), a
 backend adapter, or the deployment model changes.
 
@@ -92,7 +92,7 @@ Legend: **M** = mitigation in place (file reference), **R** = residual risk (sec
 
 | Threat | Example | Mitigation |
 |---|---|---|
-| S Spoofing | Participant picks a name identical to the facilitator's | Names are NFC-normalized, trimmed, length-capped, control/bidi/zero-width characters rejected (`packages/core/src/schemas.ts` `text()`, `src/text.ts`). Authority badges come from server state, not names. R: invisible fillers (SEC-002). |
+| S Spoofing | Participant picks a name identical to the facilitator's | Names are NFC-normalized, trimmed, length-capped, control/bidi/zero-width characters rejected (`packages/core/src/schemas.ts` `text()`, `src/text.ts`). Authority badges come from server state, not names. Invisible fillers, surrogates and tag characters rejected, names need a visible character (SEC-002, fixed). |
 | T Tampering | XSS via task title, name or link | No `{@html}`, no `innerHTML`; Svelte text interpolation only. CSP `script-src 'self'`, `script-src-attr 'none'`, `style-src 'self'`, `object-src 'none'`, `base-uri 'none'` plus Trusted Types (`packages/security/src/headers.ts`). Build fails on any inline script/style/handler/`javascript:` URL (`apps/web/scripts/externalize.ts`). Task links: http(s) only, no credentials, no IDN hosts under the open policy (`packages/core/src/tasks.ts`); the UI must render them as text with `rel="noopener noreferrer"` (review item for the room UI). |
 | R Repudiation | "I never voted 13" | Out of scope: no audit trail by design (privacy). Revealed votes are visible to all participants at the time. |
 | I Information disclosure | Secrets leak through Referer, history sync, analytics | Secrets only in the fragment (never sent in HTTP), `Referrer-Policy: no-referrer` + `<meta name="referrer">`, no third-party requests (ADR-0009, CSP `default-src 'none'`), `/r` and `/new` are `no-store` + `noindex`. R: link sharing (4.2), browser extensions, screen sharing. |
@@ -114,10 +114,10 @@ Legend: **M** = mitigation in place (file reference), **R** = residual risk (sec
 | Threat | Example | Mitigation |
 |---|---|---|
 | S | Cross-site page creates rooms in the victim's name | No ambient authority (no cookies); Origin checked against `PUBLIC_ORIGIN`/`ALLOWED_ORIGINS` (`isAllowedOrigin`, exact canonical match); `Content-Type: application/json` required (forces CORS preflight). |
-| T | Malformed or hostile config (prototype keys, huge arrays, ReDoS patterns) | Strict Valibot schema, unknown keys rejected, string/array caps, body limit 64 KiB (`apps/server/src/app.ts`); fuzzed in `packages/security/test/fuzz/tasks.test.ts`. R: SEC-001 (ReDoS through `idPattern`). |
+| T | Malformed or hostile config (prototype keys, huge arrays, ReDoS patterns) | Strict Valibot schema, unknown keys rejected, string/array caps, body limit 64 KiB (`apps/server/src/app.ts`); fuzzed in `packages/security/test/fuzz/tasks.test.ts`. Admin ID patterns run on a regex-free matcher with hard budgets (`packages/core/src/idpattern.ts`, SEC-001 fixed). |
 | R | — | No logs by design. |
 | I | Response reveals server internals | Errors are fixed codes (`{error:"bad_json"}`), no stack traces, no `X-Powered-By`/`Server` (`applySecurityHeaders`). |
-| D | Room-creation flood exhausts `MAX_ROOMS` | Per-client token bucket (`ROOM_CREATE_PER_MIN`), `MAX_ROOMS` cap, Cloudflare rate-limit binding on Workers. R: SEC-003 (spoofable key behind a proxy, open). |
+| D | Room-creation flood exhausts `MAX_ROOMS` | Per-client token bucket (`ROOM_CREATE_PER_MIN`), `MAX_ROOMS` cap, Cloudflare rate-limit binding on Workers. Key = `clientIp()` keyed hash, proxy hops counted from the right (SEC-003 fixed). |
 | E | — | The API can only create rooms; it never reads or modifies one. |
 
 ### 4.4 WebSocket (`/ws/:roomId`)
@@ -129,8 +129,8 @@ Legend: **M** = mitigation in place (file reference), **R** = residual risk (sec
 | T | Oversized, deeply nested or malformed frames; prototype pollution | Size cap before parse (`MAX_MESSAGE_BYTES`, `ws` `maxPayload`, `frameTooLarge`), strict UTF-8, `JSON.parse` in try/catch, strict schema (unknown keys incl. `__proto__`/`constructor` rejected), fuzzed with arbitrary strings/bytes/JSON, 100 000-level nesting, hostile numbers and Unicode (`test/fuzz/client-message.test.ts`). |
 | R | — | No logs by design. |
 | I | Vote values before reveal; other participants' resume tokens; allowlist or lobby to non-facilitators | Projection rule: `project(state, viewer)` only (`packages/core/src/project.ts`), backends send only `expandEffects` output. Property tests (core) and end-to-end fuzz with hostile actors and real hashing (`test/fuzz/room.test.ts`) assert: no unrevealed values, no secrets/hashes/foreign tokens in any frame, unauthenticated sockets receive only `error`/`closed`. |
-| I | Existence of a room from a roomId alone | Unknown rooms get a decoy with the same pipeline (`apps/server/src/rooms.ts` `decoy`). R: SEC-005 (1013 only for real rooms). |
-| D | Message floods, socket floods, silent sockets | Per-connection and per-room token buckets, strike counter → 1008, hello timeout → 1008, heartbeat. R: SEC-004 (no per-client socket cap, open). |
+| I | Existence of a room from a roomId alone | Unknown rooms get a decoy with the same pipeline (`apps/server/src/rooms.ts` `decoy`). Room capacity is enforced on hello, pre-hello sockets are bounded per client (Node) or evicted oldest-first (Worker) (SEC-005 fixed). |
+| D | Message floods, socket floods, silent sockets | Per-connection and per-room token buckets, strike counter → 1008, hello timeout → 1008, heartbeat. Global and per-client connection caps plus an upgrade bucket (Node), upgrade rate-limit binding (Worker) (SEC-004 fixed). |
 | E | Voter sends admin commands; co-admin closes the room; spoofed `isAdmin` key | Reducer checks authority per message (`isFacilitator`, admin-only set); unknown keys rejected by schema; fuzzed with forgers holding a wrong admin secret. |
 
 ### 4.5 Room actor and storage (Durable Object / Node room / SQLite)
@@ -138,10 +138,10 @@ Legend: **M** = mitigation in place (file reference), **R** = residual risk (sec
 | Threat | Example | Mitigation |
 |---|---|---|
 | T | Interleaving between async hello verification and reduce | Hello verified before reduce, reducer re-validates against current state (ADR-0005); Node serializes per room through a promise queue. |
-| I | Room data outlives the room | On expiry/idle/close the reducer emits `deleteAll`: Workers `ctx.storage.deleteAll()` + alarm cleared; Node deletes the row with `PRAGMA secure_delete=ON` and `wal_checkpoint(TRUNCATE)` (`apps/server/src/store.ts`). Overdue rooms are expired on restart. R: SEC-010 (Worker constructor re-creates a table, leaving empty stored objects for probed or ended roomIds). |
-| I | Disk holds room content while the room lives | Default on Node should be memory (SEC-007); with `DATA_DIR` the volume holds RoomState JSON (names, tasks, unrevealed votes, secret hashes) until expiry. Encrypt the volume or keep memory-only. |
+| I | Room data outlives the room | On expiry/idle/close the reducer emits `deleteAll`: Workers `ctx.storage.deleteAll()` + alarm cleared; Node deletes the row with `PRAGMA secure_delete=ON` and `wal_checkpoint(TRUNCATE)` (`apps/server/src/store.ts`). Overdue rooms are expired on restart. Worker writes storage only for real rooms (SEC-010 fixed). |
+| I | Disk holds room content while the room lives | The Node image defaults to memory only (SEC-007 fixed); with `DATA_DIR` the volume holds RoomState JSON (names, tasks, unrevealed votes, secret hashes) until expiry. Encrypt the volume or keep memory-only. |
 | I | Secrets in state | Only SHA-256 hashes stored; raw secrets never enter `RoomState` (ADR-0005). |
-| D | One room starves others (CPU) | Per-room bucket, ≤ 50 participants, ≤ 500 tasks, ≤ 200 lines per add. R: SEC-001 (regex CPU). |
+| D | One room starves others (CPU) | Per-room bucket, ≤ 50 participants, ≤ 500 tasks, ≤ 200 lines per add. ID-pattern matching is O(atoms × 64²) (SEC-001 fixed). |
 | E | Adapter forges `HelloAuth` | Adapters are trusted code; reviewed (ADR-0005). |
 
 ### 4.6 Container and host (self-hosting)
@@ -194,8 +194,11 @@ Legend: **M** = mitigation in place (file reference), **R** = residual risk (sec
 8. **Per-instance rate limits.** Counters reset on restart and are per process/isolate.
 9. **Hashing of client IPs in memory** defends logs and heap dumps, not an attacker who can read
    process memory (the key is there too).
-10. **Room existence and timing.** A party who knows a roomId can learn little, but SEC-005
-    remains until fixed.
+10. **Room existence and timing.** A party who knows a roomId but not the join secret gets the
+    same answers from real and unknown rooms (SEC-005 fixed); sub-millisecond timing differences
+    may remain and are dwarfed by network jitter.
+11. **Admin link in the address bar** (SEC-014, open, Low): visible in browser history and screen
+    shares of the facilitator's window until fixed.
 
 ## 6. Out of scope
 
