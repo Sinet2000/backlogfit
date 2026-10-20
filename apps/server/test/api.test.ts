@@ -24,6 +24,12 @@ describe('HTTP API', () => {
     expect(res.headers.get('strict-transport-security')).toBeNull();
   });
 
+  it('treats an empty DATA_DIR as in-memory (SEC-007)', async () => {
+    const { readConfig } = await import('../src/config.ts');
+    expect(readConfig({ DATA_DIR: '' }).dataDir).toBeNull();
+    expect(readConfig({}).dataDir).toBeNull();
+  });
+
   it('requires PUBLIC_ORIGIN in production', async () => {
     const { readConfig } = await import('../src/config.ts');
     expect(() => readConfig({ NODE_ENV: 'production' })).toThrow('PUBLIC_ORIGIN');
@@ -77,18 +83,35 @@ describe('HTTP API', () => {
     expect(await limited.json()).toEqual({ error: 'rate_limited' });
   });
 
-  it('uses the first X-Forwarded-For hop only when TRUST_PROXY=true', async () => {
+  it('keys room creation on the hop the trusted proxy appended (SEC-003)', async () => {
     server = await start({ ROOM_CREATE_PER_MIN: '1', TRUST_PROXY: 'true' });
-    const a = { 'x-forwarded-for': '203.0.113.1, 10.0.0.1' };
-    const b = { 'x-forwarded-for': '203.0.113.2' };
-    expect((await postRoom(server, createBody(H, H), a)).status).toBe(201);
-    expect((await postRoom(server, createBody(H, H), a)).status).toBe(429);
-    expect((await postRoom(server, createBody(H, H), b)).status).toBe(201);
+    // The client controls everything left of what the proxy appended.
+    const spoof1 = { 'x-forwarded-for': '1.1.1.1, 198.51.100.7' };
+    const spoof2 = { 'x-forwarded-for': '2.2.2.2, 198.51.100.7' };
+    const other = { 'x-forwarded-for': '1.1.1.1, 198.51.100.8' };
+    expect((await postRoom(server, createBody(H, H), spoof1)).status).toBe(201);
+    expect((await postRoom(server, createBody(H, H), spoof2)).status).toBe(429);
+    expect((await postRoom(server, createBody(H, H), other)).status).toBe(201);
     await server.close();
 
+    // Two trusted proxies: the client is the second entry from the right.
+    server = await start({ ROOM_CREATE_PER_MIN: '1', TRUST_PROXY: '2' });
+    const viaA = { 'x-forwarded-for': '9.9.9.9, 198.51.100.7, 10.0.0.1' };
+    const viaB = { 'x-forwarded-for': '8.8.8.8, 198.51.100.7, 10.0.0.2' };
+    expect((await postRoom(server, createBody(H, H), viaA)).status).toBe(201);
+    expect((await postRoom(server, createBody(H, H), viaB)).status).toBe(429);
+    await server.close();
+
+    // Without TRUST_PROXY the header is ignored entirely.
     server = await start({ ROOM_CREATE_PER_MIN: '1' });
-    expect((await postRoom(server, createBody(H, H), a)).status).toBe(201);
-    expect((await postRoom(server, createBody(H, H), b)).status).toBe(429);
+    expect((await postRoom(server, createBody(H, H), spoof1)).status).toBe(201);
+    expect((await postRoom(server, createBody(H, H), other)).status).toBe(429);
+  });
+
+  it('rejects an invalid TRUST_PROXY value', async () => {
+    const { readConfig } = await import('../src/config.ts');
+    expect(() => readConfig({ TRUST_PROXY: 'yes' })).toThrow('TRUST_PROXY');
+    expect(readConfig({ TRUST_PROXY: 'cloudflare' }).trustProxy).toBe('cloudflare');
   });
 
   it('enforces MAX_ROOMS', async () => {

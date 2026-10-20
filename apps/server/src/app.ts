@@ -2,7 +2,12 @@ import type { IncomingMessage, Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Duplex } from 'node:stream';
 import { parseCreateRoomRequest, toCoreLimits } from '@backlogfit/core';
-import { createRateLimiter, isAllowedOrigin, securityHeaders } from '@backlogfit/security';
+import {
+  applySecurityHeaders,
+  clientIp,
+  createOriginChecker,
+  createRateLimiter,
+} from '@backlogfit/security';
 import { createAdaptorServer, type HttpBindings } from '@hono/node-server';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -20,6 +25,8 @@ const STATUS_TEXT: Record<number, string> = {
   400: 'Bad Request',
   403: 'Forbidden',
   404: 'Not Found',
+  429: 'Too Many Requests',
+  503: 'Service Unavailable',
 };
 
 export interface RunningServer {
@@ -28,19 +35,17 @@ export interface RunningServer {
   store: RoomStore;
   server: Server;
   close(): Promise<void>;
+  /** Open (or handshaking) WebSocket connections, for tests. */
+  readonly connections: number;
 }
 
 function wsOrigin(origin: string): string {
   return origin.replace(/^http/, 'ws');
 }
 
-function clientKey(req: IncomingMessage, trustProxy: boolean): string {
-  if (trustProxy) {
-    const xff = req.headers['x-forwarded-for'];
-    const first = (Array.isArray(xff) ? xff[0] : xff)?.split(',')[0]?.trim();
-    if (first) return first;
-  }
-  return req.socket.remoteAddress ?? 'unknown';
+/** Opaque keyed hash of the client address (never a raw IP); 'unknown' is one shared bucket. */
+function clientKey(req: IncomingMessage, config: ServerConfig): string {
+  return clientIp(req.headers, req.socket.remoteAddress, config.trustProxy) ?? 'unknown';
 }
 
 function rejectUpgrade(socket: Duplex, status: number): void {
@@ -71,21 +76,23 @@ export async function startServer(config: ServerConfig): Promise<RunningServer> 
     burst: limits.roomCreatePerMin,
     maxKeys: 100_000,
   });
-  const headers = securityHeaders({
+  const upgradeLimiter = createRateLimiter<string>({
+    rate: config.upgradesPerMin / 60,
+    burst: config.upgradesPerMin,
+    maxKeys: 100_000,
+  });
+  const allowedOrigin = createOriginChecker(config.origins);
+  const headerOpts = {
     dev: config.dev,
     connectSrc: [...new Set(config.origins.map(wsOrigin))],
-  });
-  const serveStatic = createStaticHandler(config.webDir);
+  };
+  const serveStatic = createStaticHandler(config.webDir, { sourceMaps: config.dev });
 
   const app = new Hono<{ Bindings: HttpBindings }>();
 
   app.use('*', async (c, next) => {
     await next();
-    for (const [k, v] of Object.entries(headers)) c.res.headers.set(k, v);
-  });
-  app.use('/api/*', async (c, next) => {
-    await next();
-    c.res.headers.set('Cache-Control', 'no-store');
+    applySecurityHeaders(c.res.headers, c.req.path, headerOpts);
   });
 
   app.get('/api/health', (c) => c.json({ ok: true }));
@@ -98,14 +105,14 @@ export async function startServer(config: ServerConfig): Promise<RunningServer> 
     }),
     async (c) => {
       const origin = c.req.header('origin');
-      if (origin !== undefined && !isAllowedOrigin(origin, config.origins)) {
+      if (origin !== undefined && !allowedOrigin(origin)) {
         return c.json({ error: 'forbidden' }, 403);
       }
       const type = c.req.header('content-type') ?? '';
       if (!/^application\/json\s*(;|$)/i.test(type)) {
         return c.json({ error: 'unsupported_media_type' }, 415);
       }
-      if (!createLimiter.take(clientKey(c.env.incoming, config.trustProxy), Date.now())) {
+      if (!createLimiter.take(clientKey(c.env.incoming, config), Date.now())) {
         return c.json({ error: 'rate_limited' }, 429, { 'Retry-After': '60' });
       }
       let body: unknown;
@@ -147,15 +154,31 @@ export async function startServer(config: ServerConfig): Promise<RunningServer> 
     clientTracking: true,
   });
   const alive = new WeakSet<WebSocket>();
-  // Pre-hello sockets are bounded per room so a single room cannot absorb unlimited sockets.
-  const maxSocketsPerRoom = limits.maxParticipants * 2 + 20;
+  // Connection accounting (SEC-004). Slots are reserved before the handshake and released when
+  // the underlying TCP socket closes, so in-flight handshakes count too. Keys are hashes.
+  let openSockets = 0;
+  const perClient = new Map<string, number>();
 
   server.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {
     socket.on('error', () => socket.destroy());
     const path = (req.url ?? '/').split('?')[0] ?? '/';
     const match = ROOM_ID.exec(path);
     if (!match?.[1]) return rejectUpgrade(socket, 404);
-    if (!isAllowedOrigin(req.headers.origin, config.origins)) return rejectUpgrade(socket, 403);
+    if (!allowedOrigin(req.headers.origin)) return rejectUpgrade(socket, 403);
+    const key = clientKey(req, config);
+    if (openSockets >= config.maxConnections) return rejectUpgrade(socket, 503);
+    if ((perClient.get(key) ?? 0) >= config.maxConnectionsPerClient) {
+      return rejectUpgrade(socket, 429);
+    }
+    if (!upgradeLimiter.take(key, Date.now())) return rejectUpgrade(socket, 429);
+    openSockets += 1;
+    perClient.set(key, (perClient.get(key) ?? 0) + 1);
+    socket.once('close', () => {
+      openSockets -= 1;
+      const n = (perClient.get(key) ?? 1) - 1;
+      if (n <= 0) perClient.delete(key);
+      else perClient.set(key, n);
+    });
     const roomId = match[1];
     wss.handleUpgrade(req, socket, head, (ws) => {
       alive.add(ws);
@@ -163,12 +186,9 @@ export async function startServer(config: ServerConfig): Promise<RunningServer> 
       ws.on('error', () => ws.terminate());
       const known = registry.get(roomId);
       // Unknown rooms get a decoy that behaves exactly like a real room refusing a wrong join
-      // secret, so a roomId alone does not reveal whether the room exists.
-      const room = known && !known.ended ? known : registry.decoy(roomId);
-      if (room.connectionCount >= maxSocketsPerRoom) {
-        ws.close(1013);
-        return;
-      }
+      // secret, so a roomId alone does not reveal whether the room exists. Room capacity is
+      // enforced by the reducer on hello; pre-hello sockets are bounded per client above.
+      const room = known && !known.ended ? known : registry.decoy();
       const id = room.attach(ws);
       ws.on('message', (data, isBinary) => {
         const buf = Array.isArray(data)
@@ -228,5 +248,14 @@ export async function startServer(config: ServerConfig): Promise<RunningServer> 
     return closing;
   }
 
-  return { port, registry, store, server, close };
+  return {
+    port,
+    registry,
+    store,
+    server,
+    close,
+    get connections() {
+      return openSockets;
+    },
+  };
 }

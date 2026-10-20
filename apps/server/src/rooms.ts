@@ -23,7 +23,12 @@ import {
   type ServerMessage,
   toEvent,
 } from '@backlogfit/core';
-import { createRateLimiter, type RateLimiter } from '@backlogfit/security';
+import {
+  createRateLimiter,
+  createStrikeCounter,
+  type RateLimiter,
+  type StrikeCounter,
+} from '@backlogfit/security';
 import type { Clock } from './clock.ts';
 import type { RoomStore } from './store.ts';
 
@@ -58,7 +63,6 @@ const DEFAULT_MAX_STRIKES = 10;
 
 interface Conn {
   socket: RoomSocket;
-  strikes: number;
   closed: boolean;
   helloTimer: NodeJS.Timeout | null;
 }
@@ -140,7 +144,7 @@ export class Room {
 
   attach(socket: RoomSocket): string {
     const id = newId();
-    const conn: Conn = { socket, strikes: 0, closed: false, helloTimer: null };
+    const conn: Conn = { socket, closed: false, helloTimer: null };
     this.#conns.set(id, conn);
     conn.helloTimer = setTimeout(() => {
       conn.helloTimer = null;
@@ -158,7 +162,7 @@ export class Room {
     const { opts, limiter } = this.#host;
     const now = Date.now();
     if (!limiter.take(id, now)) {
-      this.#strike(conn, 'rate_limited');
+      this.#strike(id, conn, 'rate_limited');
       return;
     }
     if (!this.#roomBucket.take(0, now)) {
@@ -168,7 +172,7 @@ export class Room {
     }
     const parsed = parseClientMessage(raw, opts.maxMessageBytes);
     if (!parsed.ok) {
-      this.#strike(conn, parsed.code);
+      this.#strike(id, conn, parsed.code);
       return;
     }
     const msg = parsed.msg;
@@ -187,6 +191,7 @@ export class Room {
     conn.closed = true;
     if (conn.helloTimer) clearTimeout(conn.helloTimer);
     this.#host.limiter.delete(id);
+    this.#host.strikes.delete(id);
     if (this.#ended || this.#stopped) return;
     this.#enqueue(() => this.#dispatch({ type: 'disconnect', conn: id }));
   }
@@ -199,9 +204,8 @@ export class Room {
     for (const conn of this.#conns.values()) this.#closeConn(conn, CLOSE_GOING_AWAY);
   }
 
-  #strike(conn: Conn, code: Extract<ServerMessage, { type: 'error' }>['code']): void {
-    conn.strikes += 1;
-    if (conn.strikes >= (this.#host.opts.maxStrikes ?? DEFAULT_MAX_STRIKES)) {
+  #strike(id: string, conn: Conn, code: Extract<ServerMessage, { type: 'error' }>['code']): void {
+    if (this.#host.strikes.strike(id, Date.now())) {
       this.#closeConn(conn, CLOSE_POLICY);
       return;
     }
@@ -304,10 +308,17 @@ export type CreateResult =
 export class RoomRegistry {
   readonly opts: RoomHostOptions;
   readonly limiter: RateLimiter<string>;
+  readonly strikes: StrikeCounter<string>;
   readonly #rooms = new Map<string, Room>();
+  #decoy: Room | null = null;
 
   constructor(opts: RoomHostOptions) {
     this.opts = opts;
+    this.strikes = createStrikeCounter<string>({
+      max: opts.maxStrikes ?? DEFAULT_MAX_STRIKES,
+      windowMs: 60_000,
+      maxKeys: 1_000_000,
+    });
     this.limiter = createRateLimiter<string>({
       rate: opts.rateMsgsPerSec,
       burst: opts.rateBurst,
@@ -340,8 +351,20 @@ export class RoomRegistry {
     return { ok: true, roomId, expiresAt: state.expiresAt };
   }
 
-  /** A throwaway room standing in for an unknown roomId (see Room#ephemeral). */
-  decoy(roomId: string): Room {
+  /**
+   * The shared, never-persisted stand-in for every unknown roomId (see Room#ephemeral). One
+   * object serves all such sockets, so probing random ids costs one Conn each, nothing more.
+   * It is replaced well before its idle deadline so it never answers `closed{idle}`.
+   */
+  decoy(): Room {
+    const d = this.#decoy;
+    const maxAge = this.opts.roomLimits.idleTimeoutMs / 4;
+    if (d && !d.ended && this.opts.clock.now() - d.state.createdAt < maxAge) return d;
+    this.#decoy = this.#makeDecoy();
+    return this.#decoy;
+  }
+
+  #makeDecoy(): Room {
     const parsed = parseCreateRoomRequest({
       v: 1,
       config: { scale: presetScale('fibonacci') },
@@ -352,7 +375,7 @@ export class RoomRegistry {
     if (!parsed.ok) throw new Error('decoy room request rejected');
     const { state } = createRoom(
       parsed.msg,
-      roomId,
+      randomToken(16),
       { now: this.opts.clock.now(), randomId: newId },
       this.opts.roomLimits,
     );
