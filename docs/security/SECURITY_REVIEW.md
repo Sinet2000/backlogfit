@@ -4,8 +4,7 @@ Reviewer: A4 (security & privacy). Scope: all branches of the Phase B build. The
 table, with owners and status, is `coordination/A4.md`; this file is the checklist that was
 applied and the summary of results. Re-run the checklist for every release.
 
-Last pass: 2026-10-20 against main@afaa146, agent/backend@0b47276 (+ uncommitted
-`apps/worker`), agent/frontend@e7c6f37, agent/qa@6752add, agent/docs@cd2baea.
+Last pass: 2026-10-20 against main@afaa146, agent/backend@725121f, agent/frontend@d492e8c, agent/qa@8257d0f, agent/docs@cd2baea.
 
 ## Summary
 
@@ -13,9 +12,9 @@ Last pass: 2026-10-20 against main@afaa146, agent/backend@0b47276 (+ uncommitted
 |---|---|---|---|
 | Critical | 0 | 0 | 0 |
 | High | 1 (SEC-001, A1: ReDoS via `idPattern`) | 0 | 0 |
-| Medium | 2 (SEC-003, SEC-004, A2) | 0 | 0 |
+| Medium | 3 (SEC-003, SEC-004, SEC-010, A2) | 0 | 0 |
 | Low | 4 (SEC-002 A1; SEC-005, SEC-006, SEC-007 A2) | 0 | 0 |
-| Info | 0 | 2 (SEC-008, SEC-009) | 0 |
+| Info | 1 (SEC-011, A2) | 2 (SEC-008, SEC-009) | 0 |
 
 Definition of done (PLAN §8) requires no open High: **SEC-001 must be fixed before release.**
 
@@ -60,8 +59,8 @@ Legend: ✅ verified, ⚠️ finding (ID), ⏳ not yet reviewable (code not writ
 | Allowlist, lobby and passcode-lock state visible to facilitators only | ✅ `project()` + fuzz |
 | Anonymous reveal cannot be undone; values unlinkable to names | ✅ reducer + projection (sorted by scale order) |
 | Lifetime never exceeds max; expiry/idle emit `deleteAll` exactly once; later events only close | ✅ core property (c) + fuzz |
-| Storage deleted on end (DO `deleteAll`; SQLite `secure_delete` + WAL truncate); overdue rooms expired on restart | ✅ Node; ⏳ Worker (uncommitted: `deleteAll` present in `room-do.ts`) |
-| Only `project()`/`expandEffects` output ever sent | ✅ Node; ⏳ Worker |
+| Storage deleted on end (DO `deleteAll`; SQLite `secure_delete` + WAL truncate); overdue rooms expired on restart | ✅ Node; Worker: `deleteAlarm()` + `deleteAll()` ✅, but ⚠️ SEC-010 (constructor re-creates storage) |
+| Only `project()`/`expandEffects` output ever sent | ✅ Node and Worker |
 
 ### Transport and HTTP
 
@@ -73,7 +72,7 @@ Legend: ✅ verified, ⚠️ finding (ID), ⏳ not yet reviewable (code not writ
 | Invalid-frame strikes → 1008; hello timeout | ✅ |
 | Security headers on every response (CSP, HSTS, nosniff, no-referrer, Permissions-Policy, COOP, COEP, CORP, OAC, XFO) | ✅ via `securityHeaders`; ⚠️ SEC-006 (`/r`, `/new` cache + robots) |
 | Errors as codes only, no stack traces, no `X-Powered-By`/`Server` | ✅ |
-| No logging of IP, UA, path parameters or content | ✅ Node (`reportError` only); ⏳ Worker (observability/logs disabled in wrangler.jsonc) |
+| No logging of IP, UA, path parameters or content | ✅ Node (`reportError` only); ✅ Worker (no `console.*`, observability/logs/Logpush disabled in wrangler.jsonc) |
 | IPs not stored; in-memory keys hashed | ⚠️ SEC-003 (raw IP as key on Node; `clientIp()` available) |
 
 ### Browser

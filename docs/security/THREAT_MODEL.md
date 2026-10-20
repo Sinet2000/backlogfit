@@ -138,7 +138,7 @@ Legend: **M** = mitigation in place (file reference), **R** = residual risk (sec
 | Threat | Example | Mitigation |
 |---|---|---|
 | T | Interleaving between async hello verification and reduce | Hello verified before reduce, reducer re-validates against current state (ADR-0005); Node serializes per room through a promise queue. |
-| I | Room data outlives the room | On expiry/idle/close the reducer emits `deleteAll`: Workers `ctx.storage.deleteAll()` + alarm cleared; Node deletes the row with `PRAGMA secure_delete=ON` and `wal_checkpoint(TRUNCATE)` (`apps/server/src/store.ts`). Overdue rooms are expired on restart. |
+| I | Room data outlives the room | On expiry/idle/close the reducer emits `deleteAll`: Workers `ctx.storage.deleteAll()` + alarm cleared; Node deletes the row with `PRAGMA secure_delete=ON` and `wal_checkpoint(TRUNCATE)` (`apps/server/src/store.ts`). Overdue rooms are expired on restart. R: SEC-010 (Worker constructor re-creates a table, leaving empty stored objects for probed or ended roomIds). |
 | I | Disk holds room content while the room lives | Default on Node should be memory (SEC-007); with `DATA_DIR` the volume holds RoomState JSON (names, tasks, unrevealed votes, secret hashes) until expiry. Encrypt the volume or keep memory-only. |
 | I | Secrets in state | Only SHA-256 hashes stored; raw secrets never enter `RoomState` (ADR-0005). |
 | D | One room starves others (CPU) | Per-room bucket, ≤ 50 participants, ≤ 500 tasks, ≤ 200 lines per add. R: SEC-001 (regex CPU). |
