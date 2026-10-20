@@ -9,7 +9,7 @@
 import * as v from 'valibot';
 import { NAME_MAX } from './schemas.ts';
 import type { Authority } from './state.ts';
-import { cleanText, hasUnsafeChars } from './text.ts';
+import { cleanText, hasUnsafeChars, hasVisibleChar } from './text.ts';
 
 export const ID_TOKEN_MAX = 8192;
 export const GROUPS_MAX = 200;
@@ -100,7 +100,7 @@ export function displayNameFromClaims(
     const raw = claims[c];
     if (typeof raw !== 'string') continue;
     const s = cleanText(raw);
-    if (s === '' || hasUnsafeChars(s)) continue;
+    if (s === '' || hasUnsafeChars(s) || !hasVisibleChar(s)) continue;
     return [...s].slice(0, NAME_MAX).join('').trim();
   }
   return null;

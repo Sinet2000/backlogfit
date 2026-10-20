@@ -354,9 +354,8 @@ describe('display names', () => {
     expect(r.ok && r.msg.type === 'hello' && r.msg.name).toBe('René');
   });
 
-  // SEC finding (owner A1): lone surrogates and invisible filler characters pass the name
-  // filter. Kept as it.fails so the suite stays green; flip to `it` once text.ts is tightened.
-  it.fails('rejects lone surrogates and invisible fillers in names', () => {
+  // SEC-002 (fixed in core text.ts): lone surrogates and invisible fillers are rejected.
+  it('rejects lone surrogates and invisible fillers in names', () => {
     for (const name of ['\ud800', 'Ana\udfff', 'ㅤ', 'ᅟ', '⠀', '­', '؜', 'A\u{e0041}']) {
       expect(parseClientMessage(helloWith(name)).ok, JSON.stringify(name)).toBe(false);
     }
