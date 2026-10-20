@@ -87,8 +87,8 @@ Cloudflare Worker version to your own account. See [SELF_HOSTING.md](security/SE
 
 ### Does the self-hosted version need a database?
 
-No. It uses the SQLite engine built into Node.js, stored in the container's `/data` volume
-(`DATA_DIR`), or only in memory if `DATA_DIR` is empty. Nothing else is required.
+No. It uses the SQLite engine built into Node.js, which keeps rooms in memory by default;
+set `DATA_DIR` (for example to a `/data` volume) if rooms should survive restarts. Nothing else is required.
 
 ### Does it work offline or in an air-gapped network?
 
