@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ErrorCode } from '@backlogfit/core';
+  import { type ErrorCode, hasUnsafeChars, hasVisibleChar, NAME_MAX } from '@backlogfit/core';
   import { onMount } from 'svelte';
   import Button from '../components/Button.svelte';
   import { errorText } from '../room/messages.ts';
@@ -30,15 +30,22 @@
     if (error === 'bad_passcode' || error === 'passcode_locked') passInput?.focus();
   });
 
-  const nameError = $derived(
-    touched && name.trim() === '' ? 'Enter your name so others know who voted.' : '',
-  );
+  const nameError = $derived.by(() => {
+    if (!touched) return '';
+    const n = name.normalize('NFC').trim();
+    if (n === '') return 'Enter your name so others know who voted.';
+    if (hasUnsafeChars(n) || !hasVisibleChar(n)) {
+      return 'Your name contains invisible or control characters. Please type it again.';
+    }
+    if (n.length > NAME_MAX) return `Use at most ${NAME_MAX} characters.`;
+    return '';
+  });
 
   function submit(e: SubmitEvent) {
     e.preventDefault();
     touched = true;
-    const n = name.trim().slice(0, 40);
-    if (n === '') {
+    const n = name.normalize('NFC').trim();
+    if (nameError !== '') {
       nameInput?.focus();
       return;
     }

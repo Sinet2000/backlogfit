@@ -55,6 +55,8 @@
     { id: 'linear', name: 'Linear 1–10', hint: 'Every number from 1 to 10.' },
     { id: 'custom', name: 'Custom', hint: 'Type your own cards.' },
   ];
+  const ID_EXAMPLE = '[A-Z]{2,5}-\\d{1,6}';
+  const COUNT_EXAMPLE = '{1,9}';
   const TIMERS: (number | null)[] = [null, 30, 60, 120, 180, 300];
   const timerLabel = (t: number | null) =>
     t === null ? 'No timer' : t < 60 ? `${t} seconds` : `${t / 60} min`;
@@ -272,8 +274,8 @@
             <div class="field">
               <label class="field-label" for="id-pattern">Task ID format <span class="muted">(optional)</span></label>
               <input id="id-pattern" class="input mono" bind:value={draft.idPattern} placeholder={DEFAULT_ID_PATTERN} aria-describedby="id-pattern-hint" data-testid="setting-id-pattern" />
-              <p class="field-hint" id="id-pattern-hint">Leave empty to recognise IDs like <code>SCP-3655</code> or <code>PAY-12</code> (letters, a dash, a number).</p>
-              {#if showErrors && errors.idPattern}<p class="error">{errors.idPattern}</p>{/if}
+              <p class="field-hint" id="id-pattern-hint">Leave empty to recognise IDs like <code>SCP-3655</code> or <code>PAY-12</code>. Custom example: <code>{ID_EXAMPLE}</code>. Allowed: letters, digits, <code>\d</code>, <code>\w</code>, <code>.</code>, classes like <code>[A-Z]</code>, and one count per part such as <code>+</code> or <code>{COUNT_EXAMPLE}</code>. No groups, <code>|</code> or anchors.</p>
+              {#if errors.idPattern && draft.idPattern.trim() !== ''}<p class="error">{errors.idPattern}</p>{/if}
             </div>
 
             <div class="field">
