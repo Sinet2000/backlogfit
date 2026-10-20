@@ -1,0 +1,45 @@
+name: Feature request
+description: Suggest an idea or improvement.
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion. Backlogfit stays small, private and account-free on purpose,
+        so please describe the problem first and the solution second.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Room and voting
+        - Facilitator controls
+        - Configurator and decks
+        - Exports
+        - Accessibility
+        - Self-hosting
+        - Documentation
+        - Other
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: The idea works without accounts, tracking or third-party services.
