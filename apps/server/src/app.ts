@@ -127,7 +127,6 @@ export async function startServer(config: ServerConfig): Promise<RunningServer> 
   app.all('/api/*', (c) => c.json({ error: 'not_found' }, 404));
   app.all('/ws/*', (c) => c.json({ error: 'upgrade_required' }, 426));
 
-  // Hono answers HEAD through GET routes and drops the body.
   app.get('*', async (c) => {
     const file = await serveStatic(c.req.path);
     if (!file) return c.text('Not Found', 404, { 'Cache-Control': 'no-store' });

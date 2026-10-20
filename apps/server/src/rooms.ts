@@ -95,7 +95,6 @@ export class RoomRegistry {
     return decoy;
   }
 
-  /** Called after a socket closed, so a decoy without sockets is released. */
   release(host: RoomHost): void {
     if (!host.isDecoy || host.connectionCount > 0) return;
     if (this.#decoys.get(host.roomId) === host) this.#decoys.delete(host.roomId);

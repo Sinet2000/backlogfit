@@ -1,6 +1,5 @@
 import { createOriginChecker, type Limits, readLimits } from '@backlogfit/security';
 
-/** Bindings and vars from wrangler.jsonc. Vars use the same names as the Node server. */
 export interface Env {
   ROOMS: DurableObjectNamespace<import('./room-do.ts').RoomDO>;
   ASSETS?: Fetcher;

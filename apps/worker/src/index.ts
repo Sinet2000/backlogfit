@@ -25,9 +25,7 @@ async function allow(
   if (binding) {
     try {
       return (await binding.limit({ key })).success;
-    } catch {
-      /* fall back to the in-memory bucket */
-    }
+    } catch {}
   }
   let bucket = fallback.get(name);
   if (!bucket) {

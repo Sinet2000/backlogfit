@@ -42,7 +42,6 @@ async function get(path: string) {
   return { res, text: await res.text() };
 }
 
-/** fetch() normalizes `..`; send the raw request line to test traversal for real. */
 function rawGet(path: string): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const req = request({ host: '127.0.0.1', port: server.port, path, method: 'GET' }, (res) => {
@@ -70,7 +69,6 @@ describe('static web build', () => {
     for (const p of ['/r', '/new', '/new/']) {
       const { res, text } = await get(p);
       expect(text, p).toMatch(/room|new/);
-      // SEC-006: pages that carry secrets in the fragment are never cached or indexed.
       expect(res.headers.get('cache-control'), p).toBe('no-store');
       expect(res.headers.get('x-robots-tag'), p).toContain('noindex');
     }

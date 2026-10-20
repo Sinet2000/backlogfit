@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { RunningServer } from '../src/app.ts';
-import { Client, createRoom, join, sleep, start } from './helpers.ts';
+import { Client, createRoom, sleep, start } from './helpers.ts';
 
 let server: RunningServer;
 
@@ -22,7 +22,6 @@ describe('WebSocket connection limits (SEC-004)', () => {
     const room = await createRoom(server);
     const open = await Promise.all([1, 2, 3].map(() => Client.open(server, room.roomId)));
     await refused(Client.open(server, room.roomId), 429);
-    // Unknown rooms count against the same budget.
     await refused(Client.open(server, 'unknownRoomId12345678'), 429);
     open[0]?.close();
     await waitFor(() => server.connections === 2);

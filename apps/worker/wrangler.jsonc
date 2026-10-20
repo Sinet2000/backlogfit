@@ -1,5 +1,3 @@
-// Backlogfit on Cloudflare Workers. Never deployed from this repo by automation; see
-// coordination notes for the manual deploy flow (web build -> write-headers -> wrangler deploy).
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "backlogfit",
@@ -34,7 +32,6 @@
     { "name": "UPGRADE_LIMITER", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } }
   ],
 
-  // Same names as the Node server (PLAN §7). Override per environment.
   "vars": {
     "PUBLIC_ORIGIN": "http://localhost:8787",
     "ALLOWED_ORIGINS": "http://localhost:5173",
@@ -50,10 +47,10 @@
     "ROOM_CREATE_PER_MIN": "10",
     "PASSCODE_MAX_ATTEMPTS": "5",
     "HELLO_TIMEOUT_SECONDS": "20",
+    "SOCKET_TIMEOUT_SECONDS": "90",
     "WS_UPGRADES_PER_MIN": "120"
   },
 
-  // Deploy with `wrangler deploy --env production`. Bindings and vars are not inherited.
   "env": {
     "production": {
       "routes": [{ "pattern": "backlogfit.com", "custom_domain": true }],
@@ -87,6 +84,7 @@
         "ROOM_CREATE_PER_MIN": "10",
         "PASSCODE_MAX_ATTEMPTS": "5",
         "HELLO_TIMEOUT_SECONDS": "20",
+        "SOCKET_TIMEOUT_SECONDS": "90",
         "WS_UPGRADES_PER_MIN": "120"
       }
     }

@@ -102,9 +102,7 @@ export class RoomDO extends DurableObject<Env> {
   async #gone(ws: WebSocket): Promise<void> {
     try {
       ws.close(1000);
-    } catch {
-      /* already closed */
-    }
+    } catch {}
     const conn = attachmentOf(ws)?.conn;
     if (conn) await this.#host?.disconnected(conn);
   }

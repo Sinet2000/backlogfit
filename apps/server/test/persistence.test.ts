@@ -34,9 +34,7 @@ function dbBytes(): string {
   for (const f of [DB_FILE, `${DB_FILE}-wal`]) {
     try {
       all += readFileSync(join(dir.path, f)).toString('latin1');
-    } catch {
-      // file may not exist
-    }
+    } catch {}
   }
   return all;
 }
@@ -49,7 +47,6 @@ describe('sqlite persistence', () => {
     admin.c.send({ type: 'admin.tasks.add', lines: ['SCP-7 Persist me'] });
     await admin.c.next('state', (m) => m.room.tasks.length === 1);
     expect(rows().map((r) => r.id)).toEqual([room.roomId]);
-    // No raw secrets on disk, only hashes.
     const stored = rows()[0]?.state ?? '';
     expect(stored).not.toContain(room.joinSecret);
     expect(stored).not.toContain(room.adminSecret);
@@ -59,7 +56,6 @@ describe('sqlite persistence', () => {
     server = await start({ DATA_DIR: dir.path });
     const restored = server.registry.get(room.roomId);
     expect(restored).toBeDefined();
-    // Connections do not survive a restart: everyone is marked disconnected.
     expect(restored?.state.participants.every((p) => p.conn === null)).toBe(true);
 
     const again = await joinRoom(server, room, 'Ada', {
@@ -108,7 +104,6 @@ describe('sqlite persistence', () => {
   });
 
   it('hard expiry closes sockets and wipes storage (accelerated clock)', async () => {
-    // 1 h lifetime at x3600 ≈ 1 s of wall time; idle timeout set longer than the lifetime.
     server = await start({
       DATA_DIR: dir.path,
       TEST_TIME_SCALE: '3600',
@@ -125,7 +120,6 @@ describe('sqlite persistence', () => {
       reason: 'expired',
     });
     expect((await admin.c.closed).code).toBe(4001);
-    // Pre-hello sockets are closed too.
     expect(await lurker.next('closed')).toEqual({ type: 'closed', reason: 'expired' });
     expect(server.registry.get(room.roomId)).toBeUndefined();
     expect(rows()).toEqual([]);

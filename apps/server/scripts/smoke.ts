@@ -1,9 +1,3 @@
-/**
- * End-to-end smoke check against a running server (Node or Worker):
- *   node scripts/smoke.ts [baseUrl] [origin]
- * Creates a room, joins an admin and a voter, votes, reveals, sets a final estimate and closes
- * the room. Exits non-zero on the first failure.
- */
 import {
   type ClientMessageInput,
   hashSecret,
