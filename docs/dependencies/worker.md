@@ -5,7 +5,7 @@
 | Package | Version | License | Purpose | Alternatives rejected |
 |---|---|---|---|---|
 | `hono` | 4.13.13 | MIT | Router and body-size limit for `/api/*` and `/ws/:roomId`. Same router as the Node server. No dependencies, built for Workers. | A hand-written `fetch` switch (more code to get right); `itty-router` (would mean a second router style in the repo). |
-| `@backlogfit/core`, `@backlogfit/security` | workspace | Apache-2.0 | Room logic, schemas, headers, limits, rate limiter. | n/a |
+| `@backlogfit/core`, `@backlogfit/security`, `@backlogfit/host` | workspace | Apache-2.0 | Room logic, schemas, headers, limits, rate limiter, the shared room host (ADR-0011). | n/a |
 
 The Durable Object, WebSocket Hibernation, SQLite storage, alarms, static assets and the
 Rate Limiting binding are platform features and need no npm packages.
