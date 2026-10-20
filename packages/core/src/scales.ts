@@ -20,7 +20,7 @@ export const SPECIAL_COFFEE = '☕';
 export const SPECIAL_INFINITY = '∞';
 
 const SPECIAL_LABELS: Record<string, string> = {
-  [SPECIAL_UNSURE]: 'Unsure',
+  [SPECIAL_UNSURE]: 'Not sure',
   [SPECIAL_COFFEE]: 'Break',
   [SPECIAL_INFINITY]: 'Too big',
 };

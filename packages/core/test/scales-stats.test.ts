@@ -75,7 +75,7 @@ describe('scales', () => {
       'special',
       'special',
     ]);
-    expect(r.scale[3]?.label).toBe('Unsure');
+    expect(r.scale[3]?.label).toBe('Not sure');
     const t = buildCustomScale([{ value: 'Small', label: 'S' }, { value: 'Big' }]);
     expect(t.ok && t.scale.map((c) => [c.kind, c.label])).toEqual([
       ['tshirt', 'S'],
