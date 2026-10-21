@@ -4,6 +4,7 @@
 
 [![CI](https://github.com/Sinet2000/backlogfit/actions/workflows/ci.yml/badge.svg)](https://github.com/Sinet2000/backlogfit/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Sponsor](https://img.shields.io/github/sponsors/Sinet2000?label=Sponsor&logo=githubsponsors&color=ea4aaa)](https://github.com/sponsors/Sinet2000)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/Sinet2000/backlogfit/badge)](https://securityscorecards.dev/viewer/?uri=github.com/Sinet2000/backlogfit)
 
 Backlogfit is an open-source story point estimation tool for agile teams, a calm and private
@@ -31,6 +32,7 @@ public bodies:
 - [Architecture](#architecture)
 - [Development](#development)
 - [Contributing](#contributing)
+- [Support the project](#support-the-project)
 - [License, credits and author](#license)
 
 ## How it works
@@ -200,6 +202,13 @@ Install the test browsers once with `pnpm --filter @backlogfit/e2e exec playwrig
 Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: commits need a DCO
 sign-off (`git commit -s`), use Conventional Commit messages, and every change comes with tests.
 Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Support the project
+
+Backlogfit is free, with no paid tier and no tracking. If it saves your team time in refinement,
+you can support its development through [GitHub Sponsors](https://github.com/sponsors/Sinet2000).
+Feature ideas and bug reports in the [issues](https://github.com/Sinet2000/backlogfit/issues)
+help just as much.
 
 ## License
 
