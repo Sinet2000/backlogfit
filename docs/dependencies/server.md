@@ -25,7 +25,7 @@ The server runs its TypeScript sources directly with Node 24's built-in type str
 
 | Image | Use | Why |
 |---|---|---|
-| `gcr.io/distroless/nodejs24-debian12:nonroot` (pinned by digest) | runtime | No shell, no package manager, runs as non-root UID 65532 by default, small attack surface. Node only, which is all the server needs. |
+| `gcr.io/distroless/nodejs24-debian13:nonroot` (pinned by digest) | runtime | No shell, no package manager, runs as non-root UID 65532 by default, small attack surface. Node only, which is all the server needs. |
 | `docker.io/library/node:24-alpine` (pinned by digest) | build stages only | Has a shell and npm, used to install pnpm 11.18.0 and production dependencies. Never shipped. |
 
 `node:24-alpine` with a custom UID 10001 was considered for the runtime. We rejected it because

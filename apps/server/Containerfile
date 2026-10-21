@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 ARG BUILD_IMAGE=docker.io/library/node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f
-ARG RUNTIME_IMAGE=gcr.io/distroless/nodejs24-debian12:nonroot@sha256:14d42e2511532589a7c7e01a753667a74fcc96266e137e8125006b87b0c32d0a
+ARG RUNTIME_IMAGE=gcr.io/distroless/nodejs24-debian13:nonroot@sha256:55de7e48a8414e7aff825207c0b3c0f7db3b10133efc50d748560c27c9053be1
 
 FROM ${BUILD_IMAGE} AS toolchain
 ENV CI=true \
@@ -21,6 +21,9 @@ RUN if [ -f apps/web/package.json ]; then \
 FROM toolchain AS prod
 COPY . .
 RUN pnpm install --prod --frozen-lockfile --filter "@backlogfit/server..."
+# valibot lists typescript as an optional peer; the compiler is never loaded at runtime.
+RUN rm -rf node_modules/.pnpm/typescript@* && \
+    find node_modules/.pnpm -path '*/node_modules/typescript' -type l -delete
 RUN set -eu; \
     mkdir -p /out/app /out/data; \
     cp package.json /out/app/; \
