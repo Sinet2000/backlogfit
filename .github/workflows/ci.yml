@@ -91,6 +91,9 @@ jobs:
       # servers. Runs chromium, the firefox/webkit smoke subset and the visual project.
       - name: Run end-to-end tests
         run: pnpm e2e
+        env:
+          # Firefox refuses to start as root when $HOME belongs to another user (/github/home).
+          HOME: /root
 
       - name: Upload Playwright report
         if: failure()
