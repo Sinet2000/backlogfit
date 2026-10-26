@@ -21,7 +21,7 @@
     "load": "pnpm --filter @backlogfit/load load"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.15",
+    "@biomejs/biome": "2.6.2",
     "typescript": "6.0.3"
   }
 }
