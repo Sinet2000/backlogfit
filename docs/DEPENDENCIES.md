@@ -41,5 +41,5 @@ and gitleaks additionally by SHA-256. See [RELEASING.md](RELEASING.md).
   `pnpm-workspace.yaml` may run them.
 - No UI, CSS or icon frameworks; no runtime requests to third-party hosts.
 - New dependencies need an entry in the owning `docs/dependencies/<pkg>.md` file.
-- OSV-Scanner, `pnpm audit --prod` and Dependabot run continuously; the release image is scanned
+- OSV-Scanner (weekly and on PRs) and Dependabot watch dependencies; the release image is scanned
   with Trivy and ships with CycloneDX SBOMs.
