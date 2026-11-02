@@ -20,7 +20,7 @@
     "@backlogfit/host": "workspace:*",
     "@backlogfit/security": "workspace:*",
     "@hono/node-server": "2.1.5",
-    "hono": "4.13.13",
+    "hono": "4.13.14",
     "ws": "8.22.0"
   },
   "devDependencies": {
